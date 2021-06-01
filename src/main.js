@@ -667,11 +667,11 @@ function fastLoop(){
     var global_multiplier = 1;
     let applyPlasmid = false;
     let pBonus = plasmidBonus('raw');
-    if (global.race.Plasmid.count > 0  && ((global.race.universe !== 'antimatter') || (global.genes['bleed'] && global.race.universe === 'antimatter'))){
+    if (global.race.Plasmid.count > 0 && ((global.race.universe !== 'antimatter') || (global.genes['bleed'] && global.race.universe === 'antimatter'))){
         breakdown.p['Global'][loc('resource_Plasmid_name')] = (pBonus[1] * 100) + '%';
         applyPlasmid = true;
     }
-    if (global.race.Plasmid.anti > 0  && ((global.race.universe === 'antimatter') || (global.genes['bleed'] && global.genes['bleed'] >= 2 && global.race.universe !== 'antimatter'))){
+    if (global.race.Plasmid.anti > 0 && ((global.race.universe === 'antimatter') || (global.genes['bleed'] && global.genes['bleed'] >= 2 && global.race.universe !== 'antimatter'))){
         breakdown.p['Global'][loc('resource_AntiPlasmid_name')] = (pBonus[2] * 100) + '%';
         applyPlasmid = true;
     }
@@ -2170,7 +2170,7 @@ function fastLoop(){
                         stress_level -= planetTraits.dense.vars[1];
                     }
                     if (global.race['freespirit'] && job !== 'farmer' && job !== 'lumberjack' && job !== 'quarry_worker' && job !== 'crystal_miner' && job !== 'scavenger'){
-                        stress_level /= 2;
+                        stress_level /= 1.5;
                     }
 
                     stress -= global.civic[job].workers / stress_level;
