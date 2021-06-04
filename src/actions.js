@@ -2340,9 +2340,9 @@ export const actions = {
             trait: ['hooved'],
             not_trait: ['cataclysm'],
             cost: {
-                Copper(){ return global.race['shoecnt'] && global.race.shoecnt <= 50 ? 10 * (global.race.shoecnt <= 5 ? 1 : global.race.shoecnt - 4) : 0; },
-                Iron(){ return global.race['shoecnt'] && global.race.shoecnt > 50 && global.race.shoecnt <= 100 ? 25 * global.race.shoecnt : 0; },
-                Steel(){ return global.race['shoecnt'] && global.race.shoecnt > 100 && global.race.shoecnt <= 500 ? 50 * global.race.shoecnt : 0; },
+                Copper(){ return global.race['shoecnt'] && global.race.shoecnt <= 50 ? 5 * (global.race.shoecnt <= 5 ? 1 : global.race.shoecnt - 4) : 0; },
+                Iron(){ return global.race['shoecnt'] && global.race.shoecnt > 50 && global.race.shoecnt <= 100 ? 18 * global.race.shoecnt : 0; },
+                Steel(){ return global.race['shoecnt'] && global.race.shoecnt > 100 && global.race.shoecnt <= 500 ? 40 * global.race.shoecnt : 0; },
                 Adamantite(){ return global.race['shoecnt'] && global.race.shoecnt > 500 ? 75 * global.race.shoecnt : 0; }
             },
             no_queue(){ return true },
@@ -4083,7 +4083,8 @@ export const actions = {
                 Furs(offset){ return costMultiplier('meditation', offset, 8, 1.2); }
             },
             effect(){
-                return `<div>${loc(`city_meditation_effect`,[10])}</div><div>${loc(`city_meditation_effect2`,[2])}</div><div>${loc(`city_meditation_effect3`,[1])}</div>`;
+                let zen = global.resource.Zen.amount / (global.resource.Zen.amount + 5000);
+                return `<div>${loc(`city_meditation_effect`,[10])}</div><div class="has-text-special">${loc(`city_meditation_effect2`,[2])}</div><div class="has-text-special">${loc(`city_meditation_effect3`,[1])}</div><div>${loc(`city_meditation_effect4`,[`${(zen * 100).toFixed(2)}%`])}</div>`;
             },
             action(){
                 if (payCosts($(this)[0].cost)){

@@ -5523,6 +5523,8 @@ function midLoop(){
             if (global.resource.Zen.amount > global.resource.Zen.max){
                 global.resource.Zen.amount = global.resource.Zen.max;
             }
+            let zen = global.resource.Zen.amount / (global.resource.Zen.amount + 5000);
+            bd_Zen[loc('trait_calm_desc')] = `+${(zen * 100).toFixed(2)}%`;
         }
         if (global.city['basic_housing']){
             caps[global.race.species] += global.city['basic_housing'].count;
@@ -6801,7 +6803,11 @@ function midLoop(){
             }
         }
 
-        Object.keys(global.city).forEach(function (action){
+        let cityList = Object.keys(global.city);
+        if (global.race['hooved']){
+            cityList.push('horseshoe');
+        }
+        cityList.forEach(function (action){
             if (actions.city[action] && actions.city[action].cost){
                 let c_action = actions.city[action];
                 let element = $('#'+c_action.id);
