@@ -1,4 +1,4 @@
-import { global, save, webWorker, keyMultiplier, keyMap, srSpeak, sizeApproximation, p_on, support_on, gal_on, quantum_level, tmp_vars } from './vars.js';
+import { global, save, webWorker, keyMultiplier, keyMap, srSpeak, sizeApproximation, p_on, support_on, gal_on, quantum_level, tmp_vars, setupStats } from './vars.js';
 import { loc } from './locale.js';
 import { timeCheck, timeFormat, vBind, popover, clearPopper, flib, tagEvent, clearElement, costMultiplier, darkEffect, genCivName, powerModifier, powerCostMod, calcPrestige, adjustCosts, modRes, messageQueue, buildQueue, format_emblem, shrineBonusActive, calc_mastery, calcPillar, calcGenomeScore, getShrineBonus, eventActive, easterEgg, getHalloween, trickOrTreat, deepClone, hoovedRename } from './functions.js';
 import { unlockAchieve, challengeIcon, alevel, universeAffix } from './achieve.js';
@@ -3586,6 +3586,14 @@ export const actions = {
                 if (dirt){ power -= dirt; }
                 return powerModifier(power);
             },
+            p_fuel(){
+                if (global.race.universe === 'magic'){
+                    return { r: 'Mana', a: global.race['environmentalist'] ? 0 : 0.05 };
+                }
+                else {
+                    return { r: 'Coal', a: global.race['environmentalist'] ? 0 : 0.35 };
+                }
+            },
             action(){
                 if (payCosts($(this)[0])){
                     global.city.coal_power.count++;
@@ -3915,32 +3923,32 @@ export function setChallengeScreen(){
     global.evolution['junker'] = { count: 0 };
     global.evolution['joyless'] = { count: 0 };
     global.evolution['steelen'] = { count: 0 };
-    if (global.stats.achieve['whitehole']){
+    if (global.stats.achieve['whitehole'] || global['sim']){
         global.evolution['decay'] = { count: 0 };
     }
-    if (global.stats.achieve['ascended']){
+    if (global.stats.achieve['ascended'] || global['sim']){
         global.evolution['emfield'] = { count: 0 };
     }
-    if (global.stats.achieve['scrooge']){
+    if (global.stats.achieve['scrooge'] || global['sim']){
         global.evolution['inflation'] = { count: 0 };
     }
-    if (global.stats.achieve['shaken']){
+    if (global.stats.achieve['shaken'] || global['sim']){
         global.evolution['cataclysm'] = { count: 0 };
     }
-    if (global.stats.achieve['whitehole'] || global.stats.achieve['ascended']){
+    if (global.stats.achieve['whitehole'] || global.stats.achieve['ascended'] || global['sim']){
         global.evolution['banana'] = { count: 0 };
         global.evolution['orbit_decay'] = { count: 0 };
     }
-    if (global.stats.achieve['ascended'] || global.stats.achieve['corrupted']){
+    if (global.stats.achieve['ascended'] || global.stats.achieve['corrupted'] || global['sim']){
         global.evolution['truepath'] = { count: 0 };
     }
-    if ((global.stats.achieve['ascended'] || global.stats.achieve['corrupted']) && global.stats.achieve['extinct_junker']){
+    if ((global.stats.achieve['ascended'] || global.stats.achieve['corrupted']) && global.stats.achieve['extinct_junker'] || global['sim']){
         global.evolution['sludge'] = { count: 0 };
     }
-    if (global.stats.achieve['bluepill']){
+    if (global.stats.achieve['bluepill'] || global['sim']){
         global.evolution['simulation'] = { count: 0 };
     }
-    if (global.stats.achieve['retired']){
+    if (global.stats.achieve['retired'] || global['sim']){
         global.evolution['lone_survivor'] = { count: 0 };
     }
     challengeGeneHeader();
@@ -3966,37 +3974,43 @@ export function setChallengeScreen(){
     challengeActionHeader();
     addAction('evolution','joyless');
     addAction('evolution','steelen');
-    if (global.stats.achieve['whitehole']){
+    if (global.stats.achieve['whitehole'] || global['sim']){
         addAction('evolution','decay');
     }
-    if (global.stats.achieve['ascended']){
+    if (global.stats.achieve['ascended'] || global['sim']){
         addAction('evolution','emfield');
     }
-    if (global.stats.achieve['scrooge']){
+    if (global.stats.achieve['scrooge'] || global['sim']){
         addAction('evolution','inflation');
     }
-    if ((global.stats.achieve['ascended'] || global.stats.achieve['corrupted']) && global.stats.achieve['extinct_junker']){
+    if ((global.stats.achieve['ascended'] || global.stats.achieve['corrupted']) && global.stats.achieve['extinct_junker'] || global['sim']){
         addAction('evolution','sludge');
     }
-    if (global.stats.achieve['whitehole'] || global.stats.achieve['ascended']){
+    if (global.stats.achieve['whitehole'] || global.stats.achieve['ascended'] || global['sim']){
         addAction('evolution','orbit_decay');
     }
-    if (global.stats.achieve['bluepill']){
-        // addAction('evolution','simulation');
+    if (global.stats.achieve['bluepill'] && !global['sim']){
+        addAction('evolution','simulation');
     }
     scenarioActionHeader();
     addAction('evolution','junker');
-    if (global.stats.achieve['shaken']){
+    if (global.stats.achieve['shaken'] || global['sim']){
         addAction('evolution','cataclysm');
     }
-    if (global.stats.achieve['whitehole'] || global.stats.achieve['ascended']){
+    if (global.stats.achieve['whitehole'] || global.stats.achieve['ascended'] || global['sim']){
         addAction('evolution','banana');
     }
-    if (global.stats.achieve['ascended'] || global.stats.achieve['corrupted']){
+    if (global.stats.achieve['ascended'] || global.stats.achieve['corrupted'] || global['sim']){
         addAction('evolution','truepath');
     }
-    if (global.stats.achieve['retired']){
+    if (global.stats.achieve['retired'] || global['sim']){
         addAction('evolution','lone_survivor');
+    }
+    if (global['sim']){
+        exitSimulation();
+    }
+    else if (global.race['simulation']){
+        configSimulation();
     }
 }
 
@@ -6509,6 +6523,47 @@ function scenarioActionHeader(){
     challenge.append($(`<div class="has-text-advanced">${loc('evo_scenario_desc')}</div>`));
 }
 
+function exitSimulation(){
+    let challenge = $(`<div id="simSection" class="challenge"></div>`);
+    $('#evolution').append(challenge);
+    challenge.append($(`<div class="divider has-text-warning"><h2 class="has-text-danger">${loc('evo_challenge_simulation')}</h2></div>`));
+    challenge.append($(`<div class="has-text-advanced">${loc('evo_challenge_simulation_desc')}</div>`));
+    challenge.append($(`<button class="button simButton" @click="exitsim()">${loc(`evo_challenge_end_sim`)}</button>`));
+
+    vBind({
+        el: '#simSection',
+        data: {},
+        methods: {
+            exitsim(){
+                exitSim();
+            }
+        }
+    });
+}
+
+function configSimulation(){
+    let challenge = $(`<div id="simSection" class="challenge"></div>`);
+    $('#evolution').append(challenge);
+    challenge.append($(`<div class="divider has-text-warning"><h2 class="has-text-danger">${loc('evo_challenge_simulation')}</h2></div>`));
+    challenge.append($(`<div class="has-text-advanced">${loc('evo_challenge_simulation_desc')}</div>`));
+
+    let config = $($(`<div class="configList"></div>`));
+    challenge.append(config);
+
+    if (!global.race['simConfig']){
+        global.race['simConfig'] = {};
+    }
+    ['Plasmid','AntiPlasmid','Phage','Dark','Harmony','AICore','Artifact','Blood_Stone'].forEach(function (res){
+        global.race.simConfig[res] = global.race.simConfig[res] || 0;
+        config.append($(`<div><span class="has-text-warning">${loc(`resource_${res}_name`)}</span><input type="number" min="0" class="input" v-model="${res}"></div>`));
+    });
+
+    vBind({
+        el: '#simSection',
+        data: global.race.simConfig
+    });
+}
+
 function drawModal(c_action,type){
     let title = typeof c_action.title === 'string' ? c_action.title : c_action.title();
     $('#modalBox').append($(`<p id="modalBoxTitle" class="has-text-warning modalTitle">${title}</p>`));
@@ -6879,6 +6934,16 @@ function evoExtraState(race){
 }
 
 function sentience(){
+    if (global.race['simulation']){
+        simulation();
+    }
+    if (global['sim']){
+        global.settings.showGenetics = true;
+        global.settings.arpa.physics = false;
+        global.settings.arpa.crispr = true;
+        global.settings.arpa.arpaTabs = 2;
+    }
+
     if (global.resource.hasOwnProperty('RNA')){
         global.resource.RNA.display = false;
     }
@@ -7397,6 +7462,64 @@ function sentience(){
     }
 }
 
+function simulation(){
+    if (global.race['simulation']){
+        if (!global.hasOwnProperty('sim')){
+            global['sim'] = {
+                stats: deepClone(global.stats),
+                prestige: deepClone(global.prestige),
+                genes: deepClone(global.genes),
+                blood: deepClone(global.blood),
+                pillars: deepClone(global.pillars),
+                race: deepClone(global.race)
+            };
+
+            global.stats = {
+                start: Date.now(),
+                days: 0,
+                tdays: 0
+            };
+            setupStats();
+
+            global.genes = { minor: {}, challenge: 1 };
+            global.blood = { aware: 1 };
+            global.pillars = {};
+            delete global.race['ancient_ruins'];
+            delete global.race['rapid_mutation'];
+            delete global.race['corruption'];
+            delete global.race['rejuvenated'];
+            global.race.ascended = false;
+            global.race.gods = 'none';
+            global.race.old_gods = 'none';
+            
+            ['Plasmid','AntiPlasmid','Phage','Dark','Harmony','AICore','Artifact','Blood_Stone'].forEach(function (res){
+                global.prestige[res] = { count: Number(global.race.simConfig[res]) };
+            });
+        }
+    }
+}
+
+function exitSim(){
+    if (global.hasOwnProperty('sim')){
+        global.stats = deepClone(global.sim.stats);
+        global.prestige = deepClone(global.sim.prestige);
+        global.genes = deepClone(global.sim.genes);
+        global.blood = deepClone(global.sim.blood);
+        global.pillars = deepClone(global.sim.pillars);
+        global.race = deepClone(global.sim.race);
+        delete global['sim'];
+        
+        global.race.species = 'protoplasm';
+        delete global.race['simulation'];
+
+        save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
+        if (webWorker.w){
+            webWorker.w.terminate();
+        }
+        window.location.reload();
+    }
+}
+
 function aiStart(){
     if (global.race['artifical']){
         global.tech['spy'] = 5;
@@ -7650,6 +7773,7 @@ function cataclysm(){
         global.settings.civTabs = 1;
         global.settings.spaceTabs = 1;
         global.settings.showGenetics = true;
+        global.settings.arpa.physics = true;
 
         //global.civic.garrison.display = true;
         global.resource[global.race.species].display = true;

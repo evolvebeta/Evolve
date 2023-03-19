@@ -431,6 +431,9 @@ vBind({
         showUniverse(){
             return global.race.universe === 'standard' || global.race.universe === 'bigbang' ? false : true;
         },
+        showSim(){
+            return global['sim'] ? true : false;
+        },
         atRemain(){
             return loc(`accelerated_time`);
         },
@@ -564,6 +567,17 @@ popover('topBarUniverse',
     }
 );
 
+popover('topBarSimulation',
+    function(obj){
+        obj.popper.append($(`<div>${loc(`evo_challenge_simulation_topbar`)}</div>`));
+        return undefined;
+    },
+    {
+        elm: `#topBar .planetWrap .simulation`,
+        classes: `has-background-light has-text-dark`
+    }
+);
+
 if (global.race['orbit_decay'] && !global.race['orbit_decayed']){
     popover(`infoTimer`, function(){
         return global.race['orbit_decayed'] ? '' : loc('evo_challenge_orbit_decay_impact',[global.race['orbit_decay'] - global.stats.days]);
@@ -579,6 +593,7 @@ challengeIcon();
 if (global.race.species === 'protoplasm'){
     global.resource.RNA.display = true;
     let perk_rank = global.stats.feat['master'] && global.stats.achieve['ascended'] && global.stats.achieve.ascended.l > 0 ? Math.min(global.stats.achieve.ascended.l,global.stats.feat['master']) : 0;
+    if (global['sim']){ perk_rank = 5; }
     if (perk_rank > 0 && !global.evolution['mloaded']){
         let evolve_actions = ['dna','membrane','organelles','nucleus','eukaryotic_cell','mitochondria'];
         for (let i = 0; i < evolve_actions.length; i++) {
@@ -597,6 +612,7 @@ if (global.race.species === 'protoplasm'){
         global.evolution['mloaded'] = 1;
     }
     let grand_rank = global.stats.feat['grandmaster'] && global.stats.achieve['corrupted'] && global.stats.achieve.corrupted.l > 0 ? Math.min(global.stats.achieve.corrupted.l,global.stats.feat['grandmaster']) : 0;
+    if (global['sim']){ grand_rank = 5; }
     if (grand_rank >= 5 && !global.evolution['gmloaded']){
         global.tech['evo'] = 6;
         global.evolution['gselect'] = true;
@@ -969,8 +985,8 @@ function fastLoop(){
             modRes('RNA',global.evolution['organelles'].count * rna_multiplier * global_multiplier * time_multiplier);
         }
 
-        if (global.stats.feat['novice'] && global.stats.achieve['apocalypse'] && global.stats.achieve.apocalypse.l > 0 && global.race.universe !== 'bigbang' && (!global.race.seeded || (global.race.seeded && global.race['chose']))){
-            let rank = Math.min(global.stats.achieve.apocalypse.l,global.stats.feat['novice']);
+        if (((global.stats.feat['novice'] && global.stats.achieve['apocalypse'] && global.stats.achieve.apocalypse.l > 0) || global['sim']) && global.race.universe !== 'bigbang' && (!global.race.seeded || (global.race.seeded && global.race['chose']))){
+            let rank = global['sim'] ? 5 : Math.min(global.stats.achieve.apocalypse.l,global.stats.feat['novice']);
             modRes('RNA', (rank / 2) * time_multiplier * global_multiplier);
             if (global.resource.DNA.display){
                 modRes('DNA', (rank / 4) * time_multiplier * global_multiplier);
@@ -1481,42 +1497,8 @@ function fastLoop(){
             power_generated[loc('tech_stellar_engine')] = power;
         }
 
-        let uranium_bd = {};
-        if (global.city['coal_power']){
-            let power = global.city.coal_power.on * actions.city.coal_power.powered();
-            let consume = global.city.coal_power.on * (global.race['environmentalist'] ? 0 : 0.35);
-
-            if (global.race.universe === 'magic' && !global.race['environmentalist']){
-                consume = global.city.coal_power.on * 0.05;
-                while ((consume * time_multiplier) > global.resource.Mana.amount && consume > 0){
-                    power -= actions.city.coal_power.powered();
-                    consume -= 0.05;
-                }
-                breakdown.p.consume.Mana[loc('powerplant')] = -(consume);
-                modRes('Mana', -(consume * time_multiplier));
-            }
-            else {
-                while ((consume * time_multiplier) > global.resource.Coal.amount && consume > 0){
-                    power -= actions.city.coal_power.powered();
-                    consume -= 0.35;
-                }
-                breakdown.p.consume.Coal[loc('powerplant')] = -(consume);
-                modRes('Coal', -(consume * time_multiplier));
-            }
-
-            max_power += power;
-            power_grid -= power;
-            power_generated[global.race['environmentalist'] ? loc('city_hydro_power') : loc(global.race.universe === 'magic' ? 'city_mana_engine' : 'city_coal_power')] = -(power);
-
-            // Uranium
-            if (!global.race['environmentalist'] && global.race.universe !== 'magic' && global.tech['uranium'] && global.tech['uranium'] >= 3){
-                uranium_bd[loc('city_coal_ash')] = (consume / 65 / global_multiplier);
-                modRes('Uranium', (consume * time_multiplier) / 65);
-            }
-        }
-
         [
-            {r:'city',s:'oil_power'},{r:'city',s:'fission_power'},{r:'spc_hell',s:'geothermal'},{r:'spc_dwarf',s:'e_reactor'},
+            {r:'city',s:'coal_power'},{r:'city',s:'oil_power'},{r:'city',s:'fission_power'},{r:'spc_hell',s:'geothermal'},{r:'spc_dwarf',s:'e_reactor'},
             {r:'int_alpha',s:'fusion'},{r:'tau_home',s:'fusion_generator'},{r:'tau_gas2',s:'alien_space_station'}
         ].forEach(function(generator){
             let space = convertSpaceSector(generator.r);
@@ -1545,7 +1527,7 @@ function fastLoop(){
                         for (let k=0; k<p_on[generator.s]; k++){
                             if (!modRes(fuel.r, -(time_multiplier * fuel_cost))){
                                 mb_consume -= (p_on[generator.s] * fuel_cost) - (k * fuel_cost);
-                                p_on[generator.s] -= k;
+                                p_on[generator.s] = k;
                                 break;
                             }
                         }
@@ -1573,6 +1555,14 @@ function fastLoop(){
                 $(`#${region}-${generator.s} .on`).prop('title',`ON`);
             }
         });
+
+        // Uranium
+        let uranium_bd = {};
+        if (!global.race['environmentalist'] && global.race.universe !== 'magic' && global.tech['uranium'] && global.tech['uranium'] >= 3 && p_on['coal_power']){
+            let coal = p_on['coal_power'] * 0.35;
+            uranium_bd[loc('city_coal_ash')] = (coal / 65 / global_multiplier);
+            modRes('Uranium', (coal * time_multiplier) / 65);
+        }
 
         if (global.space['hydrogen_plant']){
             let output = actions.space.spc_titan.hydrogen_plant.powered();
