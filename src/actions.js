@@ -1924,7 +1924,7 @@ export const actions = {
         assembly: buildTemplate(`assembly`,'city'),
         garrison: {
             id: 'city-garrison',
-            title: loc('city_garrison'),
+            title(){ return global.race['flier'] ? loc('city_garrison_flier') : loc('city_garrison'); },
             desc: loc('city_garrison_desc'),
             category: 'military',
             reqs: { military: 1, housing: 1 },
@@ -7572,7 +7572,6 @@ function aiStart(){
         global.tech['mining'] = 4;
         global.tech['pickaxe'] = 2;
         global.tech['hammer'] = 2;
-        global.tech['cement'] = 5;
         global.tech['oil'] = 3;
         global.tech['alumina'] = 1;
         global.tech['titanium'] = 1;
@@ -7606,7 +7605,6 @@ function aiStart(){
         global.resource.Copper.display = true;
         global.resource.Iron.display = true;
         global.resource.Aluminium.display = true;
-        global.resource.Cement.display = true;
         global.resource.Coal.display = true;
         global.resource.Oil.display = true;
         global.resource.Steel.display = true;
@@ -7616,6 +7614,11 @@ function aiStart(){
         global.resource.Sheet_Metal.display = true;
         global.resource.Crates.display = true;
         global.resource.Containers.display = true;
+
+        if (!global.race['flier']){
+            global.tech['cement'] = 5;
+            global.resource.Cement.display = true;
+        }
 
         if (!global.race['kindling_kindred'] && !global.race['smoldering']){
             if (global.race['evil']){
@@ -7754,7 +7757,6 @@ function cataclysm(){
         global.tech['container'] = 4;
         global.tech['steel_container'] = 3;
         global.tech['mining'] = 4;
-        global.tech['cement'] = 5;
         global.tech['oil'] = 7;
         global.tech['mass'] = 1;
         global.tech['alumina'] = 1;
@@ -7902,6 +7904,7 @@ function cataclysm(){
         global.civic.space_miner.display = true;
 
         if (!global.race['flier']){
+            global.tech['cement'] = 5;
             global.civic.cement_worker.display = true;
             global.civic.cement_worker.max = 1;
             global.civic.cement_worker.workers = 1;
