@@ -3,6 +3,37 @@ import { clearElement } from './../functions.js';
 
 const changeList = [
     {
+        version: `1.3.6`,
+        date: `4/18/2023`,
+        changes: [
+            `Added Astrological signs.`,
+        ]
+    },
+    {
+        version: `1.3.5`,
+        revision: `c`,
+        date: `4/16/2023`,
+        changes: [
+            `Made Egg #17 easier to get in Cataclysm mode.`,
+        ]
+    },
+    {
+        version: `1.3.5`,
+        revision: `b`,
+        date: `4/9/2023`,
+        changes: [
+            `Increased egg accessibility with certain traits or challenge modes.`,
+        ]
+    },
+    {
+        version: `1.3.5`,
+        revision: `a`,
+        date: `4/8/2023`,
+        changes: [
+            `Fixed a bug that caused eggs 16-18 not to count for unlocking the egg hunt feat.`,
+        ]
+    },
+    {
         version: `1.3.5`,
         date: `4/7/2023`,
         changes: [

@@ -824,6 +824,7 @@ export function index(){
         <span class="calendar">
             <span class="infoTimer" id="infoTimer"></span>
             <span v-show="city.calendar.day">
+                <b-tooltip :label="sign()" :aria-label="sign()" position="is-bottom" size="is-small" class="astro" multilined animated><i id="astroSign" v-html="getAstroSign()"></i></b-tooltip>
                 <b-tooltip :label="moon()" :aria-label="moon()" position="is-bottom" size="is-small" multilined animated><i id="moon" class="moon wi"></i></b-tooltip>
                 <span class="year">${loc('year')} <span class="has-text-warning">{{ city.calendar.year }}</span></span>
                 <span class="day">${loc('day')} <span class="has-text-warning">{{ city.calendar.day }}</span></span>
@@ -843,11 +844,11 @@ export function index(){
 
     // Left Column
     columns.append(`<div class="column is-one-quarter leftColumn">
-        <div id="race" class="race columns is-mobile is-gapless">
+        <div id="race" class="race colHeader">
             <h2 class="is-sr-only">Race Info</h2>
-            <div class="column is-one-quarter name">{{ name() }}</div>
-            <div class="column is-half morale-contain"><span id="morale" v-show="city.morale.current" class="morale">${loc('morale')} <span class="has-text-warning">{{ city.morale.current | mRound }}%</span></div>
-            <div class="column is-one-quarter power"><span id="powerStatus" class="has-text-warning" v-show="city.powered"><span>MW</span> <span id="powerMeter" class="meter">{{ city.power | replicate | approx }}</span></span></div>
+            <div class="name">{{ name() }}</div>
+            <div class="morale-contain"><span id="morale" v-show="city.morale.current" class="morale">${loc('morale')} <span class="has-text-warning">{{ city.morale.current | mRound }}%</span></div>
+            <div class="power"><span id="powerStatus" class="has-text-warning" v-show="city.powered"><span>MW</span> <span id="powerMeter" class="meter">{{ city.power | replicate | approx }}</span></span></div>
         </div>
         <div id="sideQueue">
             <div id="buildQueue" class="bldQueue has-text-info" v-show="display"></div>
