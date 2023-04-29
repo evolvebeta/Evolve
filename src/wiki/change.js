@@ -3,6 +3,16 @@ import { clearElement } from './../functions.js';
 
 const changeList = [
     {
+        version: `1.3.7`,
+        date: `5/1/2023`,
+        changes: [
+            `Added new universe exclusive challenge modes.`,
+            `Reduced Encrypted Data cost of Data Analysis, Advanced Medkits, Automated Warehousing, and Elerium Extraction techs.`,
+            `Star Forge smelting bonus rebalanced.`,
+            `Antimatter Dark Energy effect now applies to Truepath Ship power generation.`,
+        ]
+    },
+    {
         version: `1.3.6`,
         date: `4/22/2023`,
         changes: [
