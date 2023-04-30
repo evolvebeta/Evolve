@@ -1284,6 +1284,7 @@ function fastLoop(){
         if (global.tech['alchemy']){
             let totMana = 0;
             let totCrystal = 0;
+            let totTransmute = 0;
             Object.keys(global.race.alchemy).forEach(function (res){
                 if (global.race.alchemy[res] > 0){
                     let trasmute = Number(global.race.alchemy[res]);
@@ -1293,6 +1294,7 @@ function fastLoop(){
                     if (global.resource.Crystal.amount < trasmute * 0.5){
                         trasmute = global.resource.Crystal.amount * 2;
                     }
+                    totTransmute += trasmute;
 
                     if (trasmute >= time_multiplier){
                         let rate = global.resource[res].basic && global.tech.alchemy >= 2 ? tradeRatio[res] * 8 : tradeRatio[res] * 2;
@@ -1309,6 +1311,7 @@ function fastLoop(){
                     }
                 }
             });
+            global.race['totTransmute'] = totTransmute;
             breakdown.p.consume.Mana[loc('tab_alchemy')] = totMana;
             breakdown.p.consume.Crystal[loc('tab_alchemy')] = totCrystal;
         }
@@ -6951,6 +6954,7 @@ function midLoop(){
             Money: 1000,
             Slave: 0,
             Mana: 0,
+            Sus: 100,
             Knowledge: global.stats.achieve['extinct_junker'] && global.stats.achieve['extinct_junker'].l >= 1 ? 1000 : 100,
             Zen: 0,
             Food: 1000,
@@ -7056,6 +7060,7 @@ function midLoop(){
         var bd_Citizen = {};
         var bd_Slave = {};
         var bd_Mana = { [loc('base')]: caps['Mana']+'v' };
+        var bd_Sus = { [loc('base')]: caps['Mana']+'v' };
         var bd_Knowledge = { [loc('base')]: caps['Knowledge']+'v' };
         var bd_Zen = {};
         var bd_Crates = {};
@@ -7101,6 +7106,7 @@ function midLoop(){
             [global.race.species]: bd_Citizen,
             Slave: bd_Slave,
             Mana: bd_Mana,
+            Sus: bd_Sus,
             Knowledge: bd_Knowledge,
             Zen: bd_Zen,
             Crates: bd_Crates,
@@ -8287,6 +8293,144 @@ function midLoop(){
         if (global.tauceti['mining_pit']){
             lCaps['pit_miner'] += jobScale(support_on['mining_pit'] * (global.tech['isolation'] ? 6 : 8));
             caps['Materials'] += support_on['mining_pit'] * 1000000;
+        }
+
+        if (global.race['universe'] === 'magic' && global.race['witch_hunter']){
+            let sus = 0;
+
+            if (global.city['wardenclyffe']){
+                let wiz = global.city.wardenclyffe.count;
+                wiz += p_on['wardenclyffe'];
+
+                if (global.tech['roguemagic'] && global.tech.roguemagic >= 6){
+                    wiz /= 2;
+                }
+
+                bd_Sus[wardenLabel()] = wiz+'v';
+                sus += wiz;
+            }
+
+            if (global.civic.scientist.workers > 0){
+                let wiz = global.civic.scientist.workers;
+                bd_Sus[loc('job_wizard')] = wiz+'v';
+                sus += wiz;
+            }
+
+            if (global.city['coal_power'] && !global.race['environmentalist']){
+                let mana_engine = p_on['coal_power'];
+
+                if (global.tech['roguemagic'] && global.tech.roguemagic >= 6){
+                    mana_engine /= 2;
+                }
+
+                bd_Sus[loc('city_mana_engine')] = mana_engine+'v';
+                sus += mana_engine;
+            }
+
+            if (global.city['pylon'] || global.space['pylon'] || global.tauceti['pylon']){
+                let p_count = 0;
+                let name = 'city_pylon';
+                if ((global.race['cataclysm'] || global.race['orbit_decayed']) && global.space['pylon']){
+                    p_count = global.space.pylon.count;
+                    name = 'space_red_pylon';
+                }
+                else if (global.tech['isolation'] && global.tauceti['pylon']){
+                    p_count = global.tauceti.pylon.count;
+                    name = 'tau_home_pylon';
+                }
+                else if (global.city['pylon']){
+                    p_count = global.city.pylon.count;
+                }
+                
+                if (global.tech['roguemagic'] && global.tech.roguemagic >= 5){
+                    p_count /= 3;
+                }
+
+                bd_Sus[loc(name)] = p_count+'v';
+                sus += p_count;
+            }
+
+            if (global.race['casting']){
+                let ritual = global.race.casting.total;
+                if (global.tech['roguemagic'] && global.tech.roguemagic >= 2){
+                    if (global.tech.roguemagic >= 4){
+                        ritual /= 4;
+                    }
+                    
+                    ritual -= global.civic.priest.workers;
+                    if (ritual < 0){
+                        ritual = 0;
+                    }
+                }
+                bd_Sus[loc('tech_rituals')] = ritual+'v';
+                sus += ritual;
+            }
+
+            if (global.race['totTransmute'] && global.race.totTransmute > 0){
+                let transmute = global.race.totTransmute / 5;
+                bd_Sus[loc('tech_alchemy')] = transmute+'v';
+                sus += transmute;
+            }
+
+            let mtech = 0;
+            if (global.tech['explosives']){
+                mtech += 4;
+            }
+            if (global.tech['military']){
+                if (global.tech.military >= 10){
+                    mtech += 28;
+                }
+                else if (global.tech.military >= 9){
+                    mtech += 24;
+                }
+                else if (global.tech.military >= 8){
+                    mtech += 20;
+                }
+                else if (global.tech.military >= 7){
+                    mtech += 16;
+                }
+                else if (global.tech.military >= 6){
+                    mtech += 12;
+                }
+                else if (global.tech.military >= 4){
+                    mtech += 8;
+                }
+                else if (global.tech.military >= 3){
+                    mtech += 4;
+                }
+            }
+            bd_Sus[loc('witch_hunter_magic_tech')] = mtech+'v';
+            sus += mtech;
+
+            if (!global.tech['roguemagic']){
+                bd_Sus[loc('overt')] = (sus*5)+'v';
+                sus *= 5;
+            }
+
+            if (global.tech['roguemagic'] && global.tech.roguemagic >= 3 && global.city['conceal_ward']){
+                let wards = global.city.conceal_ward.count;
+                bd_Sus[loc('city_conceal_ward')] = -(wards)+'v';
+                sus -= wards;
+            }
+
+            if (sus < 0){ sus = 0; }
+            sus = Math.floor(sus);
+            global.resource.Sus.amount = sus;
+
+            if (sus >= 50 && !global.race['witch_hunter_warned']){
+                global.race['witch_hunter_warned'] = 1;
+                messageQueue(loc('witch_hunter_warning'),'danger',false,['progress']);
+            }
+            else if (sus >= 80 && global.race['witch_hunter_warned'] && global.race.witch_hunter_warned === 1){
+                global.race.witch_hunter_warned = 2;
+                messageQueue(loc('witch_hunter_warning2'),'danger',false,['progress']);
+            }
+
+            if (sus >= 100){
+                global.civic.foreign.gov0.hstl = 100;
+                global.civic.foreign.gov1.hstl = 100;
+                global.civic.foreign.gov2.hstl = 100;
+            }
         }
 
         breakdown['gt_route'] = {};
