@@ -1,7 +1,7 @@
 import { global, keyMultiplier, p_on, support_on } from './vars.js';
 import { vBind, clearElement, popover, darkEffect, eventActive, easterEgg } from './functions.js';
 import { loc } from './locale.js';
-import { racialTrait, races, traits, biomes, planetTraits } from './races.js';
+import { racialTrait, races, traits, biomes, planetTraits, fathomCheck } from './races.js';
 import { armyRating } from './civics.js';
 import { craftingRatio, craftCost, craftingPopover } from './resources.js';
 import { planetName } from './space.js';
@@ -16,6 +16,9 @@ export const job_desc = {
     },
     hunter: function(servant){
         let desc = loc('job_hunter_desc',[global.resource.Food.name]);
+        if (global.race['unfathomable']){
+            desc = loc('job_eld_hunter_desc');
+        }
         if (global.race['artifical']){
             desc = global.race['soul_eater'] ? loc('job_art_demon_hunter_desc',[global.resource.Furs.name, global.resource.Lumber.name]) : loc('job_art_hunter_desc',[global.resource.Furs.name]);
         }
@@ -160,6 +163,9 @@ export const job_desc = {
         }
         return desc;
     },
+    torturer: function(){
+        return loc('job_torturer_desc');
+    },
     miner: function(){
         if (global.tech['mining'] >= 3){
             return global.race['sappy'] && global.tech['alumina'] ? loc('job_miner_desc2_amber') : loc('job_miner_desc2');
@@ -242,21 +248,23 @@ export const job_desc = {
         return desc;
     },
     professor: function(){
-        let professor_impact = +workerScale(global.civic.professor.impact,'professor').toFixed(2);
-        let impact = +(global.race['studious'] ? professor_impact + traits.studious.vars()[0] : professor_impact).toFixed(2);
-        if (global.tech['science'] && global.tech['science'] >= 3){
-            impact += global.city.library.count * 0.01;
+        let professor = +workerScale(1,'professor');
+        let impact = +(global.race['studious'] ? global.civic.professor.impact + traits.studious.vars()[0] : global.civic.professor.impact);
+        let fathom = fathomCheck('elven');
+        if (fathom > 0){
+            impact += traits.studious.vars(1)[0] * fathom;
         }
-        impact *= global.race['pompous'] ? (1 - traits.pompous.vars()[0] / 100) : 1;
-        impact *= racialTrait(global.civic.professor.workers,'science');
+        professor *= impact;
+        professor *= global.race['pompous'] ? (1 - traits.pompous.vars()[0] / 100) : 1;
+        professor *= racialTrait(global.civic.professor.workers,'science');
         if (global.tech['anthropology'] && global.tech['anthropology'] >= 3){
-            impact *= 1 + (global.city.temple.count * 0.05);
+            professor *= 1 + (global.city.temple.count * 0.05);
         }
         if (global.civic.govern.type === 'theocracy'){
-            impact *= 0.75;
+            professor *= 0.75;
         }
-        impact = +impact.toFixed(2);
-        return loc('job_professor_desc',[impact]);
+        professor = +professor.toFixed(2);
+        return loc('job_professor_desc',[professor]);
     },
     scientist: function(){
         let impact = +workerScale(global.civic.scientist.impact,'scientist').toFixed(2);
@@ -317,6 +325,7 @@ export function defineJobs(define){
     loadJob('quarry_worker',define,1,5);
     loadJob('crystal_miner',define,0.1,5);
     loadJob('scavenger',define,0.12,5);
+    loadJob('torturer',define,1,3,'advanced');
     loadJob('miner',define,1,4,'advanced');
     loadJob('coal_miner',define,0.2,4,'advanced');
     loadJob('craftsman',define,1,5,'advanced');

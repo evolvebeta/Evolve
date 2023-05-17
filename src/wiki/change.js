@@ -4,13 +4,16 @@ import { clearElement } from './../functions.js';
 const changeList = [
     {
         version: `1.3.7`,
-        date: `5/1/2023`,
+        date: `5/15/2023`,
         changes: [
             `Added Magic universe exclusive challenge: Witch Hunter.`,
             `Reduced Encrypted Data cost of Data Analysis, Advanced Medkits, Automated Warehousing, Elerium Extraction, and Drone Warfare techs.`,
             `Star Forge smelting bonus rebalanced.`,
             `Antimatter Dark Energy effect now applies to Truepath Ship power generation.`,
             `Fixed Magocracy Crystal bonus.`,
+            `Reduced Crystal cost of Alchemy.`,
+            `Fixed Humpback trait rank scaling.`,
+            `Infiltrator can now steal Alien Biotech on Truepath.`,
         ]
     },
     {

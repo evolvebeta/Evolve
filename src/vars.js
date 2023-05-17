@@ -1170,7 +1170,7 @@ if (convertVersion(global['version']) < 103002){
 
 global['version'] = '1.3.7';
 delete global['revision'];
-global['beta'] = 5;
+global['beta'] = 6;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -1432,6 +1432,7 @@ export function setupStats(){
         'sac','tsac','know','tknow','portals','dkills','attacks','cfood','tfood','cstone','tstone',
         'clumber','tlumber','mad','bioseed','cataclysm','blackhole','ascend','descend','terraform',
         'aiappoc','matrix','retire','eden','geck','dark','harmony','blood','cores','artifact',
+        'cattle','tcattle'
     ].forEach(function(k){
         if (!global.stats.hasOwnProperty(k)){
             global.stats[k] = 0;

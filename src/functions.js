@@ -1,6 +1,6 @@
 import { global, save, message_logs, message_filters, webWorker, keyMultiplier, intervals, resizeGame, atrack } from './vars.js';
 import { loc } from './locale.js';
-import { races, traits, genus_traits, traitSkin } from './races.js';
+import { races, traits, genus_traits, traitSkin, fathomCheck } from './races.js';
 import { actions, actionDesc } from './actions.js';
 import { jobScale } from './jobs.js';
 import { universe_affixes } from './space.js';
@@ -1696,7 +1696,8 @@ function technoAdjust(costs, offset, wiki){
 
 function scienceAdjust(costs, offset, wiki){
     let pragVal = govActive('pragmatist',1);
-    if ((global.race['smart'] || global.race['dumb'] || pragVal) && costs['Knowledge']){
+    let fathom = fathomCheck('gnome');
+    if ((global.race['smart'] || global.race['dumb'] || pragVal || fathom > 0) && costs['Knowledge']){
         var newCosts = {};
         Object.keys(costs).forEach(function (res){
             if (res === 'Knowledge'){
@@ -1704,6 +1705,9 @@ function scienceAdjust(costs, offset, wiki){
                     let cost = costs[res](offset, wiki);
                     if (global.race['smart']){
                         cost *= 1 - (traits.smart.vars()[0] / 100);
+                    }
+                    if (fathom > 0){
+                        cost *= 1 - (traits.smart.vars(1)[0] / 100 * fathom);
                     }
                     if (global.race['dumb']){
                         cost *= 1 + (traits.dumb.vars()[0] / 100);
@@ -1763,6 +1767,22 @@ function kindlingAdjust(costs, offset, wiki){
         });
         return newCosts;
     }
+    else if (global.race['unfathomable'] && global.city['captive_housing']){
+        let fathom = fathomCheck('entish');
+        if (fathom > 0){
+            var newCosts = {};
+            let adjustRate = 1 - (0.4 * fathom);
+            Object.keys(costs).forEach(function (res){
+                if (res === 'Lumber' && res === 'Plywood'){
+                    newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * adjustRate) || 0; }
+                }
+                else {
+                    newCosts[res] = function(){ return costs[res](offset, wiki); }
+                }
+            });
+            return newCosts;
+        }
+    }
     return costs;
 }
 
@@ -1792,11 +1812,21 @@ function flierAdjust(costs, offset, wiki){
 }
 
 function craftAdjust(costs, offset, wiki){
-    if (global.race['hollow_bones'] && (costs['Plywood'] || costs['Brick'] || costs['Wrought_Iron'] || costs['Sheet_Metal'] || costs['Mythril'] || costs['Aerogel'] || costs['Nanoweave'] || costs['Scarletite'] || costs['Quantium'])){
+    let fathom = fathomCheck('pterodacti');
+    if ((global.race['hollow_bones'] || fathom > 0) && (costs['Plywood'] || costs['Brick'] || costs['Wrought_Iron'] || costs['Sheet_Metal'] || costs['Mythril'] || costs['Aerogel'] || costs['Nanoweave'] || costs['Scarletite'] || costs['Quantium'])){
         var newCosts = {};
         Object.keys(costs).forEach(function (res){
             if (res === 'Plywood' || res === 'Brick' || res === 'Wrought_Iron' || res === 'Sheet_Metal' || res === 'Mythril' || res === 'Aerogel' || res === 'Nanoweave' || res === 'Scarletite' || res === 'Quantium'){
-                newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * (1 - (traits.hollow_bones.vars()[0] / 100))); }
+                newCosts[res] = function(){
+                    let cost = costs[res](offset, wiki);
+                    if (global.race['hollow_bones']){
+                        cost *= 1 - (traits.hollow_bones.vars()[0] / 100);
+                    }
+                    if (fathom > 0){
+                        cost *= 1 - (traits.hollow_bones.vars(3)[0] / 100 * fathom);
+                    }
+                    return Math.round(cost);
+                }
             }
             else {
                 newCosts[res] = function(){ return costs[res](offset, wiki); }
@@ -2199,6 +2229,13 @@ export function format_emblem(achieve,size,baseIcon,fool,universe){
     return emblem;
 }
 
+export function fibonacci(num, memo){
+    memo = memo || {};
+    if (memo[num]) return memo[num];
+    if (num <= 1) return 1;
+    return memo[num] = fibonacci(num - 1, memo) + fibonacci(num - 2, memo);
+}
+
 export function randomKey(obj){
     var keys = Object.keys(obj);
     return keys[ keys.length * Math.random() << 0];
@@ -2275,6 +2312,8 @@ export function updateResetStats(){
     global.stats.died = 0;
     global.stats.tsac += global.stats.sac;
     global.stats.sac = 0;
+    global.stats.tcattle += global.stats.cattle;
+    global.stats.cattle = 0;
 }
 
 export function deepClone(obj){
@@ -2604,6 +2643,7 @@ const valAdjust = {
     blood_thirst: true,
     selenophobia: true,
     hooved: true,
+    anthropophagite: true,
 };
 
 function getTraitVals(trait,rank){
@@ -2632,6 +2672,9 @@ function getTraitVals(trait,rank){
         }
         else if (trait === 'hooved'){
             vals.unshift(hoovedRename());
+        }
+        else if (trait === 'anthropophagite'){
+            vals = [vals[0] * 10000];
         }
         else if (!valAdjust[trait]){
             vals = [];

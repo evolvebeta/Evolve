@@ -2,7 +2,7 @@ import { global, save, seededRandom, webWorker, keyMultiplier, keyMap, srSpeak, 
 import { loc } from './locale.js';
 import { timeCheck, timeFormat, vBind, popover, clearPopper, flib, tagEvent, clearElement, costMultiplier, darkEffect, genCivName, powerModifier, powerCostMod, calcPrestige, adjustCosts, modRes, messageQueue, buildQueue, format_emblem, shrineBonusActive, calc_mastery, calcPillar, calcGenomeScore, getShrineBonus, eventActive, easterEgg, getHalloween, trickOrTreat, deepClone, hoovedRename } from './functions.js';
 import { unlockAchieve, challengeIcon, alevel, universeAffix } from './achieve.js';
-import { races, traits, genus_traits, neg_roll_traits, randomMinorTrait, cleanAddTrait, biomes, planetTraits, setJType, altRace, setTraitRank, setImitation, shapeShift } from './races.js';
+import { races, traits, genus_traits, neg_roll_traits, randomMinorTrait, cleanAddTrait, biomes, planetTraits, setJType, altRace, setTraitRank, setImitation, shapeShift, basicRace, fathomCheck } from './races.js';
 import { defineResources, galacticTrade, spatialReasoning, resource_values, initResourceTabs, drawResourceTab, marketItem, containerItem, tradeSummery } from './resources.js';
 import { loadFoundry, defineJobs, jobScale, workerScale, job_desc } from './jobs.js';
 import { loadIndustry, defineIndustry, nf_resources } from './industry.js';
@@ -355,6 +355,7 @@ export const actions = {
                     global.tech['evo_insectoid'] = 1;
                     global.tech['evo_mammals'] = 1;
                     global.tech['evo_eggshell'] = 1;
+                    global.tech['evo_eldritch'] = 1;
                     global.tech['evo_aquatic'] = 1;
                     global.tech['evo_fey'] = 1;
                     global.tech['evo_sand'] = 1;
@@ -648,6 +649,31 @@ export const actions = {
             },
             queue_complete(){ return global.tech['evo'] && global.tech.evo === 6 ? 1 : 0; },
             emblem(){ return format_emblem('genus_demonic'); }
+        },
+        eldritch: {
+            id: 'evolution-eldritch',
+            title: loc('evo_eldritch_title'),
+            desc: loc('evo_eldritch_desc'),
+            reqs: { evo: 5, evo_eldritch: 1 },
+            grant: ['evo',7],
+            condition(){
+                let allowed = global.stats.achieve['nightmare'] && global.stats.achieve.nightmare['mg'] ? true : false;
+                return allowed && genus_condition(5);
+            },
+            cost: {
+                DNA(){ return 260; }
+            },
+            effect: loc('evo_eldritch_effect'),
+            action(){
+                if (payCosts($(this)[0])){
+                    global.tech.evo_eldritch = 2;
+                    global.evolution['final'] = 100;
+                    return true;
+                }
+                return false;
+            },
+            queue_complete(){ return global.tech['evo'] && global.tech.evo === 6 ? 1 : 0; },
+            emblem(){ return format_emblem('genus_eldritch'); }
         },
         aquatic: {
             id: 'evolution-aquatic',
@@ -1584,7 +1610,7 @@ export const actions = {
             reqs: { housing: 1, currency: 1 },
             not_trait: ['cataclysm','lone_survivor'],
             condition(){
-                return ((global.race['soul_eater'] || global.race['detritivore'] || global.race['artifical']) && global.tech['s_lodge']) || (global.tech['hunting'] && global.tech['hunting'] >= 2) ? true : false;
+                return ((global.race['soul_eater'] || global.race['detritivore'] || global.race['artifical'] || global.race['unfathomable']) && global.tech['s_lodge']) || (global.tech['hunting'] && global.tech['hunting'] >= 2) ? true : false;
             },
             cost: {
                 Money(offset){ return costMultiplier('lodge', offset, 50, 1.32); },
@@ -1728,6 +1754,51 @@ export const actions = {
                 if (payCosts($(this)[0])){
                     global.city.transmitter.count++;
                     powerOnNewStruct($(this)[0]);
+                    return true;
+                }
+                return false;
+            }
+        },
+        captive_housing: {
+            id: 'city-captive_housing',
+            title: loc('city_captive_housing'),
+            desc: loc('city_captive_housing_desc'),
+            category: 'residential',
+            reqs: { unfathomable: 1 },
+            trait: ['unfathomable'],
+            cost: {
+                Money(offset){ return costMultiplier('captive_housing', offset, 40, 1.35); },
+                Lumber(offset){ return costMultiplier('captive_housing', offset, 30, 1.35); },
+                Stone(offset){ return costMultiplier('captive_housing', offset, 18, 1.35); },
+            },
+            effect(){
+                let desc = ``;
+                desc += `<div>${loc(`city_captive_housing_cattle`,[global.city.captive_housing.cattle,global.city.captive_housing.cattleCap])}</div>`;
+
+                let usedCap = 0;
+                if (global.city.hasOwnProperty('surfaceDwellers')){
+                    for (let i = 0; i < global.city.surfaceDwellers.length; i++){
+                        let r = global.city.surfaceDwellers[i];
+                        let mindbreak = global.city.captive_housing[`race${i}`];
+                        let jailed = global.city.captive_housing[`jailrace${i}`];
+                        usedCap += mindbreak + jailed;
+                        desc += `<div>${loc(`city_captive_housing_broken`,[races[r].name,mindbreak])}</div>`;
+                        desc += `<div>${loc(`city_captive_housing_untrained`,[races[r].name,jailed])}</div>`;
+                    }
+                }
+
+                desc += `<div>${loc(`city_captive_housing_capacity`,[usedCap,global.city.captive_housing.raceCap])}</div>`;
+                if (global.tech['unfathomable'] && global.tech.unfathomable >= 2){
+                    desc += `<div>${loc(`plus_max_resource`,[1,loc('job_torturer')])}</div>`;
+                }
+                return desc;
+            },
+            action(){
+                if (payCosts($(this)[0])){
+                    global.city.captive_housing.count++;
+                    let houses = global.city.captive_housing.count;
+                    global.city.captive_housing.raceCap = houses * 2;
+                    global.city.captive_housing.cattleCap = houses * 5;
                     return true;
                 }
                 return false;
@@ -2101,10 +2172,15 @@ export const actions = {
                 if (global.tech['shelving'] && global.tech.shelving >= 3 && global.resource.Stanene.display){
                     r_list.push('Stanene');
                 }
+                if (global.race['unfathomable']){
+                    r_list.push('Food');
+                }
                 return r_list;
             },
             val(res){
                 switch (res){
+                    case 'Food':
+                        return 50;
                     case 'Lumber':
                         return 300;
                     case 'Stone':
@@ -3314,6 +3390,10 @@ export const actions = {
                 if (global.race['curious']){
                     multiplier *= 1 + (traits.curious.vars()[0] / 100 * global.resource[global.race.species].amount);
                 }
+                let fathom = fathomCheck('cath');
+                if (fathom > 0){
+                    multiplier *= 1 + (traits.curious.vars(3)[0] * fathom);
+                }
                 if (p_on['s_gate'] && gal_on['scavenger']){
                     let pirate_alien2 = piracy('gxy_alien2');
                     let uni = gal_on['scavenger'] * pirate_alien2 / 4;
@@ -3390,6 +3470,10 @@ export const actions = {
                 }
                 if (global.race['studious']){
                     gain *= 1 + (traits.studious.vars()[1] / 100);
+                }
+                let fathom = fathomCheck('elven');
+                if (fathom > 0){
+                    gain *= 1 + (traits.studious.vars(1)[1] / 100 * fathom);
                 }
                 if (global.tech['science'] && global.tech['science'] >= 8){
                     gain *= 1.4;
@@ -4316,7 +4400,7 @@ function genus_condition(r,t){
     return ((global.tech[t] && global.tech[t] === r) || (global.evolution['gselect'])) && f < 100;
 }
 
-export const raceList = ['human','orc','elven','troll','ogre','cyclops','kobold','goblin','gnome','cath','wolven','vulpine','centaur','rhinotaur','capybara','tortoisan','gecko','slitheryn','arraak','pterodacti','dracnid','sporgar','shroomi','moldling','mantis','scorpid','antid','entish','cacti','pinguicula','sharkin','octigoran','dryad','satyr','phoenix','salamander','yeti','wendigo','tuskin','kamel','imp','balorg','seraph','unicorn','synth','nano','custom'];
+export const raceList = ['human','orc','elven','troll','ogre','cyclops','kobold','goblin','gnome','cath','wolven','vulpine','centaur','rhinotaur','capybara','tortoisan','gecko','slitheryn','arraak','pterodacti','dracnid','sporgar','shroomi','moldling','mantis','scorpid','antid','entish','cacti','pinguicula','sharkin','octigoran','dryad','satyr','phoenix','salamander','yeti','wendigo','tuskin','kamel','imp','balorg','seraph','unicorn','synth','nano','ghast','shoggoth','custom'];
 //export const raceList = ['human','orc','elven','troll','ogre','cyclops','kobold','goblin','gnome','cath','wolven','vulpine','centaur','rhinotaur','capybara','bearkin','porkenari','hedgeoken','tortoisan','gecko','slitheryn','arraak','pterodacti','dracnid','sporgar','shroomi','moldling','mantis','scorpid','antid','entish','cacti','pinguicula','sharkin','octigoran','dryad','satyr','phoenix','salamander','yeti','wendigo','tuskin','kamel','imp','balorg','seraph','unicorn','synth','nano'];
 raceList.forEach(race => actions.evolution[race] = {
     id: `evolution-${race}`,
@@ -4430,7 +4514,7 @@ const advancedChallengeList = {
     //'nonstandard': {t: 'c', e: 'anathema' },
     //'gravity_well': {t: 'c', e: '???' },
     'witch_hunter': {t: 'c', e: 'soul_sponge' },
-    //'warlord': {t: 'c', e: '???' },
+    //'warlord': {t: 'c', e: 'what_is_best' },
     //'storage_wars': {t: 'c', e: '???' },
     'simulation': {t: 'c', e: 'thereisnospoon' },
     'junker': {t: 's', e: 'extinct_junker' },
@@ -4598,6 +4682,10 @@ export function templeEffect(){
         if (global.race['spiritual']){
             faith *= 1 + (traits.spiritual.vars()[0] / 100);
         }
+        let fathom = fathomCheck('seraph');
+        if (fathom > 0){
+            faith *= 1 + (traits.spiritual.vars(1)[0] / 100 * fathom);
+        }
         if (global.civic.govern.type === 'theocracy'){
             faith *= 1 + (govEffect.theocracy()[0] / 100);
         }
@@ -4636,6 +4724,10 @@ export function templeEffect(){
         }
         if (global.race['spiritual']){
             plasmid *= 1 + (traits.spiritual.vars()[0] / 100);
+        }
+        let fathom = fathomCheck('seraph');
+        if (fathom > 0){
+            plasmid *= 1 + (traits.spiritual.vars(1)[0] / 100 * fathom);
         }
         if (global.civic.govern.type === 'theocracy'){
             plasmid *= 1 + (govEffect.theocracy()[0] / 100);
@@ -4846,6 +4938,10 @@ export function storageMultipler(){
     }
     if (global.race['pack_rat']){
         multiplier *= 1 + (traits.pack_rat.vars()[1] / 100);
+    }
+    let fathom = fathomCheck('kobold');
+    if (fathom > 0){
+        multiplier *= 1 + (traits.pack_rat.vars(1)[1] / 100 * fathom);
     }
     if (global.tech['storage'] >= 6){
         multiplier *= 1 + (global.tech['supercollider'] / 20);
@@ -6937,6 +7033,8 @@ function basicHousingLabel(){
             return loc('city_basic_housing_sand_title');
         case 'polar':
             return loc('city_basic_housing_polar_title');
+        case 'eldritch':
+            return loc('city_basic_housing_eldritch_title');
     }
 
     return global.city.ptrait.includes('trashed') ? loc('city_basic_housing_trash_title') : loc('city_basic_housing_title');
@@ -6961,6 +7059,8 @@ function mediumHousingLabel(){
     switch (races[global.race.species].type){
         case 'avian':
             return loc('city_cottage_title6');
+        case 'eldritch':
+            return loc('city_cottage_title8');
     }
 
     return loc('city_cottage_title1');
@@ -6987,6 +7087,8 @@ function largeHousingLabel(basic){
             return loc('city_apartment_title4');
         case 'giant':
             return loc('city_apartment_title7');
+        case 'eldritch':
+            return loc('city_apartment_title8');
     }
 
     return loc('city_apartment_title1');
@@ -7259,6 +7361,13 @@ function sentience(){
         });
     }
 
+    if (global.race.unfathomable){
+        global.city['surfaceDwellers'] = [];
+        while (global.city.surfaceDwellers.length < traits.unfathomable.vars()[0]){
+            global.city.surfaceDwellers.push(basicRace());
+        }
+    }
+
     global.settings.civTabs = 1;
     global.settings.showEvolve = false;
     global.settings.showCiv = true;
@@ -7461,7 +7570,7 @@ function sentience(){
         shapeShift(false,true);
     }
 
-    if (global.race['carnivore'] || global.race['soul_eater']){
+    if (global.race['carnivore'] || global.race['soul_eater'] || global.race['unfathomable']){
         global.civic.d_job = 'hunter';
         global.civic.hunter.display = true;
     }
@@ -8295,6 +8404,10 @@ export function bank_vault(){
     }
     if (global.race['hoarder']){
         vault *= 1 + (traits.hoarder.vars()[0] / 100);
+    }
+    let fathom = fathomCheck('dracnid');
+    if (fathom > 0){
+        vault *= 1 + (traits.hoarder.vars(1)[0] / 100 * fathom);
     }
     if (global.tech['banking'] >= 7){
         vault *= 1 + highPopAdjust(workerScale(global.civic.banker.workers,'banker') * 0.05);

@@ -93,8 +93,8 @@ const techs = {
     },
     sundial: {
         id: 'tech-sundial',
-        title: loc('tech_sundial'),
-        desc: loc('tech_sundial_desc'),
+        title(){ return global.race['unfathomable'] ? loc('tech_moondial') : loc('tech_sundial'); },
+        desc(){ return global.race['unfathomable'] ? loc('tech_moondial_desc') : loc('tech_sundial_desc'); },
         category: 'science',
         era: 'primitive',
         reqs: { primitive: 2 },
@@ -103,7 +103,7 @@ const techs = {
             Lumber(){ return 8; },
             Stone(){ return 10; }
         },
-        effect: loc('tech_sundial_effect'),
+        effect(){ return global.race['unfathomable'] ? loc('tech_moondial_effect') : loc('tech_sundial_effect'); },
         action(){
             if (payCosts($(this)[0])){
                 messageQueue(loc('tech_sundial_msg'),'info',false,['progress']);
@@ -360,6 +360,52 @@ const techs = {
             return false;
         }
     },
+    captive_housing: {
+        id: 'tech-captive_housing',
+        title: loc('tech_captive_housing'),
+        desc: loc('tech_captive_housing'),
+        category: 'eldritch',
+        era: 'civilized',
+        reqs: { housing: 1 },
+        grant: ['unfathomable',1],
+        cost: {
+            Knowledge(){ return 12; }
+        },
+        effect: loc('tech_captive_housing_effect'),
+        action(){
+            if (payCosts($(this)[0])){
+                global.city['captive_housing'] = {
+                    count: 0, cattle: 0, cattleCatch: 0,
+                    race0: 0, jailrace0: 0,
+                    race1: 0, jailrace1: 0,
+                    race2: 0, jailrace2: 0,
+                    raceCap: 0, cattleCap: 0,
+                };
+                return true;
+            }
+            return false;
+        }
+    },
+    torture: {
+        id: 'tech-torture',
+        title: loc('tech_torture'),
+        desc: loc('tech_torture'),
+        category: 'eldritch',
+        era: 'civilized',
+        reqs: { unfathomable: 1 },
+        grant: ['unfathomable',2],
+        cost: {
+            Knowledge(){ return 25; }
+        },
+        effect: loc('tech_torture_effect'),
+        action(){
+            if (payCosts($(this)[0])){
+                global.civic.torturer.display = true;
+                return true;
+            }
+            return false;
+        }
+    },
     spear: {
         id: 'tech-spear',
         title: loc('tech_spear'),
@@ -518,7 +564,7 @@ const techs = {
         grant: ['s_lodge',1],
         condition(){
             return (((global.race.species === 'wendigo' || global.race['detritivore']) && !global.race['carnivore'] && !global.race['herbivore'])
-              || (global.race['carnivore'] && global.race['soul_eater']) || global.race['artifical']) ? true : false;
+              || (global.race['carnivore'] && global.race['soul_eater']) || global.race['artifical'] || global.race['unfathomable']) ? true : false;
         },
         cost: {
             Knowledge(){ return global.race['artifical'] ? 10000 : 180; }
@@ -646,7 +692,7 @@ const techs = {
         condition(){
             return (global.race['herbivore'] || (!global.race['carnivore'] && !global.race['detritivore'] && !global.race['soul_eater'])) ? true : false;
         },
-        not_trait: ['cataclysm','artifical','lone_survivor'],
+        not_trait: ['cataclysm','artifical','lone_survivor','unfathomable'],
         grant: ['agriculture',1],
         cost: {
             Knowledge(){ return 10; }
@@ -4587,6 +4633,7 @@ const techs = {
         era: 'dimensional',
         reqs: { hell_spire: 10, b_stone: 2, waygate: 3 },
         grant: ['waygate',4],
+        not_trait: ['witch_hunter'],
         cost: {
             Species(){ return popCost(1000); },
             Knowledge(){ return 55000000; },
@@ -10714,6 +10761,30 @@ const techs = {
             Knowledge(){ return 20000000; }
         },
         effect(){ return loc('tech_improved_concealment_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
+    outerplane_summon: {
+        id: 'tech-outerplane_summon',
+        title: loc('tech_outerplane_summon'),
+        desc: loc('tech_outerplane_summon'),
+        category: 'magic',
+        era: 'dimensional',
+        reqs: { roguemagic: 8, forbidden: 4, hell_spire: 10, b_stone: 2, waygate: 3 },
+        grant: ['forbidden',5],
+        condition(){
+            return global.race['universe'] === 'magic' && global.race['witch_hunter'] ? true : false;
+        },
+        cost: {
+            Mana(){ return 60000; },
+            Knowledge(){ return 60000000; },
+            Demonic_Essence(){ return 1; }
+        },
+        effect(){ return loc('tech_outerplane_summon_effect'); },
         action(){
             if (payCosts($(this)[0])){
                 return true;

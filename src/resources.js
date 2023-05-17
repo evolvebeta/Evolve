@@ -1,6 +1,6 @@
 import { global, tmp_vars, keyMultiplier, breakdown, sizeApproximation, p_on, support_on } from './vars.js';
 import { vBind, clearElement, modRes, flib, calc_mastery, calcPillar, eventActive, easterEgg, trickOrTreat, popover, harmonyEffect, darkEffect, hoovedRename } from './functions.js';
-import { traits } from './races.js';
+import { traits, fathomCheck } from './races.js';
 import { hellSupression } from './portal.js';
 import { syndicate } from './truepath.js';
 import { govActive } from './governor.js';
@@ -1321,6 +1321,10 @@ export function marketItem(mount,market_item,name,color,full){
                 if (global.race['merchant']){
                     rate *= 1 + (traits.merchant.vars()[1] / 100);
                 }
+                let fathom = fathomCheck('goblin');
+                if (fathom > 0){
+                    rate *= 1 + (traits.merchant.vars(1)[1] / 100 * fathom);
+                }
                 if (global.genes['trader']){
                     let mastery = calc_mastery();
                     rate *= 1 + (mastery / 100);
@@ -1348,6 +1352,10 @@ export function marketItem(mount,market_item,name,color,full){
                     if (global.race['conniving']){
                         value *= 1 - (traits.conniving.vars()[0] / 100);
                     }
+                    let fathom = fathomCheck('imp');
+                    if (fathom > 0){
+                        value *= 1 - (traits.conniving.vars(1)[0] / 100 * fathom);
+                    }
                     let amount = Math.floor(Math.min(qty, global.resource.Money.amount / value,
                       global.resource[res].max - global.resource[res].amount));
                     if (amount > 0){
@@ -1365,11 +1373,19 @@ export function marketItem(mount,market_item,name,color,full){
                     if (global.race['merchant']){
                         divide *= 1 - (traits.merchant.vars()[0] / 100);
                     }
+                    let gobFathom = fathomCheck('goblin');
+                    if (gobFathom > 0){
+                        divide *= 1 - (traits.merchant.vars(1)[0] / 100 * gobFathom);
+                    }
                     if (global.race['asymmetrical']){
                         divide *= 1 + (traits.asymmetrical.vars()[0] / 100);
                     }
                     if (global.race['conniving']){
                         divide *= 1 - (traits.conniving.vars()[1] / 100);
+                    }
+                    let impFathom = fathomCheck('imp');
+                    if (impFathom > 0){
+                        divide *= 1 - (traits.conniving.vars(1)[1] / 100 * impFathom);
                     }
                     let price = global.resource[res].value / divide;
                     let amount = Math.floor(Math.min(qty, global.resource[res].amount,
@@ -1455,6 +1471,10 @@ export function marketItem(mount,market_item,name,color,full){
                 let divide = 4;
                 if (global.race['merchant']){
                     divide *= 1 - (traits.merchant.vars()[0] / 100);
+                }
+                let fathom = fathomCheck('goblin');
+                if (fathom > 0){
+                    divide *= 1 - (traits.merchant.vars(1)[0] / 100 * fathom);
                 }
                 if (global.race['asymmetrical']){
                     divide *= 1 + (traits.asymmetrical.vars()[0] / 100);
@@ -1627,6 +1647,10 @@ export function galacticTrade(modal){
                 if (global.race['merchant']){
                     buy_vol *= 1 + (traits.merchant.vars()[1] / 100);
                 }
+                let fathom = fathomCheck('goblin');
+                if (fathom > 0){
+                    buy_vol *= 1 + (traits.merchant.vars(1)[1] / 100 * fathom);
+                }
                 if (global.genes['trader']){
                     let mastery = calc_mastery();
                     buy_vol *= 1 + (mastery / 100);
@@ -1795,6 +1819,10 @@ export function tradeSellPrice(res){
     if (global.race['merchant']){
         divide *= 1 - (traits.merchant.vars()[0] / 100);
     }
+    let fathom = fathomCheck('goblin');
+    if (fathom > 0){
+        divide *= 1 - (traits.merchant.vars(1)[0] / 100 * fathom);
+    }
     if (global.race['asymmetrical']){
         divide *= 1 + (traits.asymmetrical.vars()[0] / 100);
     }
@@ -1818,6 +1846,10 @@ export function tradeSellPrice(res){
     if (global.race['inflation']){
         price *= 1 + (global.race.inflation / 500);
     }
+    if (global.race['witch_hunter'] && global.resource.Sus.amount > 50){
+        let wariness = (global.resource.Sus.amount - 50) / 52;
+        price *= 1 - wariness;
+    }
     price = +(price).toFixed(1);
     return price;
 }
@@ -1829,6 +1861,10 @@ export function tradeBuyPrice(res){
     }
     if (global.race['conniving']){
         rate *= 1 - (traits.conniving.vars()[0] / 100);
+    }
+    let impFathom = fathomCheck('imp');
+    if (impFathom > 0){
+        rate *= 1 - (traits.conniving.vars(1)[0] / 100 * impFathom);
     }
     let price = rate * tradeRatio[res];
     if (global.city['wharf']){
@@ -1849,6 +1885,10 @@ export function tradeBuyPrice(res){
     }
     if (global.race['quarantine']){
         price *= 1 + Math.round(global.race.quarantine ** 3.5);
+    }
+    if (global.race['witch_hunter'] && global.resource.Sus.amount > 50){
+        let wariness = (global.resource.Sus.amount - 50) / 8;
+        price *= 1 + wariness;
     }
     price = +(price).toFixed(1);
     return price;
@@ -2416,6 +2456,10 @@ export function crateValue(){
     if (global.race['pack_rat']){
         create_value *= 1 + (traits.pack_rat.vars()[0] / 100);
     }
+    let fathom = fathomCheck('kobold');
+    if (fathom > 0){
+        create_value *= 1 + (traits.pack_rat.vars(1)[0] / 100 * fathom);
+    }
     if (global.stats.achieve['banana'] && global.stats.achieve.banana.l >= 3){
         create_value *= 1.1;
     }
@@ -2436,6 +2480,10 @@ export function containerValue(){
     }
     if (global.race['pack_rat']){
         container_value *= 1 + (traits.pack_rat.vars()[0] / 100);
+    }
+    let fathom = fathomCheck('kobold');
+    if (fathom > 0){
+        container_value *= 1 + (traits.pack_rat.vars(1)[0] / 100 * fathom);
     }
     container_value *= global.stats.achieve['blackhole'] ? 1 + (global.stats.achieve.blackhole.l * 0.05) : 1;
     return Math.round(spatialReasoning(container_value));
@@ -2772,7 +2820,7 @@ export function loadAlchemy(name,color,basic){
             if (global.stats.achieve['soul_sponge'] && global.stats.achieve.soul_sponge['mg']){
                 rate *= global.stats.achieve.soul_sponge.mg + 1;
             }
-            return $(`<div>${loc('resource_alchemy',[1,loc(`resource_Mana_name`),0.5,loc(`resource_Crystal_name`),+rate.toFixed(2), global.resource[name].name])}</div>`);
+            return $(`<div>${loc('resource_alchemy',[1,loc(`resource_Mana_name`),0.15,loc(`resource_Crystal_name`),+rate.toFixed(2), global.resource[name].name])}</div>`);
         },
         {
             elm: `#alchemy${name} h3`
@@ -2893,6 +2941,10 @@ export function faithBonus(){
             if (global.race['spiritual']){
                 temple_bonus *= 1 + (traits.spiritual.vars()[0] / 100);
             }
+            let fathom = fathomCheck('seraph');
+            if (fathom > 0){
+                temple_bonus *= 1 + (traits.spiritual.vars(1)[0] / 100 * fathom);
+            }
             if (global.civic.govern.type === 'theocracy'){
                 temple_bonus *= 1.12;
             }
@@ -2983,6 +3035,10 @@ export const plasmidBonus = (function (){
                     }
                     if (global.race['spiritual']){
                         temple_bonus *= 1 + (traits.spiritual.vars()[0] / 100);
+                    }
+                    let fathom = fathomCheck('seraph');
+                    if (fathom > 0){
+                        temple_bonus *= 1 + (traits.spiritual.vars(1)[0] / 100 * fathom);
                     }
                     if (global.civic.govern.type === 'theocracy'){
                         temple_bonus *= 1.12;
