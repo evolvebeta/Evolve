@@ -1170,7 +1170,7 @@ if (convertVersion(global['version']) < 103002){
 
 global['version'] = '1.3.7';
 delete global['revision'];
-global['beta'] = 13;
+global['beta'] = 14;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -2267,6 +2267,8 @@ export function clearStates(){
     global.stats.cstone = 0;
     global.stats.clumber = 0;
     global.stats.sac = 0;
+    global.stats.cattle = 0;
+    global.stats.murders = 0;
     global.settings.at = 0;
 
     global.settings.showEvolve = true;
