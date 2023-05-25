@@ -3635,9 +3635,11 @@ function fastLoop(){
             let stealable = ['Lumber','Chrysotile','Stone','Crystal','Copper','Iron','Aluminium','Cement','Coal','Oil','Uranium','Steel','Titanium','Alloy','Polymer','Iridium'];
             stealable.forEach(function(res){
                 if (global.resource[res].display){
-                    let raid = hunters * production('psychic_boost',res) * tradeRatio[res] / 4;
-                    if (['Crystal','Uranium'].includes(res)){ raid *= 0.25; }
-                    else if (['Alloy','Polymer','Iridium'].includes(res)){ raid *= 0.65; }
+                    let raid = hunters * production('psychic_boost',res) * tradeRatio[res] / 5;
+                    if (['Crystal','Uranium'].includes(res)){ raid *= 0.2; }
+                    else if (['Alloy','Polymer','Iridium'].includes(res)){ raid *= 0.35; }
+                    else if (['Steel','Cement'].includes(res)){ raid *= 0.85; }
+                    else if (['Titanium'].includes(res)){ raid *= 0.65; }
                     breakdown.p[res][loc(global.race['unfathomable'] ? 'job_raider' : 'job_hunter')] = raid  + 'v';
                     if (raid > 0){
                         breakdown.p[res][`ᄂ${loc('quarantine')}+99`] = ((q_multiplier - 1) * 100) + '%';
@@ -7328,6 +7330,10 @@ function midLoop(){
             let strength = global.tech['military'] ? (global.tech.military >= 5 ? global.tech.military - 1 : global.tech.military) : 1;
             let hunt = workerScale(global.civic.hunter.workers,'hunter') * strength;
             hunt *= racialTrait(hunt,'hunting');
+            if (global.race['swift']){
+                hunt *= 1 + (traits.swift.vars()[1] / 100);
+            }
+
             if (global.race['servants']){ hunt += global.race.servants.jobs.hunter * strength; }
 
             let usedCap = 0;
@@ -8554,7 +8560,7 @@ function midLoop(){
                     wiz /= 2;
                 }
                 bd_Sus[loc('job_wizard')] = wiz+'v';
-                sus += wiz;
+                sus += highPopAdjust(wiz);
             }
 
             if (global.city['coal_power'] && !global.race['environmentalist']){
@@ -8598,7 +8604,7 @@ function midLoop(){
                         ritual /= 4;
                     }
                     
-                    ritual -= global.civic.priest.workers;
+                    ritual -= highPopAdjust(global.civic.priest.workers);
                     if (ritual < 0){
                         ritual = 0;
                     }
@@ -11094,14 +11100,16 @@ function longLoop(){
             let odds = 300 - global.resource.Sus.amount;
             if (odds < 1){ odds = 1; }
             if (Math.rand(0,odds) === 0){
-                events['witch_hunt_crusade'].effect();
+                let msg = events['witch_hunt_crusade'].effect();
+                messageQueue(msg,'caution',false,['events','major_events']);
             }
         }
-        else if (global.race['witch_hunter'] && global.resource.Sus.amount >= 50 && global.civic.scientist.workers > 0){
+        if (global.race['witch_hunter'] && global.resource.Sus.amount >= 50 && global.civic.scientist.workers > 0){
             let odds = 250 - global.resource.Sus.amount * 2;
-            if (odds < 1){ odds = 1; }
+            if (odds < 50){ odds = 50; }
             if (Math.rand(0,odds) === 0){
-                events['witch_hunt'].effect();
+                let msg = events['witch_hunt'].effect();
+                messageQueue(msg,false,false,['events','minor_events']);
             }
         }
     }
