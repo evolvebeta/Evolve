@@ -603,15 +603,13 @@ export function checkAchievements(){
         let equilRank = 5;
         Object.keys(global.pillars).forEach(function(race){                
             if (races[race]){
-                if (race !== 'sludge'){
-                    if (!genus[races[race].type] || global.pillars[race] > genus[races[race].type]){
-                        genus[races[race].type] = global.pillars[race];
-                    }
-                    if (global.pillars[race] < equilRank){
-                        equilRank = global.pillars[race];
-                    }
-                    rCnt++;
+                if (!genus[races[race].type] || global.pillars[race] > genus[races[race].type]){
+                    genus[races[race].type] = global.pillars[race];
                 }
+                if (global.pillars[race] < equilRank){
+                    equilRank = global.pillars[race];
+                }
+                rCnt++;
             }
         });
         if (Object.keys(genus).length >= Object.keys(genus_traits).length){
@@ -623,8 +621,10 @@ export function checkAchievements(){
             });
             unlockAchieve('enlightenment',false,rank);
         }
-        if (rCnt >= Object.keys(races).length - 2){
+        if (rCnt >= Object.keys(races).length - 1){
             unlockAchieve('resonance');
+        }
+        if (rCnt >= 50){
             unlockFeat('equilibrium',false,equilRank);
         }
     }
@@ -2628,6 +2628,9 @@ export function drawStats(){
     }
     if (global.stats.murders > 0){
         stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_murders")}</span> {{ s.murders | format }}</div>`);
+    }
+    if (global.stats.psykill > 0){
+        stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_psymurders")}</span> {{ s.psykill | format }}</div>`);
     }
     if (global.resource.hasOwnProperty('Thermite') && global.resource.Thermite.amount > 0){
         stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_thermite")}</span> {{ r.Thermite.amount | res }}</div>`);

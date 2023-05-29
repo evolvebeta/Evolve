@@ -2,7 +2,7 @@ import { global, seededRandom, save, webWorker, power_generated } from './vars.j
 import { loc } from './locale.js';
 import { defineIndustry } from './industry.js';
 import { setJobName, jobScale, loadFoundry } from './jobs.js';
-import { vBind, clearElement, removeFromQueue, removeFromRQueue, calc_mastery, getEaster, getHalloween, randomKey, modRes, popover } from './functions.js';
+import { vBind, clearElement, popover, removeFromQueue, removeFromRQueue, calc_mastery, gameLoop, getEaster, getHalloween, randomKey, modRes } from './functions.js';
 import { setResourceName, atomic_mass } from './resources.js';
 import { buildGarrison, govEffect } from './civics.js';
 import { govActive, removeTask } from './governor.js';
@@ -996,18 +996,18 @@ export const traits = {
         type: 'genus',
         val: 10,
         vars(r){
-            // [Mind Break Modifer, Thrall Modifer, Recharge Rate]
+            // [Mind Break Modifer, Thrall Modifer, Recharge Rate, Effect Strength]
             switch (r || global.race.psychic || 1){
                 case 0.25:
-                    return [0.35,5,0.01];
+                    return [0.35,5,0.01,20];
                 case 0.5:
-                    return [0.65,10,0.025];
+                    return [0.65,10,0.025,30];
                 case 1:
-                    return [1,15,0.05];
+                    return [1,15,0.05,40];
                 case 2:
-                    return [1.25,20,0.075];
+                    return [1.25,20,0.075,50];
                 case 3:
-                    return [1.5,25,0.1];
+                    return [1.5,25,0.1,60];
             }
         },
     },
@@ -5181,15 +5181,21 @@ export function cleanAddTrait(trait){
         case 'slow':
             save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
             if (webWorker.w){
-                webWorker.w.terminate();
+                gameLoop('stop');
+                gameLoop('start');
             }
-            window.location.reload();
+            else {
+                window.location.reload();
+            }
         case 'hyper':
             save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
             if (webWorker.w){
-                webWorker.w.terminate();
+                gameLoop('stop');
+                gameLoop('start');
             }
-            window.location.reload();
+            else {
+                window.location.reload();
+            }
         case 'calm':
             if (global.tech['primitive'] >= 3) {
                 checkPurgatory('city','meditation',{ count: 0 });
@@ -5371,15 +5377,21 @@ export function cleanRemoveTrait(trait,rank){
         case 'slow':
             save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
             if (webWorker.w){
-                webWorker.w.terminate();
+                gameLoop('stop');
+                gameLoop('start');
             }
-            window.location.reload();
+            else {
+                window.location.reload();
+            }
         case 'hyper':
             save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
             if (webWorker.w){
-                webWorker.w.terminate();
+                gameLoop('stop');
+                gameLoop('start');
             }
-            window.location.reload();
+            else {
+                window.location.reload();
+            }
         case 'calm':
             removeFromQueue(['city-meditation']);
             global.resource.Zen.display = false;
@@ -5849,10 +5861,10 @@ export function renderPsychicPowers(){
             psychicFinance(parent);
         }
         if (global.tech['psychicthrall'] && global.tech['unfathomable'] && global.race['unfathomable']){
-            psychicMindBreak(parent);
             if (global.tech.psychicthrall >= 2){
                 psychicCapture(parent);
             }
+            psychicMindBreak(parent);
         }
     }
 }
@@ -5889,7 +5901,7 @@ function psychicBoost(parent){
         },
         filters: {
             boost(r){
-                return loc(`psychic_boost`,[global.resource[r] ? global.resource[r].name : 'N/A',75]);
+                return loc(`psychic_boost_button`,[global.resource[r] ? global.resource[r].name : 'N/A',75]);
             },
             boostTime(){
                 return global.race.psychicPowers.boostTime > 0 ? loc(`psychic_boost_time`,[global.race.psychicPowers.boostTime]) : '';
@@ -5905,7 +5917,7 @@ function psychicBoost(parent){
 
     popover('psychicBoost',
         function(){
-            return loc(`psychic_boost_desc`,[50]);
+            return loc(`psychic_boost_desc`,[traits.psychic.vars()[3]]);
         },{
             elm: '#psychicBoost > div > button'
         }
@@ -5927,11 +5939,11 @@ function psychicKill(parent){
                 if (global.resource.Energy.amount >= 10 && global.resource[global.race.species].amount >= 1){
                     global.resource.Energy.amount -= 10;
                     global.resource[global.race.species].amount--;
-                    global.stats.murders++;
+                    global.stats.psykill++;
                     if (global.race['anthropophagite']){
                         modRes('Food', 10000 * traits.anthropophagite.vars()[0]);
                     }
-                    if (global.stats.murders === 10){
+                    if (global.stats.psykill === 10){
                         renderPsychicPowers();
                     }
                 }
@@ -5939,7 +5951,7 @@ function psychicKill(parent){
         },
         filters: {
             kill(){
-                return loc(`psychic_murder`,[10]);
+                return loc(`psychic_murder_button`,[10]);
             }
         }
     });
@@ -5973,7 +5985,7 @@ function psychicAssault(parent){
         },
         filters: {
             boost(){
-                return loc(`psychic_boost`,[loc(`psychic_attack`),45]);
+                return loc(`psychic_boost_button`,[loc(`psychic_attack`),45]);
             },
             boostTime(){
                 return global.race.psychicPowers.assaultTime > 0 ? loc(`psychic_boost_time`,[global.race.psychicPowers.assaultTime]) : '';
@@ -5983,7 +5995,7 @@ function psychicAssault(parent){
 
     popover('psychicAssault',
         function(){
-            return loc(`psychic_assault_desc`,[50]);
+            return loc(`psychic_assault_desc`,[traits.psychic.vars()[3]]);
         },{
             elm: '#psychicAssault > div > button'
         }
@@ -6010,7 +6022,7 @@ function psychicFinance(parent){
         },
         filters: {
             boost(){
-                return loc(`psychic_boost`,[loc(`psychic_profit`),65]);
+                return loc(`psychic_boost_button`,[loc(`psychic_profit`),65]);
             },
             boostTime(){
                 return global.race.psychicPowers.cash > 0 ? loc(`psychic_boost_time`,[global.race.psychicPowers.cash]) : '';
@@ -6020,7 +6032,7 @@ function psychicFinance(parent){
 
     popover('psychicFinance',
         function(){
-            return loc(`psychic_profit_desc`,[50]);
+            return loc(`psychic_profit_desc`,[traits.psychic.vars()[3]]);
         },{
             elm: '#psychicFinance > div > button'
         }
@@ -6031,7 +6043,7 @@ function psychicMindBreak(parent){
     let container = $(`<div id="psychicMindBreak" class="industry"></div>`);
     parent.append(container);
 
-    container.append($(`<div class="header">${loc('psychic_mind_break')}</div>`));
+    container.append($(`<div class="header">${loc('psychic_mind_break_title')}</div>`));
     container.append(`<div><b-button v-html="$options.filters.break()" @click="breakMind()"></b-button></div>`);
 
     vBind({
