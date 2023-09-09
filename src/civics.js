@@ -1066,7 +1066,7 @@ function mercCost(){
     }
     let fathom = fathomCheck('orc');
     if (fathom > 0){
-        cost += 1 - (traits.brute.vars(1)[0] / 100 * fathom);
+        cost *= 1 - (traits.brute.vars(1)[0] / 100 * fathom);
     }
     if (global.race['inflation']){
         cost *= 1 + (global.race.inflation / 500);
@@ -1980,6 +1980,9 @@ function lootModify(val,gov){
     if (global.race.universe === 'evil'){
         loot *= darkEffect('evil');
     }
+    if (global.race['gravity_well']){
+        loot *= 0.25 + (0.75 * darkEffect('heavy'));
+    }
 
     switch(global.civic.garrison.tactic){
         case 1:
@@ -2128,8 +2131,16 @@ export function armyRating(val,type,wound){
                 army += 4;
             }
         }
-        if (global.race['psychicPowers'] && global.race.psychicPowers['assaultTime'] && global.race.psychicPowers.assaultTime > 0){
-            army *= 1 + (traits.psychic.vars()[3] / 100)
+        if (global.tech['psychic'] && global.race['psychicPowers'] && global.race.psychicPowers.hasOwnProperty('assaultTime')){
+            let boost = 0;
+            if (global.race.psychicPowers.assaultTime > 0){
+                boost += traits.psychic.vars()[3] / 100;
+            }
+            if (global.tech.psychic >= 4 && global.race.psychicPowers['channel']){
+                let rank = global.stats.achieve['nightmare'] && global.stats.achieve.nightmare['mg'] ? global.stats.achieve.nightmare.mg : 0;
+                boost += +(traits.psychic.vars()[3] / 50000 * rank * global.race.psychicPowers.channel.assault).toFixed(3);
+            }
+            army *= 1 + boost;
         }
     }
     if (type === 'hunting'){

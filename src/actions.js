@@ -7,7 +7,7 @@ import { defineResources, galacticTrade, spatialReasoning, resource_values, init
 import { loadFoundry, defineJobs, jobScale, workerScale, job_desc } from './jobs.js';
 import { loadIndustry, defineIndustry, nf_resources } from './industry.js';
 import { govEffect, defineGovernment, defineGarrison, buildGarrison, commisionGarrison, foreignGov, armyRating } from './civics.js';
-import { spaceTech, interstellarTech, galaxyTech, universe_affixes, renderSpace, piracy } from './space.js';
+import { spaceTech, interstellarTech, galaxyTech, universe_affixes, renderSpace, piracy, fuel_adjust } from './space.js';
 import { renderFortress, fortressTech } from './portal.js';
 import { tauCetiTech, renderTauCeti, loneSurvivor } from './truepath.js';
 import { arpa, gainGene, gainBlood } from './arpa.js';
@@ -81,7 +81,7 @@ export const actions = {
             },
             effect(){
                 let rna = global.race['rapid_mutation'] ? 2 : 1;
-                if (global.evolution['sexual_reproduction'] && global.evolution['sexual_reproduction'].count > 0){
+                if (global.tech['evo'] && global.tech.evo >= 2){
                     rna++;
                 }
                 return loc('evo_organelles_effect',[rna]);
@@ -101,10 +101,10 @@ export const actions = {
             condition(){ return global.evolution.hasOwnProperty('nucleus') && !global.race['evoFinalMenu']; },
             cost: {
                 RNA(offset){ return evolveCosts('nucleus',38, global.tech['evo'] && global.tech.evo >= 4 ? 16 : 32, offset ); },
-                DNA(offset){ return evolveCosts('nucleus',18, global.tech['evo'] && global.tech.evo >= 4  ? 12 : 16, offset ); }
+                DNA(offset){ return evolveCosts('nucleus',18, global.tech['evo'] && global.tech.evo >= 4 ? 12 : 16, offset ); }
             },
             effect(){
-                let dna = (global.evolution['bilateral_symmetry'] && global.evolution['bilateral_symmetry'].count > 0) || (global.evolution['poikilohydric'] && global.evolution['poikilohydric'].count > 0) || (global.evolution['spores'] && global.evolution['spores'].count > 0) ? 2 : 1;
+                let dna = (global.tech['evo'] && global.tech.evo >= 5) ? 2 : 1;
                 return loc('evo_nucleus_effect',[dna]);
             },
             action(){
@@ -3936,7 +3936,9 @@ export const actions = {
             },
             reqs: { genesis: 6 },
             queue_complete(){ return 0; },
-            cost: {},
+            cost: {
+                Helium_3(offset,wiki){ return +fuel_adjust(125000,false,wiki).toFixed(0); }
+            },
             effect(){
                 let gains = calcPrestige('bioseed');
                 let plasmidType = global.race.universe === 'antimatter' ? loc('resource_AntiPlasmid_plural_name') : loc('resource_Plasmid_plural_name');
@@ -4025,7 +4027,7 @@ export function setChallengeScreen(){
         //global.evolution['nonstandard'] = { count: 0 };
     }
     if (global.race.universe === 'heavy' && ((global.stats.achieve['seeder'] && global.stats.achieve.seeder['h']) || global['sim'])){
-        //global.evolution['gravity_well'] = { count: 0 };
+        global.evolution['gravity_well'] = { count: 0 };
     }
     if (global.race.universe === 'magic' && ((global.stats.achieve['ascended'] && global.stats.achieve.ascended['mg']) || global['sim'])){
         global.evolution['witch_hunter'] = { count: 0 };
@@ -4087,7 +4089,7 @@ export function setChallengeScreen(){
         //addAction('evolution','nonstandard');
     }
     if (global.race.universe === 'heavy' && ((global.stats.achieve['seeder'] && global.stats.achieve.seeder['h']) || global['sim'])){
-        //addAction('evolution','gravity_well');
+        addAction('evolution','gravity_well');
     }
     if (global.race.universe === 'magic' && ((global.stats.achieve['ascended'] && global.stats.achieve.ascended['mg']) || global['sim'])){
         addAction('evolution','witch_hunter');
@@ -4187,7 +4189,7 @@ export function buildTemplate(key, region){
                 wiki: false,
                 reqs: { mining: 3 },
                 condition(){
-                    return eventActive(`firework`) && (global.tech['cement'] || global.race['flier']);
+                    return eventActive(`firework`) && global[region].firework && (global.tech['cement'] || global.race['flier']);
                 },
                 cost: {
                     Money(){ return global[region].firework.count === 0 ? 50000 : 0; },
@@ -4303,7 +4305,9 @@ export function buildTemplate(key, region){
                 effect(){
                     let desc = ``;
                     if (!global.race['artifical'] && !global.race['detritivore'] && !global.race['carnivore'] && !global.race['soul_eater']){
-                        desc += `<div>${loc(`city_captive_housing_cattle`,[global.city.captive_housing.cattle,global.city.captive_housing.cattleCap])}</div>`;
+                        let cattle = global.city.hasOwnProperty('captive_housing') ? global.city.captive_housing.cattle : 0;
+                        let cattleCap = global.city.hasOwnProperty('captive_housing') ? global.city.captive_housing.cattleCap : 0;
+                        desc += `<div>${loc(`city_captive_housing_cattle`,[cattle,cattleCap])}</div>`;
                     }
 
                     let usedCap = 0;
@@ -4318,7 +4322,8 @@ export function buildTemplate(key, region){
                         }
                     }
 
-                    desc += `<div>${loc(`city_captive_housing_capacity`,[usedCap,global.city.captive_housing.raceCap])}</div>`;
+                    let raceCap = global.city.hasOwnProperty('captive_housing') ? global.city.captive_housing.raceCap : 0;
+                    desc += `<div>${loc(`city_captive_housing_capacity`,[usedCap,raceCap])}</div>`;
                     if (global.tech['unfathomable'] && global.tech.unfathomable >= 2){
                         desc += `<div>${loc(`plus_max_resource`,[1,loc('job_torturer')])}</div>`;
                     }
@@ -4547,7 +4552,7 @@ const advancedChallengeList = {
     'sludge': {t: 'c', e: 'extinct_sludge' },
     'orbit_decay': {t: 'c', e: 'lamentis' },
     //'nonstandard': {t: 'c', e: 'anathema' },
-    //'gravity_well': {t: 'c', e: '???' },
+    'gravity_well': {t: 'c', e: 'escape_velocity' },
     'witch_hunter': {t: 'c', e: 'soul_sponge' },
     //'warlord': {t: 'c', e: 'what_is_best' },
     //'storage_wars': {t: 'c', e: '???' },

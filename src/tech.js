@@ -98,6 +98,7 @@ const techs = {
         category: 'science',
         era: 'primitive',
         reqs: { primitive: 2 },
+        condition(){ return !global.race['gravity_well'] || (global.race['gravity_well'] && global.tech['transport']) ? true : false; },
         grant: ['primitive',3],
         cost: {
             Lumber(){ return 8; },
@@ -125,6 +126,172 @@ const techs = {
                     global.resource.Zen.display = true;
                     global.city['meditation'] = { count: 0 };
                 }
+                return true;
+            }
+            return false;
+        }
+    },
+    wheel: {
+        id: 'tech-wheel',
+        title(){ return loc('tech_wheel'); },
+        desc(){ return loc('tech_wheel_desc'); },
+        category: 'transport',
+        era: 'primitive',
+        reqs: { primitive: 2 },
+        grant: ['transport',1],
+        trait: ['gravity_well'],
+        cost: {
+            Lumber(){ return 50; },
+            Stone(){ return 25; }
+        },
+        effect(){ return loc('tech_wheel_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                global.civic.teamster.display = true;
+                return true;
+            }
+            return false;
+        }
+    },
+    wagon: {
+        id: 'tech-wagon',
+        title(){ return loc('tech_wagon'); },
+        desc(){ return loc('tech_wagon'); },
+        category: 'transport',
+        era: 'civilized',
+        reqs: { transport: 1 },
+        condition(){
+            return global.tech['farm'] || global.tech['s_lodge'] || (global.tech['hunting'] && global.tech.hunting >= 2) ? true : false;
+        },
+        grant: ['transport',2],
+        trait: ['gravity_well'],
+        cost: {
+            Knowledge(){ return 195; }
+        },
+        effect(){ return loc('tech_wagon_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
+    steam_engine: {
+        id: 'tech-steam_engine',
+        title(){ return loc('tech_steam_engine'); },
+        desc(){ return loc('tech_steam_engine'); },
+        category: 'transport',
+        era: 'discovery',
+        reqs: { transport: 2, smelting: 3 },
+        grant: ['transport',3],
+        trait: ['gravity_well'],
+        cost: {
+            Knowledge(){ return 14345; }
+        },
+        effect(){ return loc('tech_steam_engine_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
+    combustion_engine: {
+        id: 'tech-combustion_engine',
+        title(){ return loc('tech_combustion_engine'); },
+        desc(){ return loc('tech_combustion_engine'); },
+        category: 'transport',
+        era: 'industrialized',
+        reqs: { transport: 3, oil: 3 },
+        grant: ['transport',4],
+        trait: ['gravity_well'],
+        cost: {
+            Knowledge(){ return 46777; }
+        },
+        effect(){ return loc('tech_combustion_engine_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
+    hover_cart: {
+        id: 'tech-hover_cart',
+        title(){ return loc('tech_hover_cart'); },
+        desc(){ return loc('tech_hover_cart'); },
+        category: 'transport',
+        era: 'deep_space',
+        reqs: { transport: 4, elerium: 1 },
+        grant: ['transport',5],
+        trait: ['gravity_well'],
+        cost: {
+            Knowledge(){ return 284000; }
+        },
+        effect(){ return loc('tech_hover_cart_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
+    osha: {
+        id: 'tech-osha',
+        title(){ return loc('tech_osha'); },
+        desc(){ return loc('tech_osha'); },
+        category: 'transport',
+        era: 'industrialized',
+        reqs: { transport: 3, high_tech: 3 },
+        grant: ['teamster',1],
+        trait: ['gravity_well'],
+        cost: {
+            Knowledge(){ return 28262; }
+        },
+        effect(){ return loc('tech_osha_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                global.civic.teamster.stress = 6;
+                return true;
+            }
+            return false;
+        }
+    },
+    blackmarket: {
+        id: 'tech-blackmarket',
+        title(){ return loc('tech_blackmarket'); },
+        desc(){ return loc('tech_blackmarket'); },
+        category: 'transport',
+        era: 'industrialized',
+        reqs: { teamster: 1, currency: 5 },
+        grant: ['teamster',2],
+        trait: ['gravity_well'],
+        cost: {
+            Knowledge(){ return 40666; }
+        },
+        effect(){ return loc('tech_blackmarket_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
+    pipelines: {
+        id: 'tech-pipelines',
+        title(){ return loc('tech_pipelines'); },
+        desc(){ return loc('tech_pipelines'); },
+        category: 'transport',
+        era: 'globalized',
+        reqs: { teamster: 2, high_tech: 6 },
+        grant: ['teamster',3],
+        trait: ['gravity_well'],
+        cost: {
+            Knowledge(){ return 95000; }
+        },
+        effect(){ return loc('tech_pipelines_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
                 return true;
             }
             return false;
@@ -499,6 +666,53 @@ const techs = {
         action(){
             if (payCosts($(this)[0])){
                 global.race.psychicPowers['cash'] = 0;
+                return true;
+            }
+            return false;
+        },
+        post(){
+            renderPsychicPowers();
+        }
+    },
+    psychic_channeling: {
+        id: 'tech-psychic_channeling',
+        title: loc('tech_psychic_channeling'),
+        desc: loc('tech_psychic_channeling'),
+        category: 'eldritch',
+        era: 'deep_space',
+        reqs: { psychic: 3, high_tech: 10 },
+        trait: ['psychic'],
+        grant: ['psychic',4],
+        cost: {
+            Knowledge(){ return 360000; }
+        },
+        effect: loc('tech_psychic_channeling_effect'),
+        action(){
+            if (payCosts($(this)[0])){
+                global.race.psychicPowers['channel'] = { cash: 0, assault: 0, boost: 0 };
+                return true;
+            }
+            return false;
+        },
+        post(){
+            renderPsychicPowers();
+        }
+    },
+    psychic_efficiency: {
+        id: 'tech-psychic_efficiency',
+        title: loc('tech_psychic_efficiency'),
+        desc: loc('tech_psychic_efficiency'),
+        category: 'eldritch',
+        era: 'intergalactic',
+        reqs: { psychic: 4, high_tech: 16 },
+        trait: ['psychic'],
+        grant: ['psychic',5],
+        cost: {
+            Knowledge(){ return 5250000; }
+        },
+        effect: loc('tech_psychic_efficiency_effect'),
+        action(){
+            if (payCosts($(this)[0])){
                 return true;
             }
             return false;
@@ -4886,7 +5100,7 @@ const techs = {
         grant: ['corrupt',2],
         trait: ['witch_hunter'],
         cost: {
-            Mana(){ return 50000; },
+            Mana(){ return global.race['no_plasmid'] ? 10000 : 30000; },
             Knowledge(){ return 18500000; },
             Corrupt_Gem(){ return 1; }
         },
@@ -10970,7 +11184,7 @@ const techs = {
             return global.race['universe'] === 'magic' && global.race['witch_hunter'] ? true : false;
         },
         cost: {
-            Mana(){ return 25000; },
+            Mana(){ return global.race['no_plasmid'] ? 6000 : 15000; },
             Knowledge(){ return 20000000; }
         },
         effect(){ return loc('tech_improved_concealment_effect'); },
@@ -10993,7 +11207,7 @@ const techs = {
             return global.race['universe'] === 'magic' && global.race['witch_hunter'] ? true : false;
         },
         cost: {
-            Mana(){ return 60000; },
+            Mana(){ return global.race['no_plasmid'] ? 12000 : 40000; },
             Knowledge(){ return 60000000; },
             Demonic_Essence(){ return 1; }
         },

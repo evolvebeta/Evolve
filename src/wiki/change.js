@@ -3,6 +3,52 @@ import { clearElement } from './../functions.js';
 
 const changeList = [
     {
+        version: `1.3.10`,
+        date: `9/9/2023`,
+        changes: [
+            `Added Gravity Well challenge mode.`,
+            `Prepping the Bioseed ship for launch now has a Helium-3 cost.`
+        ]
+    },
+    {
+        version: `1.3.9`,
+        date: `8/20/2023`,
+        changes: [
+            `Pressing the same tab key multiple times will now cycle the subtabs.`,
+            `Reduced Mana costs of Improved Concealment, Study Corrupt Gem, & Outerplane Summon in Witch Hunter for non-gold star players.`,
+            `Fixed Bilateral Symmetry DNA bonus.`,
+            `Updated Korean and Chinese langs.`,
+            `Screen Reader improvement for achievements display.`
+        ]
+    },
+    {
+        version: `1.3.8`,
+        revision: `a`,
+        date: `6/1/2023`,
+        changes: [
+            `Fixed high pop scaling.`,
+        ]
+    },
+    {
+        version: `1.3.8`,
+        date: `6/1/2023`,
+        changes: [
+            `Unfathomable bug fixes.`,
+            `Psychic powers up time now scale with rank of Ancient Nightmare.`,
+            `Additional Psychic power upgrades.`,
+            `Intergalactic Raider renamed to Corsair.`,
+        ]
+    },
+    {
+        version: `1.3.7`,
+        revision: `a`,
+        date: `5/30/2023`,
+        changes: [
+            `Fixed issue with drawing the same alien species twice in intergalactic content.`,
+            `Adjusted Mana costs for some research techs in Witch Hunter.`,
+        ]
+    },
+    {
         version: `1.3.7`,
         date: `5/29/2023`,
         changes: [
@@ -14,7 +60,7 @@ const changeList = [
             `Reduced Crystal cost of Alchemy.`,
             `Fixed Humpback trait rank scaling.`,
             `Infiltrator can now steal Alien Biotech on Truepath.`,
-            `Fixed brownout issue with using Replicator Gov task when construting a new powered building.`,
+            `Fixed brownout issue with using Replicator Gov task when constructing a new powered building.`,
             `Fixed rejuvenated trashed planet bonus.`,
             `Fixed orbit period on reterraformed planets.`,
         ]

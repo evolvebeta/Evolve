@@ -1756,7 +1756,7 @@ function smolderAdjust(costs, offset, wiki){
                 let adjustRate = res === 'Plywood' ? 2 : 1;
                 newCosts['Chrysotile'] = function(){ return Math.round(costs[res](offset, wiki) * adjustRate) || 0; }
             }
-            else if (['HellArmy','Structs','Chrysotile','Knowledge','Custom','Soul_Gem','Plasmid','Phage','Dark','Harmony','Blood_Stone','Artifact','Corrupt_Gem','Codex','Demonic_Essence','Horseshoe'].includes(res)){
+            else if (['HellArmy','Structs','Chrysotile','Knowledge','Custom','Soul_Gem','Plasmid','Phage','Dark','Harmony','Blood_Stone','Artifact','Corrupt_Gem','Codex','Demonic_Essence','Horseshoe','Mana','Energy'].includes(res)){
                 newCosts[res] = function(){ return costs[res](offset, wiki); }
             }
             else {
@@ -2205,7 +2205,7 @@ export function trickOrTreatBind(id,trick){
 }
 
 function single_emblem(achieve,size,icon,iconName,fool,uAffix){
-    return global.stats.achieve[achieve] && (fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]) > 0 ? `<p class="flair" title="${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}"><svg class="star${fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]}" version="1.1" x="0px" y="0px" width="${size}px" height="${size}px" viewBox="${svgViewBox(icon)}" xml:space="preserve">${svgIcons(icon)}</svg></p>` : '';
+    return global.stats.achieve[achieve] && (fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]) > 0 ? `<p class="flair" title="${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}"><svg class="star${fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]}" version="1.1" x="0px" y="0px" width="${size}px" height="${size}px" viewBox="${svgViewBox(icon)}" xml:space="preserve">${svgIcons(icon)}</svg><span class="is-sr-only">${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}</span></p>` : '';
 }
 
 export function format_emblem(achieve,size,baseIcon,fool,universe){
@@ -2817,7 +2817,8 @@ const traitExtra = {
         loc(`wiki_trait_effect_flier_ex1`)
     ],
     unfathomable: [
-        loc(`wiki_trait_effect_unfathomable_ex1`)
+        loc(`wiki_trait_effect_unfathomable_ex1`),
+        loc(`wiki_trait_effect_unfathomable_ex2`)
     ]
 };
 
