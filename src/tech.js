@@ -1616,7 +1616,6 @@ const techs = {
         cost: {
             Knowledge(){ return 7920; }
         },
-        effect: loc('tech_magic_effect'),
         effect(){ return global.race.universe === 'magic' ? loc('tech_illusionist_effect') : loc('tech_magic_effect'); },
         action(){
             if (payCosts($(this)[0])){
@@ -5020,9 +5019,6 @@ const techs = {
             return `<div>${loc('tech_demonic_infusion_effect')}</div><div class="has-text-special">${loc('tech_demonic_infusion_effect2',[calcPrestige('descend').artifact])}</div>`;
         },
         action(){
-            if (!global['sim']){
-                save.setItem('evolveBak',LZString.compressToUTF16(JSON.stringify(global)));
-            }
             if (payCosts($(this)[0])){
                 descension();
             }
@@ -5129,27 +5125,6 @@ const techs = {
         effect(){ return loc('tech_soul_binding_effect'); },
         action(){
             if (payCosts($(this)[0])){
-                return true;
-            }
-            return false;
-        }
-    },
-    soul_capacitor: {
-        id: 'tech-soul_capacitor',
-        title: loc('tech_soul_capacitor'),
-        desc: loc('tech_soul_capacitor'),
-        category: 'hell_dimension',
-        era: 'intergalactic',
-        reqs: { forbidden: 1 },
-        grant: ['forbidden',2],
-        trait: ['witch_hunter'],
-        cost: {
-            Knowledge(){ return 19500000; }
-        },
-        effect(){ return loc('tech_soul_capacitor_effect'); },
-        action(){
-            if (payCosts($(this)[0])){
-                global.portal['soul_capacitor'] = { count: 0, on: 0, energy: 0, ecap: 0 };
                 return true;
             }
             return false;
@@ -7165,7 +7140,6 @@ const techs = {
             Knowledge(){ return 33750; },
             Oil(){ return 1500; }
         },
-        effect: loc('tech_machine_gun_effect'),
         effect(){ return global.race.universe === 'magic' ? loc('tech_fire_mage_effect') : loc('tech_machine_gun_effect'); },
         action(){
             if (payCosts($(this)[0])){
@@ -11225,7 +11199,6 @@ const techs = {
         desc: loc('tech_dark_bomb'),
         category: 'hell_dimension',
         era: 'dimensional',
-        reqs: {},
         reqs: { hell_spire: 10, b_stone: 2, waygate: 2, sphinx_bribe: 1 },
         condition(){
             let affix = universeAffix();
