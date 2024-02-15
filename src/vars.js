@@ -1168,9 +1168,16 @@ if (convertVersion(global['version']) < 103002){
     }
 }
 
-global['version'] = '1.3.10';
+if (convertVersion(global['version']) < 103011){
+    if (global.city.hasOwnProperty('slave_pen') && global.city.slave_pen.hasOwnProperty('slaves')){
+        global.resource.Slave.amount = global.city.slave_pen.slaves;
+        delete global.city.slave_pen.slaves;
+    }
+}
+
+global['version'] = '1.3.11';
 delete global['revision'];
-global['beta'] = 5;
+global['beta'] = 1;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -1414,6 +1421,9 @@ if (typeof global.settings.sPackMsg === 'undefined'){
 }
 if (typeof global.settings.expose === 'undefined'){
     global.settings['expose'] = false;
+}
+if (typeof global.settings.alwaysPower === 'undefined'){
+    global.settings['alwaysPower'] = false;
 }
 if (typeof global.settings.tabLoad === 'undefined'){
     global.settings['tabLoad'] = false;
@@ -1659,7 +1669,12 @@ else if (global.race !== undefined && global.race.species === 'wendigo'){
     }
 }
 
+if (!global.settings['queuestyle']){
+    global.settings['queuestyle'] = 'standardqueuestyle';
+}
+
 $('html').addClass(global.settings.theme);
+$('html').addClass(global.settings.queuestyle);
 
 if (!global.settings['at']){
     global.settings['at'] = 0;
