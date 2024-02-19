@@ -3,8 +3,8 @@ import { vBind, clearElement, popover, clearPopper, timeFormat, powerCostMod, sp
 import { unlockAchieve, alevel, universeAffix } from './achieve.js';
 import { traits, races, fathomCheck } from './races.js';
 import { defineResources, spatialReasoning } from './resources.js';
-import { loadFoundry, jobScale } from './jobs.js';
-import { armyRating, govCivics, garrisonSize } from './civics.js';
+import { loadFoundry, jobScale, limitCraftsmen } from './jobs.js';
+import { armyRating, govCivics, garrisonSize, mercCost } from './civics.js';
 import { payCosts, powerOnNewStruct, setAction, drawTech, bank_vault, updateDesc } from './actions.js';
 import { checkRequirements, incrementStruct, astrialProjection, ascendLab } from './space.js';
 import { production } from './prod.js';
@@ -95,6 +95,7 @@ const fortressModules = {
                 if (payCosts($(this)[0])){
                     incrementStruct('carport','portal');
                     global.civic.hell_surveyor.display = true;
+                    global.civic.hell_surveyor.max += jobScale(1);
                     global.resource.Infernite.display = true;
                     if (!global.tech['infernite']){
                         global.tech['infernite'] = 1;
@@ -646,11 +647,12 @@ const fortressModules = {
                     incrementStruct('archaeology','portal');
                     global.civic.archaeologist.display = true;
                     if (powerOnNewStruct($(this)[0])){
-                        if (global.civic[global.civic.d_job].workers > 0){
-                            let hired = global.civic[global.civic.d_job].workers - jobScale(2) < 0 ? global.civic[global.civic.d_job].workers : jobScale(2);
-                            global.civic[global.civic.d_job].workers -= hired;
-                            global.civic.archaeologist.workers += hired;
-                        }
+                        let hiredMax = jobScale(2);
+                        global.civic.archaeologist.max += hiredMax;
+
+                        let hired = Math.min(hiredMax, global.civic[global.civic.d_job].workers);
+                        global.civic[global.civic.d_job].workers -= hired;
+                        global.civic.archaeologist.workers += hired;
                     }  
                     return true;
                 }
@@ -746,15 +748,7 @@ const fortressModules = {
                 loadFoundry();
             },
             postPower(on){
-                if (!on){
-                    if (global.portal.hell_forge.on < global.city.foundry.Scarletite){
-                        let diff = global.city.foundry.Scarletite - global.portal.hell_forge.on;
-                        global.civic.craftsman.workers -= diff;
-                        global.city.foundry.crafting -= diff;
-                        global.city.foundry.Scarletite -= diff;
-                    }
-                }
-                loadFoundry();
+                limitCraftsmen('Scarletite');
             }
         },
         inferno_power: {
@@ -2120,17 +2114,7 @@ export function buildFortress(parent,full){
                 let repeats = keyMultiplier();
                 let canBuy = true;
                 while (canBuy && repeats > 0){
-                    let cost = Math.round((1.24 ** global.civic.garrison.workers) * 75) - 50;
-                    if (cost > 25000){
-                        cost = 25000;
-                    }
-                    if (global.civic.garrison.m_use > 0){
-                        cost *= 1.1 ** global.civic.garrison.m_use;
-                    }
-                    if (global.race['brute']){
-                        cost = cost / 2;
-                    }
-                    cost = Math.round(cost);
+                    let cost = mercCost();
                     if (global.civic['garrison'].workers < global.civic['garrison'].max && global.resource.Money.amount >= cost){
                         global.resource.Money.amount -= cost;
                         global.civic['garrison'].workers++;

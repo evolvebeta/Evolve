@@ -3,7 +3,7 @@ import { vBind, clearElement, popover, clearPopper, messageQueue, powerCostMod, 
 import { races, traits } from './races.js';
 import { spatialReasoning } from './resources.js';
 import { armyRating, garrisonSize } from './civics.js';
-import { jobScale, job_desc, loadFoundry } from './jobs.js';
+import { jobScale, job_desc, loadFoundry, limitCraftsmen } from './jobs.js';
 import { production, highPopAdjust } from './prod.js';
 import { actions, payCosts, powerOnNewStruct, setAction, drawTech, bank_vault, buildTemplate, casinoEffect, housingLabel } from './actions.js';
 import { fuel_adjust, int_fuel_adjust, spaceTech, renderSpace, checkRequirements, planetName } from './space.js';
@@ -188,11 +188,13 @@ const outerTruth = {
                     global.civic.titan_colonist.display = true;
                     if (powerOnNewStruct($(this)[0])){
                         global.resource[global.race.species].max += jobScale(1);
-                        if (global.civic[global.civic.d_job].workers > 0){
-                            let hired = global.civic[global.civic.d_job].workers - jobScale(1) < 0 ? global.civic[global.civic.d_job].workers : jobScale(1);
-                            global.civic[global.civic.d_job].workers -= hired;
-                            global.civic.titan_colonist.workers += hired;
-                        }
+
+                        let hiredMax = jobScale(1);
+                        global.civic.titan_colonist.max += hiredMax;
+
+                        let hired = Math.min(hiredMax, global.civic[global.civic.d_job].workers);
+                        global.civic[global.civic.d_job].workers -= hired;
+                        global.civic.titan_colonist.workers += hired;
                     }
                     return true;
                 }
@@ -717,6 +719,12 @@ const outerTruth = {
                     return true;
                 }
                 return false;
+            },
+            post(){
+                loadFoundry();
+            },
+            postPower(on){
+                limitCraftsmen('Quantium');
             }
         },
         operating_base: {
@@ -1556,12 +1564,13 @@ const tauCetiModules = {
                         global.tauceti.orbital_station.on++;
                         global.tauceti.colony.on++;
                         global.tauceti.mining_pit.on++;
-                        let jRequest = jobScale(4);
-                        if (global.civic[global.civic.d_job].workers < jRequest){
-                            jRequest = global.civic[global.civic.d_job].workers;
-                        }
-                        global.civic.pit_miner.workers += jRequest;
-                        global.civic[global.civic.d_job].workers -= jRequest;
+
+                        let hiredMax = jobScale(4);
+                        global.civic.pit_miner.max += hiredMax;
+
+                        let hired = Math.min(hiredMax, global.civic[global.civic.d_job].workers);
+                        global.civic[global.civic.d_job].workers -= hired;
+                        global.civic.pit_miner.workers += hired;
                     }
                     if (global.settings.tabLoad){
                         drawShips();
@@ -2224,6 +2233,10 @@ const tauCetiModules = {
                     messageQueue(loc('tau_plague4',[loc('tab_tauceti')]),'info',false,['progress']);
                     drawTech();
                 }
+                loadFoundry();
+            },
+            postPower(on){
+                limitCraftsmen('Quantium');
             }
         },
         tauceti_casino: {
@@ -3495,7 +3508,7 @@ function matrixProjection(){
 }
 
 function retireProjection(){
-    let gains = calcPrestige('retire');
+    let gains = calcPrestige('retired');
     let plasmidType = global.race.universe === 'antimatter' ? loc('resource_AntiPlasmid_plural_name') : loc('resource_Plasmid_plural_name');
     let skilled = global.stats.retire + 1 === global.stats.matrix ? `<div class="has-text-advanced">${loc('tau_star_matrix_skilled',[1])}</div>` : ``;
     return `<div class="has-text-advanced">${loc('interstellar_ascension_trigger_effect2',[gains.plasmid,plasmidType])}</div><div class="has-text-advanced">${loc('interstellar_ascension_trigger_effect2',[gains.phage,loc('resource_Phage_name')])}</div><div class="has-text-advanced">${loc('tau_star_matrix_servants',[1])}</div>${skilled}`;
