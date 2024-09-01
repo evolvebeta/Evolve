@@ -638,6 +638,10 @@ export function tagEvent(event, data){
 }
 
 export function modRes(res,val,notrack,buffer){
+    if(res === 'Food' && global.race['fasting']){
+        global.resource[res].amount = 0;
+        return false;
+    }
     let count = global.resource[res].amount + val;
     let success = true;
     if (count > global.resource[res].max && global.resource[res].max != -1){
@@ -2026,6 +2030,9 @@ export function svgIcons(icon){
             return `<g transform="translate(0 -1036.4)">
             <path style="stroke-linejoin:round;stroke:#ffbf00;stroke-width:.25;" d="m3.4724 8.5186 3.0305-7.0711h6.9448l-5.0192 5.0823h4.1353l-8.1128 9.0914 2.0834-7.1342z" transform="translate(0 1036.4)"/>
           </g>`;
+        case 'meat':
+            return `<path d="M0.26,147.54c0.03,9.81,8.69,19.93,16.89,24.05c5.21,2.61,8.18,9.46,12.72,13.81c5.23,5.01,10.4,11.42,16.8,13.59 c17.18,5.81,35.19-14.63,32.08-29.95c-1.06-5.24-0.61-12.9,2.51-16.31c3.18-3.47,10.44-3.48,16.02-4.26 c12.61-1.76,25.38-2.53,37.9-4.76c6.75-1.2,14.1-3.23,19.48-7.22c11.88-8.81,24.21-17.81,33.6-29.08 c14.98-17.96,15.19-45.27,3.06-65.42c-4.04-6.72-7.15-14.9-12.95-19.46c-11.04-8.66-23.71-15.23-35.79-22.5  c-0.41-0.25-2.4,1.08-2.71,2c-0.62,1.82-0.58,3.86-0.82,5.81c-0.56,4.48-1.93,7.93-4.65,12.19c-6.13,9.62-14.8,8.16-22.83,10.88 c-4.74,1.61-8.27,6.55-12.73,9.39c-4.74,3.01-9.7,6.25-15.01,7.52c-2.92,0.7-7.29-1.75-10.06-3.98c-8.91-7.2-11.87-0.5-13.71,6.14  c-3.48,12.54-6.44,25.26-8.8,38.06c-1.1,5.97-0.3,12.29-0.37,18.45c-0.12,10.04-5.06,15.03-15.05,14.97  c-4.4-0.03-8.83-0.87-13.17-0.52C14.13,121.63-2.27,136.46,0.26,147.54z"/>`;
+               
     }
 }
 
@@ -2101,6 +2108,8 @@ export function svgViewBox(icon){
             return `0 0 552 495`;
         case 'lightning':
             return `0 0 16 16`;
+        case 'meat':
+            return `0 0 200 200`;
     }
 }
 
@@ -2157,6 +2166,8 @@ export function getBaseIcon(name,type){
                 return 'turkey';
             case 'xmas':
                 return 'present';
+            case 'immortal':
+                return 'meat';
             default:
                 return 'star';
         }
@@ -2561,12 +2572,13 @@ export function getEaster(){
         global.special.egg[year]['egg18'] = false;
     }
 
+    // `month` is the 1-12 month when easter ends, `day` the 1-31 day it begins. Easter event has constant number of days.
 	let f = Math.floor,
 		// Golden Number - 1
 		G = year % 19,
 		C = f(year / 100),
 		// related to Epact
-		H = (C - f(C / 4) - f((8 * C + 13)/25) + 19 * G + 15) % 30,
+		H = (C - f(C / 4) - f((8 * C + 13)/25) + 19 * G + 15) % 30,
 		// number of days from 21 March to the Paschal full moon
 		I = H - f(H/28) * (1 - f(29/(H + 1)) * f((21-G)/11)),
 		// weekday for the Paschal full moon
@@ -2606,12 +2618,17 @@ export function getEaster(){
         easter.solveDate[0]++;
     }
 
-    if (date.getMonth() >= easter.date[0] && date.getDate() >= easter.date[1] && date.getMonth() <= easter.endDate[0] && date.getDate() <= easter.endDate[1]){
+    let cur_day = date.getDate();
+    let cur_month = date.getMonth();
+
+    const isAfterBeginning = cur_month > easter.date[0] || (cur_month === easter.date[0] && cur_day >= easter.date[1]);
+    const isBeforeEnd = cur_month < easter.endDate[0] || (cur_month === easter.endDate[0] && cur_day <= easter.endDate[1]);
+    if (isAfterBeginning && isBeforeEnd){
         easter.active = true;
-        if (date.getMonth() >= easter.hintDate[0] && date.getDate() >= easter.hintDate[1] && date.getMonth() <= easter.endDate[0] && date.getDate() <= easter.endDate[1]){
+        if (cur_month >= easter.hintDate[0] && cur_day >= easter.hintDate[1] && cur_month <= easter.endDate[0] && cur_day <= easter.endDate[1]){
             easter.hint = true;
         }
-        if (date.getMonth() >= easter.solveDate[0] && date.getDate() >= easter.solveDate[1] && date.getMonth() <= easter.endDate[0] && date.getDate() <= easter.endDate[1]){
+        if (cur_month >= easter.solveDate[0] && cur_day >= easter.solveDate[1] && cur_month <= easter.endDate[0] && cur_day <= easter.endDate[1]){
             easter.solve = true;
         }
     }
