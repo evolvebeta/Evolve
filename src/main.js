@@ -2386,33 +2386,33 @@ function fastLoop(){
             global.portal.guard_post.support = global.portal.guard_post.on;
         }
 
-        // Harbour
-        if (global.portal['harbour']){
-            global.portal.harbour.s_max = p_on['harbour'] * actions.portal.prtl_lake.harbour.support();
+        // harbor
+        if (global.portal['harbor']){
+            global.portal.harbor.s_max = p_on['harbor'] * actions.portal.prtl_lake.harbor.support();
 
             let used_support = 0;
-            let harbour_structs = global.support.lake.map(x => x.split(':')[1]);
-            for (var i = 0; i < harbour_structs.length; i++){
-                if (global.portal[harbour_structs[i]]){
-                    let operating = global.portal[harbour_structs[i]].on;
-                    let id = actions.portal.prtl_lake[harbour_structs[i]].id;
-                    if (used_support + operating > global.portal.harbour.s_max){
-                        operating -= (used_support + operating) - global.portal.harbour.s_max;
+            let harbor_structs = global.support.lake.map(x => x.split(':')[1]);
+            for (var i = 0; i < harbor_structs.length; i++){
+                if (global.portal[harbor_structs[i]]){
+                    let operating = global.portal[harbor_structs[i]].on;
+                    let id = actions.portal.prtl_lake[harbor_structs[i]].id;
+                    if (used_support + operating > global.portal.harbor.s_max){
+                        operating -= (used_support + operating) - global.portal.harbor.s_max;
                         $(`#${id} .on`).addClass('warn');
-                        $(`#${id} .on`).prop('title',`ON ${operating}/${global.portal[harbour_structs[i]].on}`);
+                        $(`#${id} .on`).prop('title',`ON ${operating}/${global.portal[harbor_structs[i]].on}`);
                     }
                     else {
                         $(`#${id} .on`).removeClass('warn');
                         $(`#${id} .on`).prop('title',`ON`);
                     }
-                    used_support += operating * -(actions.portal.prtl_lake[harbour_structs[i]].support());
-                    gal_on[harbour_structs[i]] = operating;
+                    used_support += operating * -(actions.portal.prtl_lake[harbor_structs[i]].support());
+                    gal_on[harbor_structs[i]] = operating;
                 }
                 else {
-                    gal_on[harbour_structs[i]] = 0;
+                    gal_on[harbor_structs[i]] = 0;
                 }
             }
-            global.portal.harbour.support = used_support;
+            global.portal.harbor.support = used_support;
         }
 
         // Purifier
@@ -2669,7 +2669,7 @@ function fastLoop(){
                 area: 'portal',
                 region: 'prtl_lake',
                 ships: ['bireme','transport'],
-                req: 'harbour'
+                req: 'harbor'
             }
         ];
 
@@ -3520,7 +3520,7 @@ function fastLoop(){
                         if (global.race['atrophy']){
                             atrophy = traits.atrophy.vars()[0];
                         }
-                        if(global.portal && global.portal['dish_life_infuser'] && global.portal['dish_life_infuser'].on){
+                        if(global.portal['dish_life_infuser'] && global.portal['dish_life_infuser'].on){
                             infusion = 0.95 ** global.portal['dish_life_infuser'].on;
                         }
                         threshold += digestion + humpback + meditators;
@@ -3783,7 +3783,7 @@ function fastLoop(){
         if (global.race['malnutrition'] && fed === false){
             hunger += traits.malnutrition.vars()[0] / 100;
         }
-        if(global.portal && global.portal['dish_soul_steeper'] && global.portal['dish_soul_steeper'].on){
+        if(global.portal['dish_soul_steeper'] && global.portal['dish_soul_steeper'].on){
             hunger -= (0.03 + (global.race['malnutrition'] ? 0.01 : 0) + (global.race['angry'] ? -0.01 : 0)) * global.portal['dish_soul_steeper'].on;
         }
         hunger = Math.max(hunger, 0);
@@ -5129,8 +5129,8 @@ function fastLoop(){
             modRes('Cipher', delta * time_multiplier);
         }
         
-        if(global.tech['dish'] && global.tech['dish'] === 1 && global.portal['devilish_dish'].done >= 1){
-            global.tech['dish'] = 2;
+        if(global.portal['oven_complete'] && p_on['oven_complete'] && !global.tech['dish_reset'] && global.portal['devilish_dish'].done >= 100){
+            global.tech['dish_reset'] = 1;
             drawTech();
         }
 
@@ -8290,11 +8290,11 @@ function midLoop(){
             };
         }
 
-        if (global.portal['harbour'] && p_on['harbour']){
-            let label = loc('portal_harbour_title');
-            for (const res of actions.portal.prtl_lake.harbour.res()){
+        if (global.portal['harbor'] && p_on['harbor']){
+            let label = loc('portal_harbor_title');
+            for (const res of actions.portal.prtl_lake.harbor.res()){
                 if (global.resource[res].display){
-                    let gain = p_on['harbour'] * spatialReasoning(actions.portal.prtl_lake.harbour.val(res));
+                    let gain = p_on['harbor'] * spatialReasoning(actions.portal.prtl_lake.harbor.val(res));
                     caps[res] += gain;
                     breakdown.c[res][label] = gain+'v';
                 }
@@ -11466,22 +11466,30 @@ function longLoop(){
         else if (global.tech['tau_gas'] && global.tech.tau_gas >= 4 && !global.tech['plague'] && global.race['lone_survivor']){
             global.tech['plague'] = 5;
         }
-
-        if(global.tech['dish'] >= 1 && global.portal['dish_soul_steeper'].on && global.portal['spire'] && global.portal['spire'].count){
-            let progress = 0.00002 * global.portal['dish_soul_steeper'].on;
-            let hunger = 0.5;
-            if (global.race['angry']){
-                hunger -= traits.angry.vars()[0] / 100;
+        if(global.race['fasting'] && p_on['oven_complete']){
+            let progress = 0.001;
+            if(global.portal['dish_life_infuser'] && global.portal['dish_life_infuser'].on){
+                let hunger = 0.5;
+                if (global.race['angry']){
+                    hunger -= traits.angry.vars()[0] / 100;
+                }
+                if (global.race['malnutrition']){
+                    hunger += traits.malnutrition.vars()[0] / 100;
+                }
+                let working = Math.min(global.portal['dish_life_infuser'].on, Math.floor(hunger / 0.02));
+                progress *= 1 + (0.15 * working);
             }
-            if (global.race['malnutrition']){
-                hunger += traits.malnutrition.vars()[0] / 100;
+            if(global.portal['dish_soul_steeper'] && global.portal['dish_soul_steeper'].on && global.portal['spire']){
+                progress *= 1 + (0.05 * global.portal['spire'].count * global.portal['dish_soul_steeper'].on);
             }
-            let working = Math.min(global.portal['dish_life_infuser'].on, Math.floor(hunger / 0.02));
-            progress *= 1 + (0.07 * working);
-            progress *= 1.06 ** global.portal['spire'].count;
             global.portal['devilish_dish'].done += progress;
-            global.portal['devilish_dish'].done = Math.min(global.portal['devilish_dish'].done, 1);
-            global.portal['devilish_dish'].count = Math.floor(global.portal['devilish_dish'].done * 100);
+            global.portal['devilish_dish'].done = Math.min(global.portal['devilish_dish'].done, 100);
+            global.portal['devilish_dish'].count = Math.floor(global.portal['devilish_dish'].done);
+            if(global.portal['devilish_dish'].done >= 0.05 && global.tech['dish'] === 3){
+                messageQueue(loc('dish_progress'),'info',false,['progress']);
+                global.tech['dish'] = 4;
+                drawTech();
+            }
         }
 
         if (global.civic.govern['protest'] && global.civic.govern.protest > 0){
