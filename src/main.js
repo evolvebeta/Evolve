@@ -7,11 +7,11 @@ import { defineResources, resource_values, spatialReasoning, craftCost, plasmidB
 import { defineJobs, job_desc, loadFoundry, farmerValue, jobScale, workerScale, limitCraftsmen, loadServants} from './jobs.js';
 import { defineIndustry, f_rate, manaCost, setPowerGrid, gridEnabled, gridDefs, nf_resources, replicator, luxGoodPrice } from './industry.js';
 import { checkControlling, garrisonSize, armyRating, govTitle, govCivics, govEffect, weaponTechModifer } from './civics.js';
-import { actions, updateDesc, checkTechRequirements, drawEvolution, BHStorageMulti, storageMultipler, checkAffordable, drawCity, drawTech, gainTech, housingLabel, updateQueueNames, wardenLabel, planetGeology, resQueue, bank_vault, start_cataclysm, orbitDecayed, postBuild, skipRequirement } from './actions.js';
+import { actions, updateDesc, checkTechRequirements, drawEvolution, BHStorageMulti, storageMultipler, checkAffordable, drawCity, drawTech, gainTech, housingLabel, updateQueueNames, wardenLabel, planetGeology, resQueue, bank_vault, start_cataclysm, orbitDecayed, postBuild, skipRequirement, structName } from './actions.js';
 import { renderSpace, convertSpaceSector, fuel_adjust, int_fuel_adjust, zigguratBonus, planetName, genPlanets, setUniverse, universe_types, gatewayStorage, piracy, spaceTech, universe_affixes } from './space.js';
 import { renderFortress, bloodwar, soulForgeSoldiers, hellSupression, genSpireFloor, mechRating, mechCollect, updateMechbay } from './portal.js';
 import { renderTauCeti, syndicate, shipFuelUse, spacePlanetStats, genXYcoord, shipCrewSize, tpStorageMultiplier, tritonWar, sensorRange, erisWar, calcAIDrift, drawMap, tauEnabled } from './truepath.js';
-import { arpa, buildArpa } from './arpa.js';
+import { arpa, buildArpa, sequenceLabs } from './arpa.js';
 import { events, eventList } from './events.js';
 import { govern, govActive, removeTask } from './governor.js';
 import { production, highPopAdjust, teamster } from './prod.js';
@@ -781,6 +781,10 @@ function fastLoop(){
     if (global.race['rainbow_active'] && global.race['rainbow_active'] > 1){
         breakdown.p['Global'][loc('trait_rainbow_bd')] = `${traits.rainbow.vars()[0]}%`;
         global_multiplier *= 1 + (traits.rainbow.vars()[0] / 100);
+    }
+    if (global.race['gloomy'] && global.city.calendar.weather <= 1){
+        breakdown.p['Global'][loc('trait_gloomy_name')] = `${traits.gloomy.vars()[0]}%`;
+        global_multiplier *= 1 + (traits.gloomy.vars()[0] / 100);
     }
     if (global.tech['world_control']){
         let bonus = 25;
@@ -2196,7 +2200,7 @@ function fastLoop(){
         if (p_on['red_factory'] && p_on['red_factory'] > 0){
             let h_consume = p_on['red_factory'] * fuel_adjust(1,true);
             modRes('Helium_3',-(h_consume * time_multiplier));
-            breakdown.p.consume.Helium_3[loc('space_red_factory_title')] = -(h_consume);
+            breakdown.p.consume.Helium_3[structName('factory')] = -(h_consume);
         }
 
         if (p_on['int_factory'] && p_on['int_factory'] > 0){
@@ -3610,7 +3614,9 @@ function fastLoop(){
                 // Do Nothing
             }
             else {
-                var lowerBound = global.tech['reproduction'] ? global.tech['reproduction'] : 0;
+                let lowerBound = global.tech['reproduction'] ? global.tech['reproduction'] : 0;
+                let upperBound = global['resource'][global.race.species].amount;
+
                 if (global.tech['reproduction'] && date.getMonth() === 1 && date.getDate() === 14){
                     lowerBound += 5;
                 }
@@ -3647,16 +3653,21 @@ function fastLoop(){
                 }
                 if (global.race['high_pop']){
                     lowerBound *= traits.high_pop.vars()[2];
+                    upperBound /= jobScale(1);
                 }
                 if (global.city.biome === 'taiga'){
                     lowerBound *= biomes.taiga.vars()[1];
                 }
-                let base = global.city.ptrait.includes('toxic') ? global['resource'][global.race.species].amount * planetTraits.toxic.vars()[1] : global['resource'][global.race.species].amount;
+                if (global.city.ptrait.includes('toxic')){
+                    upperBound *= planetTraits.toxic.vars()[1];
+                }
                 if (global.race['parasite'] && (global.race['cataclysm'] || global.race['orbit_decayed'])){
                     lowerBound = Math.round(lowerBound / 5);
-                    base *= 3;
+                    upperBound *= 3;
                 }
-                if(Math.rand(0, base * (3 - (2 ** time_multiplier))) <= lowerBound){
+
+                upperBound *= (3 - (2 ** time_multiplier));
+                if(Math.rand(0, upperBound) <= lowerBound){
                     global['resource'][global.race.species].amount++;
                 }
             }
@@ -3954,7 +3965,7 @@ function fastLoop(){
             }
 
             let gene_consume = 0;
-            if (global.arpa['sequence'] && global.arpa.sequence.on && global.arpa.sequence.time > 0){
+            if (global.arpa['sequence'] && global.arpa.sequence.on && global.arpa.sequence.time > 0 && sequenceLabs() > 0){
                 let gene_cost = 50 + (global.race.mutation * 10);
                 if (global.arpa.sequence.boost){
                     gene_cost *= 4;
@@ -5463,13 +5474,13 @@ function fastLoop(){
             if (global.race['cataclysm'] || global.race['orbit_decayed']){
                 if (global.tech['mars'] && support_on['red_mine']){
                     stone_base = support_on['red_mine'] * workerScale(global.civic.colonist.workers,'colonist') * production('red_mine','stone') * production('psychic_boost','Stone');
-                    breakdown.p['Stone'][loc('space_red_mine_title')] = stone_base + 'v';
+                    breakdown.p['Stone'][structName('mine')] = stone_base + 'v';
                     if (stone_base > 0){
                         breakdown.p['Stone'][`ᄂ${loc('space_red_ziggurat_title')}`] = ((zigVal - 1) * 100) + '%';
                     }
                     if (global.race['smoldering'] && global.resource.Chrysotile.display){
                         asbestos_base = support_on['red_mine'] * workerScale(global.civic.colonist.workers,'colonist') * production('red_mine','asbestos') * production('psychic_boost','Chrysotile');
-                        breakdown.p['Chrysotile'][loc('space_red_mine_title')] = asbestos_base + 'v';
+                        breakdown.p['Chrysotile'][structName('mine')] = asbestos_base + 'v';
                         if (asbestos_base > 0){
                             breakdown.p['Chrysotile'][`ᄂ${loc('space_red_ziggurat_title')}`] = ((zigVal - 1) * 100) + '%';
                         }
@@ -5538,7 +5549,7 @@ function fastLoop(){
 
                 delta *= 1 + (refinery / 100);
 
-                breakdown.p['Aluminium'][`${global.race['cataclysm'] || global.race['orbit_decayed'] ? loc('space_red_mine_title') : loc('workers')}+1`] = base + 'v';
+                breakdown.p['Aluminium'][`${global.race['cataclysm'] || global.race['orbit_decayed'] ? structName('mine') : loc('workers')}+1`] = base + 'v';
                 if (base > 0){
                     breakdown.p['Aluminium'][`ᄂ${loc('quarantine')}+0`] = ((q_multiplier - 1) * 100) + '%';
                 }
@@ -5973,7 +5984,7 @@ function fastLoop(){
 
                     delta *= 1 + (refinery / 100);
 
-                    breakdown.p['Aluminium'][`${global.race['cataclysm'] || global.race['orbit_decayed'] ? loc('space_red_mine_title') : loc('job_miner')}+2`] = base + 'v';
+                    breakdown.p['Aluminium'][`${global.race['cataclysm'] || global.race['orbit_decayed'] ? structName('mine') : loc('job_miner')}+2`] = base + 'v';
                     if ((global.race['cataclysm'] || global.race['orbit_decayed']) && base > 0 && zigVal > 0){
                         delta *= zigVal;
                         breakdown.p['Aluminium'][`ᄂ${loc('space_red_ziggurat_title')}`] = ((zigVal - 1) * 100) + '%';
@@ -6102,6 +6113,9 @@ function fastLoop(){
                 let bonus = 1 + (traits.resilient.vars()[0] * global.race['resilient'] / 100);
                 coal_base *= bonus;
             }
+            if (!global.race['living_tool']){
+                coal_base *= (global.tech['pickaxe'] && global.tech.pickaxe > 0 ? global.tech.pickaxe * 0.12 : 0) + 1;
+            }
             if (global.tech['explosives'] && global.tech['explosives'] >= 2){
                 coal_base *= global.tech['explosives'] >= 3 ? 1.4 : 1.25;
             }
@@ -6131,7 +6145,7 @@ function fastLoop(){
 
             if (global.race['cataclysm'] && support_on['iridium_mine']){
                 coal_base = support_on['iridium_mine'] * production('iridium_mine','coal');
-                coal_base *= global.civic.coal_miner.impact * production('psychic_boost','Coal');
+                coal_base *= production('psychic_boost','Coal');
                 breakdown.p['Coal'][loc('space_moon_iridium_mine_title')] = coal_base + 'v';
                 if (coal_base > 0){
                     breakdown.p['Coal'][`ᄂ${loc('space_red_ziggurat_title')}`] = ((zigVal - 1) * 100) + '%';
@@ -6641,7 +6655,7 @@ function fastLoop(){
 
             if (global.civic.hell_surveyor.workers > 0){
                 let rate = global.tech.infernite >= 3 ? 0.015 : 0.01;
-                let surveyor_base = workerScale(global.civic.hell_surveyor.workers,'hell_surveyor') * rate * production('psychic_boost','Infernite');
+                let surveyor_base = workerScale(highPopAdjust(global.civic.hell_surveyor.workers),'hell_surveyor') * rate * production('psychic_boost','Infernite');
 
                 let sensors = 1;
                 if (global.tech['infernite'] >= 2 && p_on['sensor_drone']){
@@ -7043,7 +7057,7 @@ function fastLoop(){
             breakdown.p['Money'][loc('morale_tax')] = (income_base) + 'v';
             if (income_base > 0){
                 breakdown.p['Money'][`ᄂ${loc('civics_spy_purchase_bd')}`] = -(upkeep) + 'v';
-                breakdown.p['Money'][global.race['cataclysm'] || global.race['orbit_decayed'] ? `ᄂ${loc('space_red_ziggurat_title')}` : `ᄂ${loc('city_temple')}`] = ((temple_mult - 1) * 100) + '%';
+                breakdown.p['Money'][global.race['cataclysm'] || global.race['orbit_decayed'] ? `ᄂ${loc('space_red_ziggurat_title')}` : `ᄂ${structName('temple')}`] = ((temple_mult - 1) * 100) + '%';
                 breakdown.p['Money'][`ᄂ${loc('city_shrine')}`] = ((getShrineResult.mult - 1) * 100) + '%';
             }
             breakdown.p['Money'][loc('city_factory')] = FactoryMoney + 'v';
@@ -7185,7 +7199,7 @@ function fastLoop(){
 
         if (global.tech['anthropology'] && global.tech['anthropology'] >= 4 && global.race['truepath']){
             let merchsales = global.resource[global.race.species].amount * global.city.temple.count * 0.08;
-            breakdown.p['Money'][loc('city_temple')] = (merchsales) + 'v';
+            breakdown.p['Money'][structName('temple')] = (merchsales) + 'v';
             modRes('Money', +(merchsales * global_multiplier * time_multiplier).toFixed(2));
             rawCash += merchsales * global_multiplier;
         }
@@ -7446,13 +7460,13 @@ function fastLoop(){
 
     let halloween = eventActive('halloween');
     if (halloween.active){
-        for (i=1; i<=7; i++){
+        for (i=1; i<=8; i++){
             if ($(`#treat${i}`).length > 0 && !$(`#treat${i}`).hasClass('binded')){
                 trickOrTreatBind(i,false);
                 $(`#treat${i}`).addClass('binded');
             }
         }
-        for (i=1; i<=7; i++){
+        for (i=1; i<=8; i++){
             if ($(`#trick${i}`).length > 0 && !$(`#trick${i}`).hasClass('binded')){
                 trickOrTreatBind(i,true);
                 $(`#trick${i}`).addClass('binded');
@@ -7994,7 +8008,8 @@ function midLoop(){
             lCaps['garrison'] += global.space.space_barracks.on * soldiers;
         }
         if (global.interstellar['cruiser']){
-            lCaps['garrison'] += int_on['cruiser'] * jobScale(3);
+            let soldiers = global.race['fasting'] ? jobScale(4) : jobScale(3);
+            lCaps['garrison'] += int_on['cruiser'] * soldiers;
         }
         if (p_on['s_gate'] && global.galaxy['starbase']){
             let soldiers = global.tech.marines >= 2 ? jobScale(8) : jobScale(5);
@@ -8837,7 +8852,7 @@ function midLoop(){
             lCaps['craftsman'] += jobScale(p_on['stellar_forge'] * 2);
         }
         if (global.portal['carport']){
-            lCaps['hell_surveyor'] += global.portal.carport.count - global.portal.carport.damaged;
+            lCaps['hell_surveyor'] += jobScale(global.portal.carport.count) - global.portal.carport.damaged;
         }
         if (p_on['archaeology']){
             lCaps['archaeologist'] += jobScale(p_on['archaeology'] * 2);
@@ -8905,7 +8920,7 @@ function midLoop(){
             if (global.tech['fanaticism'] && global.tech['fanaticism'] >= 3){
                 let r_count = global.race['cataclysm'] || global.race['orbit_decayed'] ? (global.space['ziggurat'] ? global.space.ziggurat.count : 0) : global.city.temple.count;
                 global.city.market.mtrade += r_count;
-                breakdown.t_route[global.race['cataclysm'] ? loc('space_red_ziggurat_title') : loc('city_temple')] = r_count;
+                breakdown.t_route[global.race['cataclysm'] ? loc('space_red_ziggurat_title') : structName('temple')] = r_count;
             }
         }
         if (global.city['wharf']){
@@ -9773,12 +9788,7 @@ function midLoop(){
         }
 
         if (global.arpa['sequence'] && global.arpa.sequence.on && gene_sequence){
-            let labs = global.race['cataclysm'] || global.race['orbit_decayed'] ? support_on['exotic_lab'] : p_on['biolab'];
-            if (global.tech['isolation']){ labs = support_on['infectious_disease_lab'] * 5; }
-            if (global.race['lone_survivor']){ labs += 2; }
-            if (labs > 0 && global.city.ptrait.includes('toxic')){
-                labs += planetTraits.toxic.vars()[0];
-            }
+            let labs = sequenceLabs();
             global.arpa.sequence.labs = labs;
             global.arpa.sequence.time -= global.arpa.sequence.boost ? labs * 2 : labs;
             global.arpa.sequence.progress = global.arpa.sequence.max - global.arpa.sequence.time;

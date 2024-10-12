@@ -1174,12 +1174,12 @@ function loadSpecialResource(name,color) {
 
     var res_container = $(`<div id="res${name}" class="resource" v-show="count"><span class="res has-text-${color}">${loc(`resource_${name}_name`)}</span><span class="count">{{ count | round }}</span></div>`);
     $('#resources').append(res_container);
-    
+
     vBind({
         el: `#res${name}`,
         data: global.prestige[name],
         filters: {
-            round(n){ return +(n).toFixed(3); }
+            round(n){ return n ? sizeApproximation(n, 3, false, true) : n; }
         }
     });
 
@@ -1435,8 +1435,7 @@ export function marketItem(mount,market_item,name,color,full){
                     }
                 }
             },
-            autoBuy(res){
-                let keyMult = keyMultiplier();
+            autoBuy(res, keyMult = keyMultiplier()){
                 for (let i=0; i<keyMult; i++){
                     if (govActive('dealmaker',0)){
                         let exporting = 0;
@@ -1469,8 +1468,7 @@ export function marketItem(mount,market_item,name,color,full){
                 }
                 tradeRouteColor(res);
             },
-            autoSell(res){
-                let keyMult = keyMultiplier();
+            autoSell(res, keyMult = keyMultiplier()){
                 for (let i=0; i<keyMult; i++){
                     if (global.resource[res].trade <= 0){
                         if (exportRouteEnabled(res) && global.city.market.trade < global.city.market.mtrade){
@@ -1489,9 +1487,12 @@ export function marketItem(mount,market_item,name,color,full){
                 tradeRouteColor(res);
             },
             zero(res){
-                global.city.market.trade -= Math.abs(global.resource[res].trade);
-                global.resource[res].trade = 0;
-                tradeRouteColor(res);
+                if (global.resource[res].trade > 0){
+                    this.autoSell(res, global.resource[res].trade);
+                }
+                else if (global.resource[res].trade < 0){
+                    this.autoBuy(res, -global.resource[res].trade);
+                }
             }
         },
         filters: {
