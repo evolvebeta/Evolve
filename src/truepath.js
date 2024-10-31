@@ -1,5 +1,5 @@
-import { global, p_on, support_on, sizeApproximation } from './vars.js';
-import { vBind, clearElement, popover, clearPopper, messageQueue, powerCostMod, powerModifier, spaceCostMultiplier, deepClone, calcPrestige, flib, darkEffect, adjustCosts, get_qlevel } from './functions.js';
+import { global, p_on, support_on, sizeApproximation, keyMap } from './vars.js';
+import { vBind, clearElement, popover, clearPopper, messageQueue, powerCostMod, powerModifier, spaceCostMultiplier, deepClone, calcPrestige, flib, darkEffect, adjustCosts, get_qlevel, timeCheck, buildQueue } from './functions.js';
 import { races, traits } from './races.js';
 import { spatialReasoning, unlockContainers } from './resources.js';
 import { armyRating, garrisonSize } from './civics.js';
@@ -45,7 +45,7 @@ const outerTruth = {
             path: ['truepath'],
             queue_complete(){ return global.tech.titan >= 1 ? 0 : 1; },
             cost: {
-                Helium_3(offset,wiki){ return +fuel_adjust(250000,false,wiki).toFixed(0); },
+                Helium_3(o,wiki){ return +fuel_adjust(250000,false,wiki).toFixed(0); },
                 Elerium(){ return 100; }
             },
             effect(){
@@ -601,6 +601,27 @@ const outerTruth = {
                 return false;
             },
             flair: loc(`tech_combat_droids_flair`)
+        },
+        wonder_gardens: {
+            id: 'space-wonder_gardens',
+            title(){
+                return loc('space_wonder_gardens',[planetName().titan]);
+            },
+            desc(){
+                return loc('space_wonder_gardens',[planetName().titan]);
+            },
+            reqs: {},
+            condition(){
+                return global.race['wish'] && global.race['wishStats'] && global.space['wonder_gardens'] ? true : false;
+            },
+            trait: ['wish'],
+            queue_complete(){ return false; },
+            effect(){
+                return loc(`city_wonder_effect`,[5]);
+            },
+            action(){
+                return false;
+            }
         },
     },
     spc_enceladus: {
@@ -1488,7 +1509,7 @@ const tauCetiModules = {
             support: 'orbital_station',
             extra(region){
                 if (global.tech['tau_home'] && global.tech.tau_home >= 2 && !tauEnabled()){
-                    $(`#${region}`).append(`<div id="${region}Mats" v-show="tauShow()" class="syndThreat has-text-warning">${loc('resource_Materials_name')} <span class="has-text-info">{{ amount | round }}</span> / <span class="has-text-info">{{ max }}</span></div>`);
+                    $(`#${region}`).append(`<div id="${region}Mats" v-show="tauShow()" class="syndThreat has-text-warning">${loc('resource_Materials_name')} <span class="has-text-info">{{ amount | round | locale }}</span> / <span class="has-text-info">{{ max | locale }}</span></div>`);
                     vBind({
                         el: `#${region}Mats`,
                         data: global.resource.Materials,
@@ -1500,6 +1521,9 @@ const tauCetiModules = {
                         filters: {
                             round(v){
                                 return +v.toFixed(0);
+                            },
+                            locale(v){
+                                return v.toLocaleString();
                             }
                         }
                     });
@@ -2171,7 +2195,7 @@ const tauCetiModules = {
                 desc = desc + `<div>${loc('tau_home_tau_factory_effect',[$(this)[0].manufacturing()])}</div>`;
                 if (global.tech['isolation']){
                     if (!global.race['flier']){
-                        desc = desc + `<div>${loc('city_cement_plant_effect1',[jobScale(2)])}</div>`;
+                        desc = desc + `<div>${loc('plus_max_resource',[jobScale(2),loc(`job_cement_worker`)])}</div>`;
                     }
                     desc = desc + `<div>${loc('space_red_fabrication_effect1',[jobScale(5)])}</div>`;
                 }
@@ -3071,7 +3095,7 @@ const tauCetiModules = {
                 }
                 let desc = `<div>${loc('production',[prod,tauCetiModules.tau_gas.info.name()])}</div>`;
                 if (!global.race['flier']){
-                    desc = desc + `<div>${loc('city_cement_plant_effect1',[jobScale(1)])}</div>`;
+                    desc = desc + `<div>${loc('plus_max_resource',[jobScale(1),loc(`job_cement_worker`)])}</div>`;
                 }
                 desc = desc + `<div>${loc('space_red_fabrication_effect1',[jobScale(1)])}</div>`;
                 desc = desc + `<div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
@@ -3807,33 +3831,32 @@ export function drawShipYard(){
                         Object.keys(raw).forEach(function(res){
                             costs[res] = function(){ return raw[res]; }
                         });
-                        if (payCosts(false, costs)){
+                        if (!(global.settings.qKey && keyMap.q) && payCosts(false, costs)){
                             let ship = deepClone(global.space.shipyard.blueprint);
-                            ship['location'] = 'spc_dwarf';
-                            ship['xy'] = genXYcoord('spc_dwarf');
-                            ship['origin'] = deepClone(ship['xy']);
-                            ship['destination'] = deepClone(ship['xy']);
-                            ship['transit'] = 0;
-                            ship['dist'] = 0;
-                            ship['damage'] = 0;
-                            ship['fueled'] = false;
-
-                            if (ship.name.length === 0){
-                                ship.name = getRandomShipName();
+                            buildTPShip(ship,false);
+                        }
+                        else {
+                            let used = 0;
+                            for (let j=0; j<global.queue.queue.length; j++){
+                                used += Math.ceil(global.queue.queue[j].q / global.queue.queue[j].qs);
                             }
-
-                            let num = 1;
-                            let name = ship.name;
-                            while (global.space.shipyard.ships.filter(s => s.name === name).length > 0){
-                                num++;
-                                name = ship.name + ` ${num}`;
+                            if (used < global.queue.max){
+                                let blueprint = deepClone(global.space.shipyard.blueprint);
+                                global.queue.queue.push({ 
+                                    id: `tp-ship-${Math.rand(0,100000)}`, 
+                                    action: 'tp-ship', 
+                                    type: blueprint,
+                                    label: blueprint.name, 
+                                    cna: false, 
+                                    time: 0, 
+                                    q: 1, 
+                                    qs: 1, 
+                                    t_max: 0, 
+                                    bres: false 
+                                });
+                                global.space.shipyard.blueprint.name = getRandomShipName();
+                                buildQueue();
                             }
-                            ship.name = name;
-
-                            global.space.shipyard.ships.push(ship);
-                            drawShips();
-                            updateCosts();
-                            global.space.shipyard.blueprint.name = getRandomShipName();
                         }
                     }
                 },
@@ -3876,6 +3899,71 @@ export function drawShipYard(){
 
         yard.append($(`<div id="shipList" class="sticky"></div>`));
         drawShips();
+    }
+}
+
+export function buildTPShipQueue(action){
+    if (payCosts(false, action.cost)){
+        buildTPShip(deepClone(action.bp,true));
+        return true;
+    }
+    return false;
+}
+
+export function TPShipDesc(ship){
+    let raw = shipCosts(ship);
+    let costs = {};
+    Object.keys(raw).forEach(function(res){
+        costs[res] = function(){ return raw[res]; }
+    });
+
+    var desc = $(`<div class="shipPopper"></div>`);
+    var shipPattern = $(`<div class="divider">${loc(`outer_shipyard_class_${ship.class}`)} | ${loc(`outer_shipyard_engine_${ship.engine}`)} | ${loc(`outer_shipyard_weapon_${ship.weapon}`)} | ${loc(`outer_shipyard_power_${ship.power}`)} | ${loc(`outer_shipyard_sensor_${ship.sensor}`)}</div>`);
+
+    desc.append(shipPattern);
+
+    var cost = $('<div class="costList"></div>');
+    desc.append(cost);
+
+    let tc = timeCheck({ id: ship.name , cost: costs });
+    Object.keys(costs).forEach(function (res){
+        if (costs[res]() > 0){
+            var label = res === 'Money' ? '$' : global.resource[res].name + ': ';
+            var color = global.resource[res].amount >= costs[res]() ? 'has-text-dark' : ( res === tc.r ? 'has-text-danger' : 'has-text-alert');
+            cost.append($(`<div class="${color}" data-${res}="${costs[res]()}">${label}${sizeApproximation(costs[res](),2)}</div>`));
+        }
+    });
+    
+    return desc;
+}
+
+function buildTPShip(ship, queue){
+    ship['location'] = 'spc_dwarf';
+    ship['xy'] = genXYcoord('spc_dwarf');
+    ship['origin'] = deepClone(ship['xy']);
+    ship['destination'] = deepClone(ship['xy']);
+    ship['transit'] = 0;
+    ship['dist'] = 0;
+    ship['damage'] = 0;
+    ship['fueled'] = false;
+
+    if (ship.name.length === 0){
+        ship.name = getRandomShipName();
+    }
+
+    let num = 1;
+    let name = ship.name;
+    while (global.space.shipyard.ships.filter(s => s.name === name).length > 0){
+        num++;
+        name = ship.name + ` ${num}`;
+    }
+    ship.name = name;
+
+    global.space.shipyard.ships.push(ship);
+    drawShips();
+    updateCosts();
+    if (!queue){
+        global.space.shipyard.blueprint.name = getRandomShipName();
     }
 }
 
@@ -4079,6 +4167,10 @@ export function shipAttackPower(ship){
         case 'disruptor':
             rating = 156;
             break;
+    }
+
+    if (global.race['wish'] && global.race['wishStats'] && global.race.wishStats.ship){
+        rating = Math.round(rating * 1.25);
     }
 
     switch (ship.class){
@@ -4849,8 +4941,8 @@ export function tritonWar(){
         }
 
         global.civic.garrison.wounded += hurt;
-        if (global.civic.garrison.wounded > garrisonSize(false,true)){
-            global.civic.garrison.wounded = garrisonSize(false,true);
+        if (global.civic.garrison.wounded > garrisonSize(false,{nofob: true})){
+            global.civic.garrison.wounded = garrisonSize(false,{nofob: true});
         }
 
         {

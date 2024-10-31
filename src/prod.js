@@ -518,5 +518,13 @@ export function production(id,val,wiki){
             }
             return 1;
         }
+        case 'asphodel_harvester':
+        {
+            let base = 0.075;
+            if (global.tech['hell_lake'] && global.tech.hell_lake >= 7 && global.tech['railway']){
+                base *= 1 + (global.tech.railway / 100);
+            }
+            return base;
+        }
     }
 }

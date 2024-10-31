@@ -1028,6 +1028,12 @@ Misc ---------> Main template
             }
         }
 
+        .shipPopper {
+            .divider {
+                border-bottom: solid .0625rem @modal-child-popper-border;
+            }
+        }
+
         .sliderbar {
             > span {
                 position: relative;
@@ -2624,12 +2630,12 @@ a {
             cursor: default;
 
             :first-child {
-                width: 30%;
+                width: 34%;
             }
 
             :nth-child(2) {
                 text-align: right;
-                width: 40%;
+                width: 36%;
             }
 
             :nth-child(3) {
@@ -2722,8 +2728,8 @@ a {
 
             a.button,
             span.oldTech {
-                width: 12.5rem;
-                margin: .5rem .5rem 0 0;
+                width: 12.625rem;
+                margin: .375rem .375rem 0 0;
 
                 span.count {
                     position: absolute;
@@ -2772,7 +2778,7 @@ a {
 
             span.on {
                 bottom: 0;
-                right: .5rem;
+                right: .375rem;
                 border-radius: .4375rem 0 .25rem 0;
 
                 .flair {
@@ -2872,8 +2878,12 @@ a {
         }
     }
 
+    .jobList {
+        max-width: 18rem;
+    }
+
     .job {
-        margin-left: 1rem;
+        margin-left: .5rem;
         display: flex;
         min-width: 18rem;
         align-items: center;
@@ -2905,7 +2915,7 @@ a {
             }
 
             :nth-child(2) {
-                min-width: 4rem;
+                min-width: 4.5rem;
                 text-align: center;
             }
 
@@ -3614,6 +3624,7 @@ a {
             margin-top: 1rem;
             .storage {
                 display: flex;
+                clear: right;
                 > div {
                     width: 50%;
                 }
@@ -3717,7 +3728,7 @@ a {
     .space,
     .city,
     .tech {
-        margin-top: .75rem;
+        margin-top: .625rem;
     }
 
     .space:nth-child(2),
@@ -3838,7 +3849,7 @@ a {
         display: inline-flex;
         cursor: default;
         margin-right: .5rem;
-        width: 7.5rem;
+        width: 8rem;
     }
 
     .buy {
@@ -4156,6 +4167,27 @@ body .modal>div.popper.wide {
     .crateModal {
         margin-bottom: 1.25rem;
     }
+
+    .flexAround {
+        margin-top: 0.25rem;
+        display: flex;
+        justify-content: space-evenly;
+    }
+
+    .flexWrap {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-evenly;
+        > div {
+            margin-bottom: .25rem;
+        }
+    }
+
+    .fanatic section {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-evenly;
+    }
 }
 
 button[disabled] {
@@ -4182,7 +4214,8 @@ span.inline {
 }
 
 .industryTab,
-.psychicTab {
+.psychicTab,
+.wishTab  {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -4565,7 +4598,8 @@ body.nuke {
     text-shadow: 0px -2px 4px #fff, 0px -2px 10px #FF3, 0px -10px 20px #F90, 0px -20px 40px #C33;
 }
 
-div.nuke {
+div.nuke,
+div.mininuke {
     position: fixed;
     width: 100%;
     height: 100%;
@@ -4577,7 +4611,6 @@ div.nuke {
 
     &.burn {
         opacity: 1;
-        background: #000;
     }
 
     &.burn::before {
@@ -4601,6 +4634,27 @@ div.nuke {
         left: -30%;
         box-shadow: 0px -2px 4px #fff, 0px -2px 10px #FF3, 0px -10px 20px #F90, 0px -20px 40px #C33,
             inset 0px -20px 40px #fff, inset 0px -20px 100px #FF3, inset 0px -40px 200px #F90, inset 0px -80px 400px #C33;
+    }
+}
+
+div.nuke {
+    &.burn {
+        background: #000;
+    }
+}
+
+div.mininuke {
+    position: absolute;
+    overflow: hidden;
+
+    &.burn.b::before {
+        transition: width 2s, height 2s, top 2s, left 2s;
+    }
+
+    &.burn.c::before {
+        visibility: hidden;
+        opacity: 0;
+        transition: visibility 0s 2s, opacity 2s linear;
     }
 }
 
@@ -4735,7 +4789,7 @@ div.bigbang {
         }
 
         .trait_selection {
-            margin-left: 2rem;
+            margin-left: 1rem;
             section {
                 margin-top: .5rem;
                 display: flex;
@@ -4786,6 +4840,14 @@ div.bigbang {
     .create {
         margin-top: 1rem;
         text-align: center;
+    }
+
+    #geneLabFanatic {
+        margin-top: 1rem;
+        text-align: center;
+        > div {
+            margin-top: 0.5rem;
+        }
     }
 }
 

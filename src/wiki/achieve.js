@@ -235,7 +235,7 @@ function achieveDesc(achievement,showFlair,universe){
             if (genus[key] && genus[key] >= 1){
                 checked = checked + `<span class="wide iclr${genus[key]}">${label}</span>`;
             }
-            else {
+            else if (key !== 'hybrid'){
                 checked = checked + `<span class="wide has-text-danger">${label}</span>`;
             }
         });
@@ -267,7 +267,7 @@ function achieveDesc(achievement,showFlair,universe){
             }
         });
         defeated = defeated + `</div>`;
-        popover(`a-${achievement}`,$(`<div class="has-text-label">${achievements[achievement].desc}</div><div>${loc(`wiki_achieve_${achievement}`)}</div>${defeated}${flair}`),{
+        popover(`a-${achievement}`,$(`<div class="has-text-label">${achievements[achievement].desc}</div><div>${loc(`wiki_achieve_${achievement}`,[42])}</div>${defeated}${flair}`),{
             wide: true
         });
     }
@@ -361,11 +361,11 @@ function featDesc(feat,showFlair){
         const date = new Date();
         let year = date.getFullYear();
         let tricks = `<div class="has-text-warning">${loc('wiki_feat_trickortreat_found')}</div><div class="flexed">`;
-        for (let i=1; i<=7; i++){
+        for (let i=1; i<=8; i++){
             let treat = global.special.trick[year][`treat${i}`] ? 'has-text-success' : 'has-text-danger';   
             tricks = tricks + `<span class="wide ${treat}">${loc('wiki_feat_treat_num',[i])}</span>`
         }
-        for (let i=1; i<=7; i++){
+        for (let i=1; i<=8; i++){
             let trick = global.special.trick[year][`trick${i}`] ? 'has-text-success' : 'has-text-danger';   
             tricks = tricks + `<span class="wide ${trick}">${loc('wiki_feat_trick_num',[i])}</span>`
         }
@@ -390,7 +390,7 @@ function featDesc(feat,showFlair){
                 return 0;
             }
         }).forEach(function (key){
-            if (key !== 'protoplasm' && (key !== 'custom' || (key === 'custom' && global.stats.achieve['ascended']))){
+            if (key !== 'protoplasm' && (key !== 'custom' || (key === 'custom' && global.stats.achieve['ascended'])) && (key !== 'hybrid' || (key === 'hybrid' && global.stats.achieve['what_is_best']))){
                 if (species[key] && species[key] >= 1){
                     checked = checked + `<span class="wide iclr${species[key]}">${races[key].name}</span>`;
                 }

@@ -3,8 +3,43 @@ import { clearElement } from './../functions.js';
 
 export const changeList = [
     {
+        version: `1.4.0`,
+        date: `11/??/2024`,
+        changes: [
+            `Push past the Spire and invade the Edenic Realms.`,
+            `Added new CRISPR upgrade Bureaucratic Efficiency.`,
+            `Custom Race lab now allows player to set a desired fanaticism trait.`,
+            `Truepath Ships can now be queued for construction.`,
+            `Exotic Materials are now harder to replicate.`,
+            `Progenitor races are now shown on stats page.`,
+            `Symposium is now affected by piracy.`,
+            `Gate Turrets will now kill demons when the Soul Forge is turned off.`,
+            `Stellar Engine now has diminishing returns when pushed to extreme levels.`,
+            `The number of spies available when starting a spy op now affects mission time.`,
+            `Fluidized Bed Reactor no longer incorrectly applies to Nano Tubes.`,
+            `Shrines now cycle their effect with moon phase if purchased during a full, new, or quarter moon.`,
+        ]
+    },
+    {
         version: `1.3.17`,
-        date: `10/12/2024`,
+        revision: `b`,
+        date: `10/29/2024`,
+        changes: [
+            `Fixed Ghost #3 with Forge Trait.`,
+            `Fixed Emocorn gloomy trait.`
+        ]
+    },
+    {
+        version: `1.3.17`,
+        revision: `a`,
+        date: `10/27/2024`,
+        changes: [
+            `Fixed Trick or Treat! Feat tracker.`
+        ]
+    },
+    {
+        version: `1.3.17`,
+        date: `10/13/2024`,
         changes: [
             `Cruisers now grant the correct number of soldiers in Fasting scenario.`,
             `Mass Ejector will now show a timer until destabilization if T3 previously completed.`,
@@ -12,7 +47,15 @@ export const changeList = [
             `Adjusted High Pop growth rates.`,
             `Craftsmen have been renamed to Crafters.`,
             `Fixed some issues with the Wiki.`,
-            `Fixed display error with Cultural Center strings.`
+            `Fixed display error with Cultural Center.`
+        ]
+    },
+    {
+        version: `1.3.16`,
+        revision: `a`,
+        date: `9/30/2024`,
+        changes: [
+            `Fixed an issue with with Gravity Well challenge and having too many Railways.`
         ]
     },
     {

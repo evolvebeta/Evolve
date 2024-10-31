@@ -1,4 +1,4 @@
-import { global, seededRandom, keyMultiplier, sizeApproximation } from './vars.js';
+import { global, seededRandom, keyMultiplier, sizeApproximation, p_on } from './vars.js';
 import { loc } from './locale.js';
 import { calcPrestige, clearElement, popover, clearPopper, vBind, timeFormat, modRes, messageQueue, genCivName, darkEffect, eventActive, easterEgg, trickOrTreat } from './functions.js';
 import { universeAffix } from './achieve.js';
@@ -162,6 +162,7 @@ const government_desc = (function(){
         federation: loc('govern_federation_effect',[govEffect.federation()[0],govEffect.federation()[1]]),
         federation_alt: loc('govern_federation_effect_alt',[25, govEffect.federation()[2], govEffect.federation()[1]]),
         magocracy: loc('govern_magocracy_effect',govEffect.magocracy()),
+        dictator: loc('govern_dictator_effect',govEffect.dictator()),
     };
 });
 
@@ -169,27 +170,35 @@ export const govEffect = {
     autocracy(){
         let stress = global.tech['high_tech'] && global.tech['high_tech'] >= 2 ? ( global.tech['high_tech'] >= 12 ? 10 : 18 ) : 25;
         let attack = govActive('organizer',0) ? 40 : 35;
+        if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){ attack += govActive('organizer',0) ? 10 : 5; }
         return [stress, attack];
     },
     democracy(){
         let entertainer = global.tech['high_tech'] && global.tech['high_tech'] >= 2 ? ( global.tech['high_tech'] >= 12 ? 30 : 25 ) : 20;
         let work_malus = govActive('organizer',0) ? 1 : 5;
+        if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){ entertainer += govActive('organizer',0) ? 10 : 5; }
         return [entertainer, work_malus];
     },
     oligarchy(){
         let tax_penalty = global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? 0 : ( global.tech['high_tech'] && global.tech['high_tech'] >= 2 ? 2 : 5 );
         let tax_cap = govActive('organizer',0) ? 25 : 20;
+        if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){ tax_cap += govActive('organizer',0) ? 10 : 5; }
         return [tax_penalty, tax_cap];
     },
     theocracy(){
         let temple = 12;
         let prof_malus = govActive('organizer',0) ? 10 : 25;
         let sci_malus = global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? ( global.tech['high_tech'] >= 16 ? 25 : 40 ) : 50;
+        if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){ temple += govActive('organizer',0) ? 2 : 1; }
         return [temple, prof_malus, sci_malus];
     },
     republic(){
         let bankers = govActive('organizer',0) ? 30 : 25;
         let morale = global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? ( global.tech['high_tech'] >= 16 ? 40 : 30 ) : 20;
+        if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){
+            morale += govActive('organizer',0) ? 10 : 5;
+            bankers += govActive('organizer',0) ? 10 : 5;
+        }
         return [bankers, morale];
     },
     socialist(){
@@ -197,6 +206,11 @@ export const govEffect = {
         let manufacture = govActive('organizer',0) ? 12 : 10;
         let stress = 10;
         let money_malus = govActive('organizer',0) ? 10 : 20;
+        if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){
+            money_malus -= 5;
+            crafting += govActive('organizer',0) ? 10 : 5;
+            manufacture += govActive('organizer',0) ? 3 : 2;
+        }
         return [crafting, manufacture, stress, money_malus];
     },
     corpocracy(){
@@ -205,24 +219,50 @@ export const govEffect = {
         let tourism = govActive('organizer',0) ? 110 : 100;
         let morale = global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? 5 : 10;
         let factory = global.tech['high_tech'] && global.tech['high_tech'] >= 16 ? 40 : 30;
+        if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){
+            casino += govActive('organizer',0) ? 30 : 20;
+            lux += govActive('organizer',0) ? 15 : 10;
+            tourism += govActive('organizer',0) ? 15 : 10;
+            factory += govActive('organizer',0) ? 10 : 5;
+        }
         return [casino, lux, tourism, morale, factory];
     },
     technocracy(){
         let knowCost = 8;
         let mat = global.tech['high_tech'] && global.tech['high_tech'] >= 16 ? 0 : ( global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? 1 : 2 );
         let knowGen = govActive('organizer',0) ? 18 : 10;
+        if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){ knowGen += govActive('organizer',0) ? 7 : 5; }
         return [knowCost, mat, knowGen];
     },
     federation(){
         let city = 3;
         let morale = govActive('organizer',0) ? 12 : 10;
         let unified = global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? ( global.tech['high_tech'] >= 16 ? 40 : 36 ) : 32;
+        if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){
+            morale += govActive('organizer',0) ? 6 : 2;
+            unified += govActive('organizer',0) ? 4 : 2;
+        }
         return [city,morale,unified];
     },
     magocracy(){
         let wiz = govActive('organizer',0) ? 30 : 25;
         let crystal = global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? ( global.tech['high_tech'] >= 16 ? 50 : 40 ) : 25;
+        if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){
+            wiz += govActive('organizer',0) ? 10 : 5;
+            crystal += govActive('organizer',0) ? 10 : 5;
+        }
         return [wiz, crystal];
+    },
+    dictator(){
+        let stress = govActive('organizer',0) ? 25 : 30;
+        let production = global.tech['high_tech'] && global.tech['high_tech'] >= 12 ? 12 : 10;
+        let materials = global.tech['high_tech'] && global.tech['high_tech'] >= 16 ? 6 : 4;
+        if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){
+            stress -= govActive('organizer',0) ? 10 : 5;
+            production += govActive('organizer',0) ? 3 : 2;
+            materials += govActive('organizer',0) ? 4 : 2;
+        }
+        return [stress, production, materials];
     }
 }
 
@@ -350,6 +390,9 @@ function drawGovModal(){
         }
         if (global.tech['gov_mage'] && global.civic.govern.type !== 'magocracy'){
             body.append($(`<button class="button gap" data-gov="magocracy" @click="setGov('magocracy')">${loc(`govern_magocracy`)}</button>`));
+        }
+        if (global.race['wish'] && global.race['wishStats'] && global.race.wishStats.gov && global.civic.govern.type !== 'dictator'){
+            body.append($(`<button class="button gap" data-gov="dictator" @click="setGov('dictator')">${loc(`govern_dictator`)}</button>`));
         }
     }
 
@@ -739,6 +782,10 @@ function spyAction(sa,g){
             {
                 if (global.tech['spy'] && global.tech['spy'] >= 2 && global.civic.foreign[`gov${g}`].spy >= 1 && global.civic.foreign[`gov${g}`].sab === 0){
                     let timer = global.tech['spy'] >= 4 ? 200 : 300;
+                    if (global.civic.foreign[`gov${g}`].spy === 1){ timer *= 1.5; }
+                    else if (global.civic.foreign[`gov${g}`].spy >= 3){ timer -= (global.civic.foreign[`gov${g}`].spy - 2) * 50; }
+                    if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){ timer *= 0.9; }
+                    timer = Math.ceil(timer);
                     if (global.race['befuddle']){
                         timer = Math.round(timer * (1 - traits.befuddle.vars()[0] / 100));
                     }
@@ -755,6 +802,9 @@ function spyAction(sa,g){
             {
                 if (global.tech['spy'] && global.tech['spy'] >= 2 && global.civic.foreign[`gov${g}`].spy >= 1 && global.civic.foreign[`gov${g}`].sab === 0){
                     let timer = global.tech['spy'] >= 4 ? 400 : 600;
+                    if (global.civic.foreign[`gov${g}`].spy >= 2){ timer -= (global.civic.foreign[`gov${g}`].spy - 1) * 50; }
+                    if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){ timer *= 0.9; }
+                    timer = Math.ceil(timer);
                     if (global.race['befuddle']){
                         timer = Math.round(timer * (1 - traits.befuddle.vars()[0] / 100));
                     }
@@ -772,6 +822,10 @@ function spyAction(sa,g){
                 if (g >= 3){ break; }
                 else if (global.tech['spy'] && global.tech['spy'] >= 2 && global.civic.foreign[`gov${g}`].spy >= 1 && global.civic.foreign[`gov${g}`].sab === 0){
                     let timer = global.tech['spy'] >= 4 ? 600 : 900;
+                    if (global.civic.foreign[`gov${g}`].spy <= 2){ timer *= 1.5; }
+                    else if (global.civic.foreign[`gov${g}`].spy >= 4){ timer -= (global.civic.foreign[`gov${g}`].spy - 3) * 100; }
+                    if (global.genes.hasOwnProperty('governor') && global.genes.governor >= 3){ timer *= 0.9; }
+                    timer = Math.ceil(timer);
                     if (global.race['befuddle']){
                         timer = Math.round(timer * (1 - traits.befuddle.vars()[0] / 100));
                     }
@@ -939,6 +993,9 @@ function taxCap(min){
         let aristoVal = govActive('aristocrat',1);
         if (aristoVal){
             cap += aristoVal;
+        }
+        if (global.race['wish'] && global.race['wishStats']){
+            cap += global.race.wishStats.tax;
         }
         return cap;
     }
@@ -1541,25 +1598,7 @@ function war_campaign(gov){
         if (global.race['frail']){
             death += traits.frail.vars()[0];
         }
-        let armor = 0;
-        if (global.race['scales']){
-            armor += traits.scales.vars()[0];
-        }
-        if (global.tech['armor']){
-            armor += global.tech['armor'];
-        }
-        if (global.race['high_pop']){
-            armor += Math.floor(seededRandom(0, armor * traits.high_pop.vars()[0],true));
-        }
-        if (global.race['armored']){
-            let armored = traits.armored.vars()[0] / 100;
-            armor += Math.floor(death * armored);
-        }
-        let fathom = fathomCheck('tortoisan');
-        if (fathom > 0){
-            let armored = traits.armored.vars(1)[0] / 100 * fathom;
-            armor += Math.floor(death * armored);
-        }
+        let armor = armorCalc(death);
         if (global.civic.garrison.raid > wounded){
             death -= armor;
         }
@@ -1872,25 +1911,7 @@ function war_campaign(gov){
         if (global.race['frail']){
             death += global.civic.garrison.tactic + traits.frail.vars()[1];;
         }
-        let armor = 0;
-        if (global.race['scales']){
-            armor += traits.scales.vars()[1];
-        }
-        if (global.tech['armor']){
-            armor += global.tech['armor'];
-        }
-        if (global.race['high_pop']){
-            armor += Math.floor(seededRandom(0, Math.floor(armor * traits.high_pop.vars()[0] / 2),true));
-        }
-        if (global.race['armored']){
-            let armored = traits.armored.vars()[0] / 100;
-            armor += Math.floor(death * armored);
-        }
-        let fathom = fathomCheck('tortoisan');
-        if (fathom > 0){
-            let armored = traits.armored.vars(1)[0] / 100 * fathom;
-            armor += Math.floor(death * armored);
-        }
+        let armor = armorCalc(death);
         if (global.civic.garrison.raid > wounded){
             death -= armor;
         }
@@ -1946,6 +1967,29 @@ function war_campaign(gov){
     else if (global.civic.garrison.wounded < 0){
         global.civic.garrison.wounded = 0;
     }
+}
+
+export function armorCalc(dead){
+    let armor = 0;
+    if (global.race['scales']){
+        armor += traits.scales.vars()[0];
+    }
+    if (global.tech['armor']){
+        armor += global.tech['armor'];
+    }
+    if (global.race['high_pop']){
+        armor += Math.floor(seededRandom(0, armor * traits.high_pop.vars()[0],true));
+    }
+    if (global.race['armored']){
+        let armored = traits.armored.vars()[0] / 100;
+        armor += Math.floor(dead * armored);
+    }
+    let fathom = fathomCheck('tortoisan');
+    if (fathom > 0){
+        let armored = traits.armored.vars(1)[0] / 100 * fathom;
+        armor += Math.floor(dead * armored);
+    }
+    return armor;
 }
 
 function looters(){
@@ -2056,7 +2100,7 @@ export function armyRating(val,type,wound){
         adjusted_val = val + rageVal + fathomVal;
     }
     let army = global.tech['military'] ? adjusted_val * weapon_tech : adjusted_val;
-    if (type === 'army' || type === 'hellArmy'){
+    if (type === 'army' || type === 'hellArmy' || type === 'Troops'){
         if (global.race['rage']){
             army *= 1 + (traits.rage.vars()[0] / 100 * (global.civic.garrison.wounded || 0));
         }
@@ -2170,14 +2214,15 @@ export function armyRating(val,type,wound){
     return army * racialTrait(val,type);
 }
 
-export function garrisonSize(max,nofob){
+export function garrisonSize(max, args = {} ){
     if (!global.civic.garrison){
         return 0;
     }
     let type = max ? 'max' : 'workers';
     let fortress = global.portal['fortress'] ? global.portal.fortress.garrison : 0;
-    let fob = global.space['fob'] && !nofob ? global.space.fob.troops : 0;
-    return global.civic.garrison[type] - global.civic.garrison.crew - fortress - fob;
+    let fob = global.space['fob'] && !args['nofob'] ? global.space.fob.troops : 0;
+    let pillbox = global.eden['pillbox'] && !args['nopill'] ? global.eden.pillbox.staffed : 0;
+    return global.civic.garrison[type] - global.civic.garrison.crew - fortress - fob - pillbox;
 }
 
 function defineMad(){

@@ -12,7 +12,7 @@ const achieve_list = {
         'laser_shark','infested','mass_starvation','colonist','world_domination','illuminati',
         'syndicate','cult_of_personality','doomed','pandemonium','blood_war','landfill','seeder',
         'miners_dream','shaken','blacken_the_sun','trade','resonance','enlightenment','gladiator',
-        'corrupted','red_dead'
+        'corrupted','red_dead','godslayer','traitor'
     ],
     species: [
         'mass_extinction','extinct_human','extinct_elven','extinct_orc','extinct_cath','extinct_wolven','extinct_vulpine','extinct_centaur',
@@ -22,7 +22,8 @@ const achieve_list = {
         'extinct_arraak','extinct_pterodacti','extinct_dracnid','extinct_entish','extinct_cacti','extinct_pinguicula','extinct_sporgar',
         'extinct_shroomi','extinct_moldling','extinct_mantis','extinct_scorpid','extinct_antid','extinct_sharkin','extinct_octigoran','extinct_dryad',
         'extinct_satyr','extinct_phoenix','extinct_salamander','extinct_yeti','extinct_wendigo','extinct_tuskin','extinct_kamel','extinct_balorg',
-        'extinct_imp','extinct_seraph','extinct_unicorn','extinct_synth','extinct_nano','extinct_ghast','extinct_shoggoth',
+        'extinct_imp','extinct_seraph','extinct_unicorn','extinct_synth','extinct_nano','extinct_ghast','extinct_shoggoth','extinct_dwarf',
+        'extinct_raccoon','extinct_lichen','extinct_wyvern','extinct_beholder','extinct_djinn','extinct_pengiun','extinct_bombardier','extinct_nephilim',
         'extinct_junker','extinct_sludge','extinct_custom'
     ],
     genus: [
@@ -43,7 +44,8 @@ const achieve_list = {
     ],
     challenge: [
         'joyless','steelen','dissipated','technophobe','wheelbarrow','iron_will','failed_history','banana','pathfinder',
-        'ashanddust','exodus','obsolete','bluepill','retired','gross','lamentis','overlord',`adam_eve`,'endless_hunger'
+        'ashanddust','exodus','obsolete','bluepill','retired','gross','lamentis','overlord',`adam_eve`,'endless_hunger',
+        //'what_is_best'
     ],
 };
 
@@ -195,6 +197,11 @@ export const feats = {
         name: loc("feat_immortal_name"),
         desc: loc("feat_immortal_desc"),
         flair: loc("feat_immortal_flair")
+    },
+    wish: {
+        name: loc("feat_wish_name"),
+        desc: loc("feat_wish_desc"),
+        flair: loc("feat_wish_flair")
     },
     friday: {
         name: loc("feat_friday_name"),
@@ -624,10 +631,10 @@ export function checkAchievements(){
                 equilProgress[global.pillars[race]]++;
             }
         });
-        if (Object.keys(genus).length >= Object.keys(genus_traits).length){
+        if (Object.keys(genus).length >= Object.keys(genus_traits).length - 1){
             let rank = 5;
             Object.keys(genus).forEach(function(g){
-                if (genus[g] < rank){
+                if (genus[g] < rank && g !== 'hybrid'){
                     rank = genus[g];
                 }
             });
@@ -2779,11 +2786,19 @@ export function drawStats(){
         stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_trickortreat")}</span> {{ s.cfood | format }} ${trick}</div>`);
     }
 
+    if (global.race.hasOwnProperty('gods') && global.race.gods != 'none'){
+        stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_gods")}</span> {{ g.gods | species }}</div>`)
+    }
+    if (global.race.hasOwnProperty('old_gods') && global.race.old_gods != 'none'){
+        stats.append(`<div><span class="has-text-warning">${loc("achieve_stats_old_gods")}</span> {{ g.old_gods | species }}</div>`)
+    }
+
     vBind({
         el: '#statsPanel',
         data: {
             s: global.stats,
             r: global.resource,
+            g: global.race
         },
         filters: {
             played(d){
@@ -2803,6 +2818,9 @@ export function drawStats(){
             },
             res(r){
                 return (+(r).toFixed(2)).toLocaleString();
+            },
+            species(s){
+                return s === 'custom' ? global.custom.race0.name : loc(`race_${s}`);
             }
         }
     });
