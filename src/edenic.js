@@ -5,12 +5,12 @@ import { payCosts, powerOnNewStruct, setAction, storageMultipler, drawTech, bank
 import { checkRequirements, incrementStruct, piracy, ascendLab} from './space.js';
 import { mechRating } from './portal.js';
 import { actions } from './actions.js';
-import { jobScale } from './jobs.js';
+import { jobScale, workerScale } from './jobs.js';
 import { production, highPopAdjust } from './prod.js';
 import { loc } from './locale.js';
 import { armyRating, armorCalc, garrisonSize, mercCost } from './civics.js';
 import { govActive } from './governor.js';
-import { races, traitCostMod } from './races.js';
+import { races, traits, traitCostMod, racialTrait } from './races.js';
 
 const edenicModules = {
     eden_asphodel: {
@@ -280,6 +280,13 @@ const edenicModules = {
                 desc += `<div>${loc('eden_research_station_effect',[highPopAdjust(souls).toFixed(0), loc('job_ghost_trapper')])}</div>`;
                 if (global.tech['science'] && global.tech.science >= 22){
                     desc += `<div>${loc('plus_max_resource',[777,global.resource.Omniscience.name])}</div>`;
+
+                    let ghost_base = workerScale(global.civic.ghost_trapper.workers,'ghost_trapper');
+                    ghost_base *= racialTrait(ghost_base,'science');
+                    ghost_base *= global.race['pompous'] ? (1 - traits.pompous.vars()[0] / 100) : 1;
+                    ghost_base = highPopAdjust(ghost_base);
+                    let ghost_gain = ghost_base * 0.0000325;
+                    desc += `<div>${loc('gain',[+ghost_gain.toFixed(5),global.resource.Omniscience.name])}</div>`;
                 }
                 return desc;
             },
@@ -556,7 +563,7 @@ const edenicModules = {
             },
             effect(){
                 let desc = `<div class="has-text-caution">${loc('space_used_support',[loc('eden_asphodel_name')])}</div>`;
-                desc += `<div>${loc('plus_max_soldiers',[5])}</div>`;
+                desc += `<div>${loc('plus_max_soldiers',[$(this)[0].soldiers()])}</div>`;
                 if (global.tech['celestial_warfare'] && global.tech.celestial_warfare >= 4){
                     desc += `<div>${loc('eden_bunker_effect',[3])}</div>`;
                 }
@@ -583,6 +590,10 @@ const edenicModules = {
                     return true;
                 }
                 return false;
+            },
+            soldiers(){
+                let soldiers = global.race['grenadier'] ? 3 : 5;
+                return jobScale(soldiers);
             }
         },
         bliss_den: {
@@ -1030,7 +1041,7 @@ const edenicModules = {
             effect(wiki){
                 let count = (wiki || 0) + (global.eden.hasOwnProperty('fire_support_base') ? global.eden.fire_support_base.count : 0);
                 if (count >= 100){
-                    let desc = `<div>${loc('plus_max_soldiers',[25])}</div>`;
+                    let desc = `<div>${loc('plus_max_soldiers',[$(this)[0].soldiers()])}</div>`;
                     if (global.tech['elysium'] && global.tech.elysium >= 10 && global.tech.isle === 1){
                         if (global.resource.Elerium.amount >= 250000){
                             desc += `<div class="has-text-success">${loc('eden_fire_support_base_effect')}</div>`;
@@ -1120,6 +1131,10 @@ const edenicModules = {
                     }
                 }
                 return false;
+            },
+            soldiers(){
+                let soldiers = global.race['grenadier'] ? 15 : 25;
+                return jobScale(soldiers);
             }
         },
         elysanite_mine: {

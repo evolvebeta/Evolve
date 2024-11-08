@@ -2,7 +2,7 @@ import { global, save, seededRandom, webWorker, keyMultiplier, keyMap, srSpeak, 
 import { loc } from './locale.js';
 import { timeCheck, timeFormat, vBind, popover, clearPopper, flib, tagEvent, clearElement, costMultiplier, darkEffect, genCivName, powerModifier, powerCostMod, calcPrestige, adjustCosts, modRes, messageQueue, buildQueue, format_emblem, shrineBonusActive, calc_mastery, calcPillar, calcGenomeScore, getShrineBonus, eventActive, easterEgg, getHalloween, trickOrTreat, deepClone, hoovedRename, get_qlevel } from './functions.js';
 import { unlockAchieve, challengeIcon, alevel, universeAffix, checkAdept } from './achieve.js';
-import { races, traits, genus_traits, neg_roll_traits, randomMinorTrait, cleanAddTrait, biomes, planetTraits, setJType, altRace, setTraitRank, setImitation, shapeShift, basicRace, fathomCheck, traitCostMod } from './races.js';
+import { races, traits, genus_traits, neg_roll_traits, randomMinorTrait, cleanAddTrait, biomes, planetTraits, setJType, altRace, setTraitRank, setImitation, shapeShift, basicRace, fathomCheck, traitCostMod, renderSupernatural } from './races.js';
 import { defineResources, unlockCrates, unlockContainers, galacticTrade, spatialReasoning, resource_values, initResourceTabs, marketItem, containerItem, tradeSummery, faithBonus, templePlasmidBonus } from './resources.js';
 import { loadFoundry, defineJobs, jobScale, workerScale, job_desc } from './jobs.js';
 import { loadIndustry, defineIndustry, nf_resources, gridDefs } from './industry.js';
@@ -1979,10 +1979,7 @@ export const actions = {
                 Horseshoe(){ return global.race['hooved'] ? (global.race['chameleon'] ? 1 : 2) : 0; }
             },
             effect(){
-                let bunks = global.tech['military'] >= 5 ? jobScale(3) : jobScale(2);
-                if (global.race['chameleon']){
-                    bunks--;
-                }
+                let bunks = $(this)[0].soldiers();
                 return loc('plus_max_resource',[bunks,loc('civics_garrison_soldiers')]);
             },
             switchable(){ return true; },
@@ -1998,17 +1995,24 @@ export const actions = {
                         vBind({el: `#garrison`},'update');
                         vBind({el: `#c_garrison`},'update');
                     }
-                    let gain = global.tech['military'] >= 5 ? 3 : 2;
-                    if (global.race['chameleon']){
-                        gain -= global.city.garrison.count;
-                    }
-                    global.civic['garrison'].max += jobScale(gain);
+                    global.civic['garrison'].max += $(this)[0].soldiers();
                     global.city['garrison'].count++;
                     global.city['garrison'].on++;
                     global.resource.Furs.display = true;
                     return true;
                 }
                 return false;
+            },
+            soldiers(){
+                let soldiers = global.tech['military'] >= 5 ? 3 : 2;
+                if (global.race['chameleon']){
+                    soldiers--;
+                }
+                if (global.race['grenadier']){
+                    soldiers--;
+                }
+                if (soldiers <= 0){ return 1; }
+                return jobScale(soldiers);
             }
         },
         hospital: {
@@ -3262,22 +3266,23 @@ export const actions = {
                 Copper(offset){ return costMultiplier('shrine', offset, 15, 1.32); }
             },
             effect(){
+                let morale = getShrineBonus('morale');
+                let metal = getShrineBonus('metal');
+                let know = getShrineBonus('know');
+                let tax = getShrineBonus('tax');
+
                 let desc = `<div class="has-text-special">${loc('city_shrine_effect')}</div>`;
-                if (global.city['shrine'] && global.city.shrine.morale > 0){
-                    let morale = getShrineBonus('morale');
+                if (global.city['shrine'] && morale.active){
                     desc = desc + `<div>${loc('city_shrine_morale',[+(morale.add).toFixed(1)])}</div>`;
                 }
-                if (global.city['shrine'] && global.city.shrine.metal > 0){
-                    let metal = getShrineBonus('metal');
+                if (global.city['shrine'] && metal.active){
                     desc = desc + `<div>${loc('city_shrine_metal',[+((metal.mult - 1) * 100).toFixed(1)])}</div>`;
                 }
-                if (global.city['shrine'] && global.city.shrine.know > 0){
-                    let know = getShrineBonus('know');
+                if (global.city['shrine'] && know.active){
                     desc = desc + `<div>${loc('city_shrine_know',[(+(know.add).toFixed(1)).toLocaleString()])}</div>`;
                     desc = desc + `<div>${loc('city_shrine_know2',[+((know.mult - 1) * 100).toFixed(1)])}</div>`;
                 }
-                if (global.city['shrine'] && global.city.shrine.tax > 0){
-                    let tax = getShrineBonus('tax');
+                if (global.city['shrine'] && tax.active){
                     desc = desc + `<div>${loc('city_shrine_tax',[+((tax.mult - 1) * 100).toFixed(1)])}</div>`;
                 }
                 return desc;
@@ -7701,6 +7706,14 @@ function sentience(){
     });
     delete global.tech['evo'];
     global.evolution = {};
+
+    if (global.race['ocular_power']){
+        global.settings.showWish = true;
+        global.race['ocularPowerConfig'] = {
+            d: false, p: false, w: false, t: false, f: false, c: false, ds: 0
+        };
+        renderSupernatural();
+    }
 
     const date = new Date();
     if (!global.settings.boring && date.getMonth() === 11 && date.getDate() >= 17){
