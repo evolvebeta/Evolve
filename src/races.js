@@ -1946,6 +1946,28 @@ export const traits = {
             }
         },
     },
+    astrologer: { // Improved astrological effects
+        name: loc('trait_astrologer_name'),
+        desc: loc('trait_astrologer'),
+        type: 'major',
+        val: 3,
+        vars(r){
+            switch (r || traitRank('astrologer') || 1){
+                case 0.25:
+                    return [10];
+                case 0.5:
+                    return [15];
+                case 1:
+                    return [20];
+                case 2:
+                    return [25];
+                case 3:
+                    return [30];
+                case 4:
+                    return [35];
+            }
+        },
+    },
     hard_of_hearing: { // University science cap gain reduced by 5%
         name: loc('trait_hard_of_hearing_name'),
         desc: loc('trait_hard_of_hearing'),
@@ -3561,6 +3583,29 @@ export const traits = {
             }
         }
     },
+    absorber: {
+        name: loc('trait_absorber_name'),
+        desc: loc('trait_absorber'),
+        type: 'major',
+        val: 5,
+        vars(r){
+            // [Hell if I know]
+            switch (r || traitRank('absorber') || 1){
+                case 0.25:
+                    return [7];
+                case 0.5:
+                    return [6];
+                case 1:
+                    return [5];
+                case 2:
+                    return [4];
+                case 3:
+                    return [3];
+                case 4:
+                    return [2];
+            }
+        }
+    },
     elemental: {
         name: loc('trait_elemental_name'),
         desc: loc('trait_elemental'),
@@ -4417,7 +4462,7 @@ export const races = {
         home: loc('race_slitheryn_home'),
         entity: loc('race_slitheryn_entity'),
         traits: {
-            slow_digestion: 1,
+            astrologer: 1,
             hard_of_hearing: 1
         },
         solar: {
@@ -4427,7 +4472,7 @@ export const races = {
             gas_moon: loc('race_slitheryn_solar_gas_moon'),
             dwarf: loc('race_slitheryn_solar_dwarf'),
         },
-        fanaticism: 'slow_digestion',
+        fanaticism: 'astrologer',
         basic(){ return true; }
     },
     arraak: {
@@ -5092,7 +5137,7 @@ export const races = {
         home: loc('race_lichen_home'),
         entity: loc('race_lichen_entity'),
         traits: {
-            //purifier: 1
+            absorber: 1
             
         },
         solar: {
@@ -5102,7 +5147,7 @@ export const races = {
             gas_moon: loc('race_lichen_solar_gas_moon'),
             dwarf: loc('race_lichen_solar_dwarf'),
         },
-        fanaticism: '',
+        fanaticism: 'absorber',
         basic(){ return false; }
     },
     wyvern: {
@@ -5168,23 +5213,23 @@ export const races = {
         fanaticism: 'wish',
         basic(){ return false; }
     },
-    pengiun: {
-        name: loc('race_pengiun'),
-        desc: loc('race_pengiun_desc'),
+    penguin: {
+        name: loc('race_penguin'),
+        desc: loc('race_penguin_desc'),
         type: 'hybrid',
         hybrid: ['aquatic','polar'],
-        home: loc('race_pengiun_home'),
-        entity: loc('race_pengiun_entity'),
+        home: loc('race_penguin_home'),
+        entity: loc('race_penguin_entity'),
         traits: {
             //formal: 1,
             //butler: 1
         },
         solar: {
-            red: loc('race_pengiun_solar_red'),
-            hell: loc('race_pengiun_solar_hell'),
-            gas: loc('race_pengiun_solar_gas'),
-            gas_moon: loc('race_pengiun_solar_gas_moon'),
-            dwarf: loc('race_pengiun_solar_dwarf'),
+            red: loc('race_penguin_solar_red'),
+            hell: loc('race_penguin_solar_hell'),
+            gas: loc('race_penguin_solar_gas'),
+            gas_moon: loc('race_penguin_solar_gas_moon'),
+            dwarf: loc('race_penguin_solar_dwarf'),
         },
         fanaticism: '',
         basic(){ return false; }
