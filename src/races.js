@@ -8,7 +8,7 @@ import { buildGarrison, govEffect, govTitle } from './civics.js';
 import { govActive, removeTask, defineGovernor } from './governor.js';
 import { unlockAchieve, unlockFeat, alevel } from './achieve.js';
 import { highPopAdjust, teamster } from './prod.js';
-import { actions, checkTechQualifications, drawCity, drawTech, structName } from './actions.js';
+import { actions, checkTechQualifications, drawCity, drawTech, structName, initStruct } from './actions.js';
 import { events, eventList } from './events.js';
 import { swissKnife } from './tech.js';
 import { warhead, big_bang } from './resets.js';
@@ -3583,26 +3583,50 @@ export const traits = {
             }
         }
     },
-    absorber: {
-        name: loc('trait_absorber_name'),
-        desc: loc('trait_absorber'),
+    living_materials: {
+        name: loc('trait_living_materials_name'),
+        desc: loc('trait_living_materials'),
         type: 'major',
-        val: 5,
+        val: 6,
         vars(r){
-            // [Hell if I know]
-            switch (r || traitRank('absorber') || 1){
+            // [Some building materials self replicate reducing cost of the next building]
+            // [Lumber/Bone, Plywood/Boneweave, Furs/Flesh, Amber (not Stone/Clay)]
+            switch (r || traitRank('living_materials') || 1){
                 case 0.25:
-                    return [7];
+                    return [0.99];
                 case 0.5:
-                    return [6];
+                    return [0.98];
                 case 1:
-                    return [5];
+                    return [0.97];
                 case 2:
-                    return [4];
+                    return [0.96];
                 case 3:
-                    return [3];
+                    return [0.95];
                 case 4:
-                    return [2];
+                    return [0.94];
+            }
+        }
+    },
+    unstable: {
+        name: loc('trait_unstable_name'),
+        desc: loc('trait_unstable'),
+        type: 'major',
+        val: -3,
+        vars(r){
+            // [Randomly Die]
+            switch (r || traitRank('unstable') || 1){
+                case 0.25:
+                    return [6,10];
+                case 0.5:
+                    return [5,10];
+                case 1:
+                    return [4,10];
+                case 2:
+                    return [3,10];
+                case 3:
+                    return [2,10];
+                case 4:
+                    return [1,10];
             }
         }
     },
@@ -5137,8 +5161,8 @@ export const races = {
         home: loc('race_lichen_home'),
         entity: loc('race_lichen_entity'),
         traits: {
-            absorber: 1
-            
+            living_materials: 1,
+            unstable: 1
         },
         solar: {
             red: loc('race_lichen_solar_red'),
@@ -5147,7 +5171,7 @@ export const races = {
             gas_moon: loc('race_lichen_solar_gas_moon'),
             dwarf: loc('race_lichen_solar_dwarf'),
         },
-        fanaticism: 'absorber',
+        fanaticism: 'living_materials',
         basic(){ return false; }
     },
     wyvern: {
@@ -6105,27 +6129,13 @@ export function cleanAddTrait(trait){
         case 'cannibalize':
             checkPurgatory('tech','sacrifice');
             if (global.tech['mining']) {
-                global.city['s_alter'] = {
-                    count: 0,
-                    rage: 0,
-                    mind: 0,
-                    regen: 0,
-                    mine: 0,
-                    harvest: 0,
-                };
+                initStruct(actions.city.s_alter);
                 defineGovernor();
             }
             break;
         case 'magnificent':
             if (global.tech['theology'] >= 2) {
-                checkPurgatory('city','shrine',{
-                    count: 0,
-                    morale: 0,
-                    metal: 0,
-                    know: 0,
-                    tax: 0,
-                    cycle: 0
-                });
+                checkPurgatory('city','shrine',actions.city.shrine.struct().d);
             }
             break;
         case 'unified':
@@ -6197,7 +6207,7 @@ export function cleanAddTrait(trait){
             break;
         case 'calm':
             if (global.tech['primitive'] >= 3) {
-                checkPurgatory('city','meditation',{ count: 0 });
+                checkPurgatory('city','meditation',actions.city.meditation.struct().d);
                 if (!global.race['orbit_decayed']){
                     global.resource.Zen.display = true;
                 }
@@ -7059,7 +7069,7 @@ function minorWish(parent){
                     switch (spell){
                         case 'money':
                         {
-                            let cash = Math.floor(seededRandom(1,Math.round(global.resource.Money.max / 12)));
+                            let cash = Math.floor(seededRandom(1,Math.round(global.resource.Money.max / 8)));
                             global.resource.Money.amount += cash;
                             if (global.resource.Money.amount > global.resource.Money.max){
                                 global.resource.Money.amount = global.resource.Money.max;
@@ -7075,7 +7085,7 @@ function minorWish(parent){
                         }
                         case 'robbery':
                         {
-                            let cash = Math.floor(seededRandom(1,Math.round(global.resource.Money.max / 18)));
+                            let cash = Math.floor(seededRandom(1,Math.round(global.resource.Money.max / 8)));
                             global.resource.Money.amount += cash;
                             if (global.resource.Money.amount > global.resource.Money.max){
                                 global.resource.Money.amount = global.resource.Money.max;
@@ -7425,7 +7435,7 @@ function majorWish(parent){
                     switch (spell){
                         case 'money':
                         {
-                            let cash = Math.floor(seededRandom(Math.round(global.resource.Money.max / 12),Math.round(global.resource.Money.max / 36)));
+                            let cash = Math.floor(seededRandom(Math.round(global.resource.Money.max / 12),Math.round(global.resource.Money.max / 4)));
                             global.resource.Money.amount += cash;
                             if (global.resource.Money.amount > global.resource.Money.max){
                                 global.resource.Money.amount = global.resource.Money.max;
@@ -7435,7 +7445,7 @@ function majorWish(parent){
                         }
                         case 'robbery':
                         {
-                            let cash = Math.floor(seededRandom(Math.round(global.resource.Money.max / 12),Math.round(global.resource.Money.max / 36)));
+                            let cash = Math.floor(seededRandom(Math.round(global.resource.Money.max / 12),Math.round(global.resource.Money.max / 4)));
                             global.resource.Money.amount += cash;
                             if (global.resource.Money.amount > global.resource.Money.max){
                                 global.resource.Money.amount = global.resource.Money.max;

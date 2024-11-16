@@ -1,4 +1,4 @@
-import { save, global, seededRandom, webWorker, keyMultiplier, sizeApproximation, p_on, support_on, int_on, gal_on, keyMap } from './vars.js';
+import { save, global, seededRandom, webWorker, keyMultiplier, sizeApproximation, p_on, support_on, int_on, gal_on } from './vars.js';
 import { vBind, messageQueue, clearElement, popover, clearPopper, flib, powerModifier, powerCostMod, calcPrestige, spaceCostMultiplier, darkEffect, eventActive, calcGenomeScore, randomKey, getTraitDesc, deepClone, get_qlevel, timeFormat } from './functions.js';
 import { unlockAchieve, unlockFeat, universeAffix } from './achieve.js';
 import { races, traits, genus_traits, genusVars, planetTraits, biomes, traitCostMod } from './races.js';
@@ -6,7 +6,7 @@ import { spatialReasoning, unlockContainers, drawResourceTab, atomic_mass } from
 import { loadFoundry, jobScale } from './jobs.js';
 import { defineIndustry } from './industry.js';
 import { garrisonSize, describeSoldier, checkControlling, govTitle } from './civics.js';
-import { actions, payCosts, powerOnNewStruct, setAction, setPlanet, storageMultipler, drawTech, bank_vault, updateDesc, actionDesc, templeEffect, casinoEffect, wardenLabel, buildTemplate, structName, fanaticism } from './actions.js';
+import { actions, payCosts, powerOnNewStruct, initStruct, setAction, setPlanet, storageMultipler, drawTech, bank_vault, updateDesc, actionDesc, templeEffect, casinoEffect, wardenLabel, buildTemplate, structName } from './actions.js';
 import { outerTruthTech, syndicate } from './truepath.js';
 import { production, highPopAdjust } from './prod.js';
 import { defineGovernor, govActive } from './governor.js';
@@ -48,7 +48,7 @@ const spaceProjects = {
                             return 0;
                         }
                     }
-                    global.space['satellite'] = { count: 0 };
+                    initStruct(actions.space.spc_home.satellite);
                     messageQueue(loc('space_home_test_launch_action'),'info',false,['progress']);
                     return true;
                 }
@@ -84,6 +84,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['satellite','space']
+                };
             }
         },
         gps: {
@@ -121,6 +127,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['gps','space']
+                };
             }
         },
         propellant_depot: {
@@ -151,6 +163,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['propellant_depot','space']
+                };
             }
         },
         nav_beacon: {
@@ -188,6 +206,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['nav_beacon','space']
+                };
             }
         },
     },
@@ -216,8 +240,8 @@ const spaceProjects = {
             action(){
                 if (payCosts($(this)[0])){
                     messageQueue(loc('space_moon_mission_action'),'info',false,['progress']);
-                    global.space['iridium_mine'] = { count: 0, on: 0 };
-                    global.space['helium_mine'] = { count: 0, on: 0 };
+                    initStruct(actions.space.spc_moon.iridium_mine);
+                    initStruct(actions.space.spc_moon.helium_mine);
                     return true;
                 }
                 return false;
@@ -273,7 +297,18 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: {
+                        count: 0,
+                        on: 0,
+                        support: 0,
+                        s_max: 0
+                    },
+                    p: ['moon_base','space']
+                };
+            },
         },
         iridium_mine: {
             id: 'space-iridium_mine',
@@ -316,7 +351,13 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['iridium_mine','space']
+                };
+            },
         },
         helium_mine: {
             id: 'space-helium_mine',
@@ -354,7 +395,13 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['helium_mine','space']
+                };
+            },
         },
         observatory: {
             id: 'space-observatory',
@@ -390,6 +437,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['observatory','space']
+                };
             }
         },
     },
@@ -425,10 +478,10 @@ const spaceProjects = {
             action(){
                 if (payCosts($(this)[0])){
                     messageQueue(loc('space_red_mission_action',[planetName().red]),'info',false,['progress']);
-                    global.space['living_quarters'] = { count: 0, on: 0 };
-                    global.space['garage'] = { count: 0 };
-                    global.space['red_mine'] = { count: 0, on: 0 };
-                    global.space['fabrication'] = { count: 0, on: 0 };
+                    initStruct(actions.space.spc_red.living_quarters);
+                    initStruct(actions.space.spc_red.garage);
+                    initStruct(actions.space.spc_red.red_mine);
+                    initStruct(actions.space.spc_red.fabrication);
                     return true;
                 }
                 return false;
@@ -479,7 +532,18 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: {
+                        count: 0,
+                        on: 0,
+                        support: 0,
+                        s_max: 0
+                    },
+                    p: ['spaceport','space']
+                };
+            },
         },
         red_tower: {
             id: 'space-red_tower',
@@ -509,7 +573,13 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['red_tower','space']
+                };
+            },
         },
         captive_housing: buildTemplate(`captive_housing`,'space'),
         terraformer: {
@@ -565,7 +635,13 @@ const spaceProjects = {
                     }
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['terraformer','space']
+                };
+            },
         },
         atmo_terraformer: {
             id: 'space-atmo_terraformer',
@@ -673,6 +749,12 @@ const spaceProjects = {
                 }
                 return false;
             },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['living_quarters','space']
+                };
+            },
             citizens(wiki){
                 let gain = global.race['cataclysm'] || global.race['orbit_decayed'] ? 2 : 1;
                 let biodome_count = wiki ? (global.space?.biodome?.on ?? 0) : support_on['biodome'];
@@ -702,11 +784,17 @@ const spaceProjects = {
             special(){ return global.tech['magic'] && global.tech.magic >= 3 ? true : false; },
             action(){
                 if (payCosts($(this)[0])){
-                    global.space['pylon'].count++;
+                    incrementStruct($(this)[0]);
                     global.resource.Mana.max += spatialReasoning(2);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['pylon','space']
+                };
             }
         },
         vr_center: {
@@ -735,11 +823,17 @@ const spaceProjects = {
             powered(){ return 0; },
             action(){
                 if (payCosts($(this)[0])){
-                    incrementStruct('vr_center');
+                    incrementStruct($(this)[0]);
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['vr_center','space']
+                };
             }
         },
         garage: {
@@ -866,7 +960,13 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['garage','space']
+                };
+            },
         },
         red_mine: {
             id: 'space-red_mine',
@@ -911,7 +1011,13 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['red_mine','space']
+                };
+            },
         },
         fabrication: {
             id: 'space-fabrication',
@@ -946,7 +1052,13 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['fabrication','space']
+                };
+            },
         },
         red_factory: {
             id: 'space-red_factory',
@@ -984,7 +1096,13 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['red_factory','space']
+                };
+            },
         },
         nanite_factory: buildTemplate(`nanite_factory`,'space'),
         biodome: {
@@ -1049,6 +1167,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['biodome','space']
+                };
             },
             flair(){
                 if (global.race['artifical']){
@@ -1150,6 +1274,12 @@ const spaceProjects = {
                 }
                 return false;
             },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['exotic_lab','space']
+                };
+            },
             flair(){
                 return `<div>${loc('space_red_exotic_lab_flair1')}</div><div>${loc('space_red_exotic_lab_flair2')}</div>`;
             }
@@ -1214,6 +1344,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['ziggurat','space']
+                };
             }
         },
         space_barracks: {
@@ -1252,6 +1388,12 @@ const spaceProjects = {
                     soldiers /= 2;
                 }
                 return jobScale(soldiers);
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['space_barracks','space']
+                };
             },
             flair(){
                 return loc('space_red_space_barracks_flair');
@@ -1312,7 +1454,7 @@ const spaceProjects = {
             action(){
                 if (payCosts($(this)[0])){
                     messageQueue(loc('space_hell_mission_action',[planetName().hell]),'info',false,['progress']);
-                    global.space['geothermal'] = { count: 0, on: 0 };
+                    initStruct(actions.space.spc_hell.geothermal);
                     return true;
                 }
                 return false;
@@ -1352,6 +1494,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['geothermal','space']
+                };
             }
         },
         hell_smelter: {
@@ -1381,6 +1529,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['hell_smelter','space']
+                };
             }
         },
         spc_casino: {
@@ -1416,6 +1570,12 @@ const spaceProjects = {
                 }
                 return false;
             },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['spc_casino','space']
+                };
+            },
             flair: loc('city_casino_flair')
         },
         swarm_plant: {
@@ -1449,6 +1609,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['swarm_plant','space']
+                };
             }
         },
         firework: buildTemplate(`firework`,'space'),
@@ -1514,6 +1680,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, support: 0, s_max: 0 },
+                    p: ['swarm_control','space']
+                };
             }
         },
         swarm_satellite: {
@@ -1549,6 +1721,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['swarm_satellite','space']
+                };
             }
         },
         jump_gate: {
@@ -1592,6 +1770,12 @@ const spaceProjects = {
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['jump_gate','space']
+                };
             }
         },
     },
@@ -1660,6 +1844,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['gas_mining','space']
+                };
             }
         },
         gas_storage: {
@@ -1687,6 +1877,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['gas_storage','space']
+                };
             }
         },
         star_dock: {
@@ -1714,6 +1910,17 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: {
+                        count: 0,
+                        ship: 0,
+                        probe: 0,
+                        template: global.race.species
+                    },
+                    p: ['star_dock','space']
+                };
             }
         },
     },
@@ -1748,7 +1955,7 @@ const spaceProjects = {
             action(){
                 if (payCosts($(this)[0])){
                     messageQueue(loc('space_gas_moon_mission_action',[planetName().gas_moon]),'info',false,['progress']);
-                    global.space['outpost'] = { count: 0, on: 0 };
+                    initStruct(actions.space.spc_gas_moon.outpost);
                     global.tech['gas_moon'] = 1;
                     return true;
                 }
@@ -1787,6 +1994,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['outpost','space']
+                };
             }
         },
         drone: {
@@ -1813,6 +2026,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['drone','space']
+                };
             }
         },
         oil_extractor: {
@@ -1843,6 +2062,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['oil_extractor','space']
+                };
             }
         },
     },
@@ -1936,6 +2161,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, support: 0, s_max: 0 },
+                    p: ['space_station','space']
+                };
             }
         },
         elerium_ship: {
@@ -1966,6 +2197,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['elerium_ship','space']
+                };
             }
         },
         iridium_ship: {
@@ -1996,6 +2233,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['iridium_ship','space']
+                };
             }
         },
         iron_ship: {
@@ -2031,6 +2274,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['iron_ship','space']
+                };
             }
         },
     },
@@ -2096,6 +2345,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['elerium_contain','space']
+                };
             }
         },
         e_reactor: {
@@ -2125,6 +2380,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['e_reactor','space']
+                };
             }
         },
         world_collider: {
@@ -2181,6 +2442,12 @@ const spaceProjects = {
                 }
                 return false;
             },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['world_collider','space']
+                };
+            },
             flair: loc('space_dwarf_collider_flair')
         },
         world_controller: {
@@ -2213,6 +2480,12 @@ const spaceProjects = {
             powered(){ return powerCostMod(20); },
             action(){
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['world_controller','space']
+                };
             },
             flair: loc('space_dwarf_controller_flair')
         },
@@ -2263,6 +2536,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, ships: [], expand: true, sort: true },
+                    p: ['shipyard','space']
+                };
             }
         },
         mass_relay: {
@@ -2311,6 +2590,12 @@ const spaceProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['mass_relay','space']
+                };
             }
         },
         m_relay: {
@@ -2367,8 +2652,8 @@ const interstellarProjects = {
             action(){
                 if (payCosts($(this)[0])){
                     messageQueue(loc('interstellar_alpha_mission_result'),'info',false,['progress']);
-                    global.interstellar['nexus'] = { count: 0, on: 0, support: 0, s_max: 0 };
-                    global.interstellar['warehouse'] = { count: 0 };
+                    initStruct(actions.interstellar.int_proxima.nexus);
+                    initStruct(actions.interstellar.int_alpha.warehouse);
                     return true;
                 }
                 return false;
@@ -2404,7 +2689,7 @@ const interstellarProjects = {
                     powerOnNewStruct($(this)[0]);
                     if (global.tech['alpha'] === 1){
                         global.tech['alpha'] = 2;
-                        global.interstellar['mining_droid'] = { count: 0, on: 0, adam: 0, uran: 0, coal: 0, alum: 0 };
+                        initStruct(actions.interstellar.int_alpha.mining_droid);
                     }
                     if (global.race['orbit_decay'] && global.race.orbit_decay > global.stats.days + 100){
                         global.race.orbit_decay = global.stats.days + 100;
@@ -2413,6 +2698,17 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: {
+                        count: 0,
+                        on: 0,
+                        support: 0,
+                        s_max: 0
+                    },
+                    p: ['starport','interstellar']
+                };
             }
         },
         habitat: {
@@ -2445,6 +2741,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['habitat','interstellar']
+                };
             },
             citizens(){
                 let pop = 1;
@@ -2482,14 +2784,20 @@ const interstellarProjects = {
                     }
                     if (!global.tech['droids']){
                         global.tech['droids'] = 1;
-                        global.interstellar['processing'] = { count: 0, on: 0 };
+                        initStruct(actions.interstellar.int_alpha.processing);
                     }
                     global.settings.showIndustry = true;
                     defineIndustry();
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, adam: 0, uran: 0, coal: 0, alum: 0 },
+                    p: ['mining_droid','interstellar']
+                };
+            },
         },
         processing: {
             id: 'interstellar-processing',
@@ -2520,6 +2828,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['processing','interstellar']
+                };
             }
         },
         fusion: {
@@ -2548,6 +2862,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['fusion','interstellar']
+                };
             }
         },
         laboratory: {
@@ -2607,6 +2927,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['laboratory','interstellar']
+                };
             }
         },
         exchange: {
@@ -2653,7 +2979,13 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['exchange','interstellar']
+                };
+            },
         },
         g_factory: {
             id: 'interstellar-g_factory',
@@ -2690,7 +3022,13 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, Lumber: 0, Coal: 0, Oil: 0 },
+                    p: ['g_factory','interstellar']
+                };
+            },
         },
         int_factory: {
             id: 'interstellar-int_factory',
@@ -2719,6 +3057,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['int_factory','interstellar']
+                };
             }
         },
         luxury_condo: {
@@ -2756,6 +3100,12 @@ const interstellarProjects = {
                 }
                 return false;
             },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['luxury_condo','interstellar']
+                };
+            },
             citizens(){
                 let pop = 2;
                 if (global.race['high_pop']){
@@ -2791,6 +3141,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['zoo','interstellar']
+                };
             }
         },
         warehouse: {
@@ -2880,6 +3236,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['warehouse','interstellar']
+                };
             }
         },
         wonder_gardens: {
@@ -2922,7 +3284,7 @@ const interstellarProjects = {
             effect: loc('interstellar_proxima_mission_effect'),
             action(){
                 if (payCosts($(this)[0])){
-                    global.interstellar['xfer_station'] = { count: 0, on: 0 };
+                    initStruct(actions.interstellar.int_proxima.xfer_station);
                     messageQueue(loc('interstellar_proxima_mission_result'),'info',false,['progress']);
                     return true;
                 }
@@ -2969,11 +3331,17 @@ const interstellarProjects = {
                     }
                     if (global.tech['proxima'] === 1){
                         global.tech['proxima'] = 2;
-                        global.interstellar['cargo_yard'] = { count: 0 };
+                        initStruct(actions.interstellar.int_proxima.cargo_yard);
                     }
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['xfer_station','interstellar']
+                };
             }
         },
         cargo_yard: {
@@ -3011,6 +3379,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['cargo_yard','interstellar']
+                };
             }
         },
         cruiser: {
@@ -3039,6 +3413,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['cruiser','interstellar']
+                };
             },
             soldiers(){
                 let soldiers = global.race['fasting'] ? 4 : 3;
@@ -3093,6 +3473,12 @@ const interstellarProjects = {
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['dyson','interstellar']
+                };
             }
         },
         dyson_sphere: {
@@ -3140,6 +3526,12 @@ const interstellarProjects = {
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['dyson_sphere','interstellar']
+                };
             }
         },
         orichalcum_sphere: {
@@ -3185,6 +3577,12 @@ const interstellarProjects = {
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['orichalcum_sphere','interstellar']
+                };
             }
         },
         elysanite_sphere: {
@@ -3228,6 +3626,12 @@ const interstellarProjects = {
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['elysanite_sphere','interstellar']
+                };
             }
         },
     },
@@ -3286,7 +3690,7 @@ const interstellarProjects = {
                     incrementStruct('nexus','interstellar');
                     global.resource.Deuterium.display = true;
                     if (global.tech['nebula'] === 1){
-                        global.interstellar['harvester'] = { count: 0, on: 0 };
+                        initStruct(actions.interstellar.int_nebula.harvester);
                         global.tech['nebula'] = 2;
                     }
                     if (powerOnNewStruct($(this)[0])){
@@ -3298,6 +3702,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, support: 0, s_max: 0 },
+                    p: ['nexus','interstellar']
+                };
             }
         },
         harvester: {
@@ -3327,6 +3737,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['harvester','interstellar']
+                };
             }
         },
         elerium_prospector: {
@@ -3355,6 +3771,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['elerium_prospector','interstellar']
+                };
             }
         },
     },
@@ -3377,7 +3799,7 @@ const interstellarProjects = {
             effect: loc('interstellar_neutron_mission_effect'),
             action(){
                 if (payCosts($(this)[0])){
-                    global.interstellar['neutron_miner'] = { count: 0, on: 0 };
+                    initStruct(actions.interstellar.int_neutron.neutron_miner);
                     messageQueue(loc('interstellar_neutron_mission_result'),'info',false,['progress']);
                     return true;
                 }
@@ -3413,6 +3835,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['neutron_miner','interstellar']
+                };
             }
         },
         citadel: {
@@ -3465,6 +3893,12 @@ const interstellarProjects = {
                 }
                 return false;
             },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['citadel','interstellar']
+                };
+            },
             flair(){
                 return loc('interstellar_citadel_flair');
             }
@@ -3504,6 +3938,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['stellar_forge','interstellar']
+                };
             },
             flair(){
                 return loc('interstellar_stellar_forge_flair');
@@ -3549,7 +3989,7 @@ const interstellarProjects = {
             effect: loc('interstellar_blackhole_mission_effect'),
             action(){
                 if (payCosts($(this)[0])){
-                    global.interstellar['far_reach'] = { count: 0, on: 0 };
+                    initStruct(actions.interstellar.int_blackhole.far_reach);
                     messageQueue(loc('interstellar_blackhole_mission_result'),'info',false,['progress']);
                     return true;
                 }
@@ -3583,6 +4023,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['far_reach','interstellar']
+                };
             },
             flair: loc('interstellar_far_reach_flair')
         },
@@ -3650,6 +4096,12 @@ const interstellarProjects = {
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, mass: 8, exotic: 0 },
+                    p: ['stellar_engine','interstellar']
+                };
             }
         },
         mass_ejector: {
@@ -3711,6 +4163,33 @@ const interstellarProjects = {
                 }
                 return false;
             },
+            struct(){
+                return {
+                    d: {
+                        count: 0, on: 0, total: 0, mass: 0,
+                        Food: 0, Lumber: 0,
+                        Chrysotile: 0, Stone: 0,
+                        Crystal: 0, Furs: 0,
+                        Copper: 0, Iron: 0,
+                        Aluminium: 0, Cement: 0,
+                        Coal: 0, Oil: 0,
+                        Uranium: 0, Steel: 0,
+                        Titanium: 0, Alloy: 0,
+                        Polymer: 0, Iridium: 0,
+                        Helium_3: 0, Deuterium: 0,
+                        Neutronium: 0, Adamantite: 0,
+                        Infernite: 0, Elerium: 0,
+                        Nano_Tube: 0, Graphene: 0,
+                        Stanene: 0, Bolognium: 0,
+                        Vitreloy: 0, Orichalcum: 0,
+                        Plywood: 0, Brick: 0,
+                        Wrought_Iron: 0, Sheet_Metal: 0,
+                        Mythril: 0, Aerogel: 0,
+                        Nanoweave: 0, Scarletite: 0
+                    },
+                    p: ['mass_ejector','interstellar']
+                };
+            },
             flair(){
                 return loc('interstellar_mass_ejector_flair');
             }
@@ -3753,8 +4232,8 @@ const interstellarProjects = {
             effect: loc('interstellar_wormhole_mission_effect'),
             action(){
                 if (payCosts($(this)[0])){
-                    global.interstellar['stargate'] = { count: 0 };
-                    global.galaxy['gateway_station'] = { count: 0, on: 0 };
+                    initStruct(actions.interstellar.int_blackhole.stargate);
+                    initStruct(actions.galaxy.gxy_gateway.gateway_station);
                     messageQueue(loc('interstellar_wormhole_mission_result'),'info',false,['progress']);
                     return true;
                 }
@@ -3812,6 +4291,12 @@ const interstellarProjects = {
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['stargate','interstellar']
+                };
             }
         },
         s_gate: {
@@ -3875,7 +4360,7 @@ const interstellarProjects = {
             effect(){ return loc('interstellar_sirius_b_effect'); },
             action(){
                 if (payCosts($(this)[0])){
-                    global.interstellar['space_elevator'] = { count: 0 };
+                    initStruct(actions.interstellar.int_sirius.space_elevator);
                     return true;
                 }
                 return false;
@@ -3919,7 +4404,7 @@ const interstellarProjects = {
                         incrementStruct('space_elevator','interstellar');
                         if (global.interstellar.space_elevator.count >= 100){
                             global.tech['ascension'] = 5;
-                            global.interstellar['gravity_dome'] = { count: 0 };
+                            initStruct(actions.interstellar.int_sirius.gravity_dome);
                             deepSpace();
                             clearPopper();
                         }
@@ -3927,6 +4412,12 @@ const interstellarProjects = {
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['space_elevator','interstellar']
+                };
             }
         },
         gravity_dome: {
@@ -3967,8 +4458,8 @@ const interstellarProjects = {
                         incrementStruct('gravity_dome','interstellar');
                         if (global.interstellar.gravity_dome.count >= 100){
                             global.tech['ascension'] = 6;
-                            global.interstellar['ascension_machine'] = { count: 0 };
-                            global.interstellar['thermal_collector'] = { count: 0 };
+                            initStruct(actions.interstellar.int_sirius.ascension_machine);
+                            initStruct(actions.interstellar.int_sirius.thermal_collector);
                             deepSpace();
                             clearPopper();
                         }
@@ -3976,6 +4467,12 @@ const interstellarProjects = {
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['gravity_dome','interstellar']
+                };
             }
         },
         ascension_machine: {
@@ -4027,6 +4524,12 @@ const interstellarProjects = {
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['ascension_machine','interstellar']
+                };
             }
         },
         ascension_trigger: {
@@ -4157,6 +4660,12 @@ const interstellarProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['thermal_collector','interstellar']
+                };
             }
         },
     }
@@ -4280,12 +4789,18 @@ const galaxyProjects = {
                     incrementStruct('starbase','galaxy');
                     powerOnNewStruct($(this)[0]);
                     if (global.tech['gateway'] === 2){
-                        global.galaxy['bolognium_ship'] = { count: 0, on: 0, crew: 0 };
+                        initStruct(actions.galaxy.gxy_gateway.bolognium_ship);
                         global.tech['gateway'] = 3;
                     }
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, support: 0, s_max: 0 },
+                    p: ['starbase','galaxy']
+                };
             },
             soldiers(){
                 let soldiers = global.tech.marines >= 2 ? (global.race['grenadier'] ? 5 : 8) : (global.race['grenadier'] ? 3 : 5);
@@ -4333,6 +4848,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['ship_dock','galaxy']
+                };
             }
         },
         bolognium_ship: {
@@ -4370,6 +4891,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, crew: 0 },
+                    p: ['bolognium_ship','galaxy']
+                };
             }
         },
         scout_ship: {
@@ -4416,6 +4943,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, crew: 0, mil: 0 },
+                    p: ['scout_ship','galaxy']
+                };
             }
         },
         corvette_ship: {
@@ -4462,6 +4995,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, crew: 0, mil: 0 },
+                    p: ['corvette_ship','galaxy']
+                };
             }
         },
         frigate_ship: {
@@ -4508,6 +5047,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, crew: 0, mil: 0 },
+                    p: ['frigate_ship','galaxy']
+                };
             },
             flair: loc('tech_frigate_ship_flair')
         },
@@ -4556,7 +5101,13 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, crew: 0, mil: 0 },
+                    p: ['cruiser_ship','galaxy']
+                };
+            },
         },
         dreadnought: {
             id: 'galaxy-dreadnought',
@@ -4604,7 +5155,13 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, crew: 0, mil: 0 },
+                    p: ['dreadnought','galaxy']
+                };
+            },
         },
     },
     gxy_stargate: {
@@ -4651,13 +5208,19 @@ const galaxyProjects = {
                     global['resource']['Helium_3'].max += spatialReasoning(2000);
                     global['resource']['Deuterium'].max += spatialReasoning(4500);
                     if (global.tech['stargate'] === 4){
-                        global.galaxy['telemetry_beacon'] = { count: 0, on: 0 };
+                        initStruct(actions.galaxy.gxy_stargate.telemetry_beacon);
                         global.tech['stargate'] = 5;
                     }
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['gateway_station','galaxy']
+                };
             }
         },
         telemetry_beacon: {
@@ -4708,7 +5271,7 @@ const galaxyProjects = {
                         global['resource']['Knowledge'].max += 1750;
                     }
                     if (!global.tech['gateway']){
-                        global.galaxy['starbase'] = { count: 0, on: 0, support: 0, s_max: 0 };
+                        initStruct(actions.galaxy.gxy_gateway.starbase);
                         global.settings.space.gateway = true;
                         global.tech['gateway'] = 1;
                         galaxySpace();
@@ -4716,6 +5279,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['telemetry_beacon','galaxy']
+                };
             }
         },
         gateway_depot: {
@@ -4768,6 +5337,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['gateway_depot','galaxy']
+                };
             }
         },
         defense_platform: {
@@ -4796,6 +5371,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['defense_platform','galaxy']
+                };
             },
             post(){
                 vBind({el: `#gxy_stargate`},'update');
@@ -4883,7 +5464,7 @@ const galaxyProjects = {
                     powerOnNewStruct($(this)[0]);
                     if (global.tech['xeno'] === 4){
                         global.tech['xeno'] = 5;
-                        global.galaxy['freighter'] = { count: 0, on: 0, crew: 0 };
+                        initStruct(actions.galaxy.gxy_gorddon.freighter);
                         global.galaxy['trade'] = { max: 0, cur: 0, f0: 0, f1: 0, f2: 0, f3: 0, f4: 0, f5: 0, f6: 0, f7: 0, f8: 0 };
                         messageQueue(loc('galaxy_embassy_complete',[races[global.galaxy.alien1.id].name,races[global.galaxy.alien2.id].name]),'info',false,['progress']);
                     }
@@ -4897,6 +5478,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['embassy','galaxy']
+                };
             },
             citizens(){
                 let pop = 20;
@@ -4931,6 +5518,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['dormitory','galaxy']
+                };
             },
             citizens(){
                 let pop = 3;
@@ -4969,7 +5562,13 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['symposium','galaxy']
+                };
+            },
         },
         freighter: {
             id: 'galaxy-freighter',
@@ -5008,6 +5607,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, crew: 0 },
+                    p: ['freighter','galaxy']
+                };
             }
         },
     },
@@ -5048,13 +5653,19 @@ const galaxyProjects = {
                 if (payCosts($(this)[0])){
                     if (global.galaxy.consulate.count < 1){
                         incrementStruct('consulate','galaxy');
-                        global.galaxy['resort'] = { count: 0, on: 0 };
-                        global.galaxy['super_freighter'] = { count: 0, on: 0, crew: 0 };
+                        initStruct(actions.galaxy.gxy_alien1.resort);
+                        initStruct(actions.galaxy.gxy_alien1.super_freighter);
                         global.tech.xeno = 9;
                         return true;
                     }
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['consulate','galaxy']
+                };
             },
             citizens(){
                 let pop = 10;
@@ -5096,6 +5707,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['resort','galaxy']
+                };
             }
         },
         vitreloy_plant: {
@@ -5127,7 +5744,13 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['vitreloy_plant','galaxy']
+                };
+            },
         },
         super_freighter: {
             id: 'galaxy-super_freighter',
@@ -5164,7 +5787,13 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
-            }
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, crew: 0 },
+                    p: ['super_freighter','galaxy']
+                };
+            },
         },
     },
     gxy_alien2: {
@@ -5285,7 +5914,7 @@ const galaxyProjects = {
                     incrementStruct('foothold','galaxy');
                     powerOnNewStruct($(this)[0]);
                     if (global.tech['conflict'] === 1){
-                        global.galaxy['armed_miner'] = { count: 0, on: 0, crew: 0, mil: 0 };
+                        initStruct(actions.galaxy.gxy_alien2.armed_miner);
                         global.tech['conflict'] = 2;
                         galaxySpace();
                         drawTech();
@@ -5293,6 +5922,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, support: 0, s_max: 0 },
+                    p: ['foothold','galaxy']
+                };
             }
         },
         armed_miner: {
@@ -5338,6 +5973,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, crew: 0, mil: 0 },
+                    p: ['armed_miner','galaxy']
+                };
             }
         },
         ore_processor: {
@@ -5366,6 +6007,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['ore_processor','galaxy']
+                };
             }
         },
         scavenger: {
@@ -5402,6 +6049,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, crew: 0 },
+                    p: ['scavenger','galaxy']
+                };
             }
         },
     },
@@ -5540,6 +6193,12 @@ const galaxyProjects = {
                 }
                 return false;
             },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, crew: 0, mil: 0 },
+                    p: ['minelayer','galaxy']
+                };
+            },
             postPower(){
                 vBind({el: `#gxy_chthonian`},'update');
             },
@@ -5575,6 +6234,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['excavator','galaxy']
+                };
             }
         },
         raider: {
@@ -5622,6 +6287,12 @@ const galaxyProjects = {
                     return true;
                 }
                 return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, crew: 0, mil: 0 },
+                    p: ['raider','galaxy']
+                };
             },
             postPower(){
                 vBind({el: `#gxy_chthonian`},'update');
@@ -5886,12 +6557,20 @@ const structDefinitions = {
     attractor: { count: 0, on: 0 },
 };
 
-export function incrementStruct(struct,sector){
+export function incrementStruct(c_action,sector){
+    let struct = c_action;
+    if (typeof c_action === 'object'){
+        struct = c_action.struct().p[0];
+        sector = c_action.struct().p[1];
+    }
     if (!sector){
         sector = 'space';
     }
     if (!global[sector][struct]){
-        global[sector][struct] = structDefinitions[struct];
+        global[sector][struct] = typeof c_action === 'object' ? c_action.struct().d : structDefinitions[struct];
+    }
+    if (global.race['living_materials'] || global[sector][struct]['l_m']){
+        global[sector][struct]['l_m'] = 0;
     }
     global[sector][struct].count++;
 }
