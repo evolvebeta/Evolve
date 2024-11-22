@@ -1220,7 +1220,7 @@ if (convertVersion(global['version']) <= 104000){
 
 global['version'] = '1.4.0';
 delete global['revision'];
-global['beta'] = 11;
+global['beta'] = 12;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -1969,7 +1969,7 @@ export function keyMultiplier(){
     return number;
 }
 
-function convertVersion(version){
+export function convertVersion(version){
     let vNum = version.split('.',3);
     vNum[0] *= 100000;
     vNum[1] *= 1000;
