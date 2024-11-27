@@ -5066,7 +5066,7 @@ const raceList = [
     'custom','hybrid'
 ];
 raceList.forEach(function(race){
-    if (race !== 'custom' || global.custom.hasOwnProperty('race0')) {
+    if (!['custom','hybrid'].includes(race) || (race === 'custom' && global.custom.hasOwnProperty('race0')) || (race === 'hybrid' && global.custom.hasOwnProperty('race1')) ) {
         actions.evolution[race] = {
             id: `evolution-${race}`,
             title(){ return races[race].name; },
@@ -5125,6 +5125,7 @@ if (Object.keys(global.stats.synth).length > 1){
             return global.stats.synth[race] && global.race['evoFinalMenu'];
         },
         cost: {},
+        wiki: false,
         race: true,
         effect(){ return loc(`evo_imitate_race`,[races[race].name]); },
         action(){
@@ -6498,7 +6499,6 @@ export function setPlanet(opt){
                     break;
             }
         }
-
         switch (biome){
             case 'hellscape':
                 orbit = 666;
@@ -6507,7 +6507,16 @@ export function setPlanet(opt){
                 orbit = 777;
                 break;
             default:
-                orbit = Math.floor(seededRandom(200,trait.includes('elliptical') ? 800 : 600));
+                {
+                    let maxOrbit = 600;
+                    if (trait.includes('elliptical')){
+                        maxOrbit += 200;
+                    }
+                    if (trait.includes('kamikaze')){
+                        maxOrbit += 100;
+                    }
+                    orbit = Math.floor(seededRandom(200,maxOrbit));
+                }
                 break;
         }
     }
@@ -6744,6 +6753,11 @@ function buildPlanet(aspect,opt,args){
                 case 12:
                     if (!trait.includes('retrograde')){
                         trait.push('retrograde');
+                    }
+                    break;
+                case 13:
+                    if (!trait.includes('kamikaze')){
+                        trait.push('kamikaze');
                     }
                     break;
                 default:
