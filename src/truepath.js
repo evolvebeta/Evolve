@@ -8,7 +8,7 @@ import { production, highPopAdjust } from './prod.js';
 import { actions, payCosts, powerOnNewStruct, setAction, drawTech, bank_vault, buildTemplate, casinoEffect, housingLabel, structName, initStruct } from './actions.js';
 import { fuel_adjust, int_fuel_adjust, spaceTech, renderSpace, checkRequirements, incrementStruct, planetName } from './space.js';
 import { removeTask, govActive } from './governor.js';
-import { defineIndustry, nf_resources } from './industry.js';
+import { defineIndustry, nf_resources, addSmelter } from './industry.js';
 import { arpa } from './arpa.js';
 import { matrix, retirement, gardenOfEden } from './resets.js';
 import { loc } from './locale.js';
@@ -586,6 +586,9 @@ const outerTruth = {
                             powerOnNewStruct($(outerTruth.spc_titan.ai_core2)[0]);
                             renderSpace();
                             drawTech();
+                            if (global.city.ptrait.includes('kamikaze') && !global.race['tidal_decay']){
+                                messageQueue(loc('planet_kamikaze_stabilize',[races[global.race.species].home,100]),'info',false,['progress']);
+                            }
                         }
                         return true;
                     }
@@ -3332,14 +3335,7 @@ const tauCetiModules = {
                     incrementStruct('ore_refinery','tauceti');
                     if (powerOnNewStruct($(this)[0])){
                         let num_smelters = $(this)[0].smelting();
-                        global.city.smelter.cap += num_smelters;
-                        global.city.smelter.Steel += num_smelters;
-                        if (global.race['evil']) {
-                            global.city['smelter'].Wood += num_smelters;
-                        }
-                        else {
-                            global.city.smelter.Oil += num_smelters;
-                        }
+                        addSmelter(num_smelters, 'Steel', global.race['evil'] ? 'Wood' : 'Oil');
                     }
                     return true;
                 }
@@ -3897,7 +3893,7 @@ for (let i=1; i<9; i++){
         action(){
             if (payCosts($(this)[0])){
                 global.race['gas_name'] = i;
-                initStruct(tauCetiModules.tauceti.tau_gas.refueling_station);
+                initStruct(tauCetiModules.tau_gas.refueling_station);
                 return true;
             }
             return false;
@@ -3949,6 +3945,7 @@ function defineWomlings(){
     initStruct(tauCetiModules.tau_red.womling_village);
     initStruct(tauCetiModules.tau_red.womling_mine);
     initStruct(tauCetiModules.tau_red.womling_fun);
+    initStruct(tauCetiModules.tau_red.womling_farm);
     if (global.race['lone_survivor']){
         global.tauceti.womling_village.count = 2;
         global.tauceti.womling_village.on = 2;
@@ -5209,11 +5206,11 @@ export function syndicate(region,extra){
         let piracy = global.space.syndicate[region];
         if (global.race['chicken']){
             piracy *= 1 + (traits.chicken.vars()[1] / 100);
-            piracy = Math.round(pirate);
+            piracy = Math.round(piracy);
         }
         if (global.race['ocular_power'] && global.race['ocularPowerConfig'] && global.race.ocularPowerConfig.f){
             piracy *= 1 - (traits.ocular_power.vars()[1] / 500);
-            piracy = Math.round(pirate);
+            piracy = Math.round(piracy);
         }
         let patrol = 0;
         let sensor = 0;
@@ -5951,7 +5948,7 @@ export function loneSurvivor(){
 
         initStruct(actions.city.factory);
         initStruct(actions.city.foundry);
-        initStruct(actions.city.smelter); global.city.smelter.cap = 2; global.city.smelter.Oil = 2; global.city.smelter.Iron = 1; global.city.smelter.Steel = 1;
+        initStruct(actions.city.smelter); addSmelter(1, 'Iron'); addSmelter(1, 'Steel');
 
         initStruct(actions.city.amphitheatre);
         initStruct(actions.city.apartment);
