@@ -952,7 +952,7 @@ export function index(){
     </div>`);
     message_filters.forEach(function (filter){
         $(`#msgQueueFilters`).append(`
-            <span id="msgQueueFilter-${filter}" class="${filter === 'all' ? 'is-active' : ''}" @click="swapFilter('${filter}')" v-show="s.${filter}.vis">${loc('message_log_' + filter)}</span>
+            <span id="msgQueueFilter-${filter}" class="${filter === 'all' ? 'is-active' : ''}" aria-disabled="${filter === 'all' ? 'true' : 'false'}" @click="swapFilter('${filter}')" v-show="s.${filter}.vis" role="button">${loc('message_log_' + filter)}</span>
         `);
     });
     vBind({
@@ -964,8 +964,8 @@ export function index(){
         methods: {
             swapFilter(filter){
                 if (message_logs.view !== filter){
-                    $(`#msgQueueFilter-${message_logs.view}`).removeClass('is-active');
-                    $(`#msgQueueFilter-${filter}`).addClass('is-active');
+                    $(`#msgQueueFilter-${message_logs.view}`).removeClass('is-active').attr('aria-disabled', 'false');
+                    $(`#msgQueueFilter-${filter}`).addClass('is-active').attr('aria-disabled', 'true');
                     message_logs.view = filter;
                     let queue = $(`#msgQueueLog`);
                     clearElement(queue);
@@ -1216,34 +1216,35 @@ export function index(){
 
     let iconlist = '';
     let icons = [
-        {i: 'nuclear',      f: 'steelem',           r: 2 },
-        {i: 'zombie',       f: 'the_misery',        r: 2 },
-        {i: 'fire',         f: 'ill_advised',       r: 2 },
-        {i: 'mask',         f: 'friday',            r: 1 },
-        {i: 'skull',        f: 'demon_slayer',      r: 2 },
-        {i: 'taijitu',      f: 'equilibrium',       r: 2 },
-        {i: 'martini',      f: 'utopia',            r: 2 },
-        {i: 'lightbulb',    f: 'energetic',         r: 2 },
-        {i: 'trash',        f: 'garbage_pie',       r: 2 },
-        {i: 'banana',       f: 'banana',            r: 2 },
-        {i: 'turtle',       f: 'finish_line',       r: 2 },
-        {i: 'floppy',       f: 'digital_ascension', r: 2 },
-        {i: 'slime',        f: 'slime_lord',        r: 2 },
-        {i: 'sludge',       f: 'grand_death_tour',  r: 2 },
-        {i: 'lightning',    f: 'annihilation',      r: 2 },
-        {i: 'trophy',       f: 'wish',              r: 2 },
-        {i: 'heart',        f: 'valentine',         r: 1 },
-        {i: 'clover',       f: 'leprechaun',        r: 1 },
-        {i: 'bunny',        f: 'easter',            r: 1 },
-        {i: 'egg',          f: 'egghunt',           r: 1 },
-        {i: 'rocket',       f: 'launch_day',        r: 1 },
-        {i: 'sun',          f: 'solstice',          r: 1 },
-        {i: 'firework',     f: 'firework',          r: 1 },
-        {i: 'ghost',        f: 'halloween',         r: 1 },
-        {i: 'candy',        f: 'trickortreat',      r: 1 },
-        {i: 'turkey',       f: 'thanksgiving',      r: 1 },
-        {i: 'meat',         f: 'immortal',          r: 1 },
-        {i: 'present',      f: 'xmas',              r: 1 },
+        {i: 'nuclear',      f: 'steelem',               r: 2 },
+        {i: 'zombie',       f: 'the_misery',            r: 2 },
+        {i: 'fire',         f: 'ill_advised',           r: 2 },
+        {i: 'mask',         f: 'friday',                r: 1 },
+        {i: 'skull',        f: 'demon_slayer',          r: 2 },
+        {i: 'taijitu',      f: 'equilibrium',           r: 2 },
+        {i: 'martini',      f: 'utopia',                r: 2 },
+        {i: 'lightbulb',    f: 'energetic',             r: 2 },
+        {i: 'trash',        f: 'garbage_pie',           r: 2 },
+        {i: 'banana',       f: 'banana',                r: 2 },
+        {i: 'turtle',       f: 'finish_line',           r: 2 },
+        {i: 'floppy',       f: 'digital_ascension',     r: 2 },
+        {i: 'slime',        f: 'slime_lord',            r: 2 },
+        {i: 'sludge',       f: 'grand_death_tour',      r: 2 },
+        {i: 'lightning',    f: 'annihilation',          r: 2 },
+        {i: 'trophy',       f: 'wish',                  r: 2 },
+        {i: 'robot',        f: 'planned_obsolescence',  r: 2 },
+        {i: 'heart',        f: 'valentine',             r: 1 },
+        {i: 'clover',       f: 'leprechaun',            r: 1 },
+        {i: 'bunny',        f: 'easter',                r: 1 },
+        {i: 'egg',          f: 'egghunt',               r: 1 },
+        {i: 'rocket',       f: 'launch_day',            r: 1 },
+        {i: 'sun',          f: 'solstice',              r: 1 },
+        {i: 'firework',     f: 'firework',              r: 1 },
+        {i: 'ghost',        f: 'halloween',             r: 1 },
+        {i: 'candy',        f: 'trickortreat',          r: 1 },
+        {i: 'turkey',       f: 'thanksgiving',          r: 1 },
+        {i: 'meat',         f: 'immortal',              r: 1 },
+        {i: 'present',      f: 'xmas',                  r: 1 },
     ];
 
     let irank = alevel();

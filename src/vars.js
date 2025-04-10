@@ -1233,9 +1233,18 @@ if (convertVersion(global['version']) < 104002){
     }
 }
 
-global['version'] = '1.4.2';
+if (convertVersion(global['version']) < 104003){
+    if(!global.race.inactive){
+        global.race.inactive = {};
+    }
+    if(global.race['forager']){
+        global.race.inactive = {herbivore:global.race['forager'], carnivore:global.race['forager']};
+    }
+}
+
+global['version'] = '1.4.3';
 delete global['revision'];
-global['beta'] = 7;
+global['beta'] = 1;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -2255,7 +2264,7 @@ function setRegionStates(reset){
             'nebula','neutron','blackhole','sirius','stargate','gateway','gorddon',
             'alien1','alien2','chthonian','titan','enceladus','triton','eris','kuiper'
         ],
-        portal: ['fortress','badlands','pit','ruins','gate','lake','spire'],
+        portal: ['fortress','badlands','pit','ruins','gate','lake','spire','wasteland'],
         eden: ['asphodel','elysium','isle','palace'],
         tau: ['home','red','roid','gas','gas2','star']
     };

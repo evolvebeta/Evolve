@@ -274,14 +274,14 @@ export function powerGrid(type,reset){
             power_structs = [
                 'city:transmitter','prtl_ruins:arcology','city:apartment','eden_asphodel:rectory','int_alpha:habitat','int_alpha:luxury_condo','spc_red:spaceport','spc_titan:titan_spaceport','spc_titan:electrolysis','int_alpha:starport',
                 'eden_asphodel:encampment','spc_dwarf:shipyard','spc_titan:ai_core2','spc_eris:drone_control','spc_titan:ai_colonist','int_blackhole:s_gate','gxy_gateway:starbase','spc_triton:fob',
-                'spc_enceladus:operating_base','spc_enceladus:zero_g_lab','spc_titan:sam','gxy_gateway:ship_dock','prtl_ruins:hell_forge','int_neutron:stellar_forge','int_neutron:citadel',
+                'prtl_wasteland:demon_forge','prtl_wasteland:twisted_lab','spc_enceladus:operating_base','spc_enceladus:zero_g_lab','spc_titan:sam','gxy_gateway:ship_dock','prtl_ruins:hell_forge','int_neutron:stellar_forge','int_neutron:citadel',
                 'tau_home:orbital_station','tau_red:orbital_platform','tau_gas:refueling_station','tau_home:tau_farm','tau_gas:ore_refinery','tau_gas:whaling_station',
                 'city:coal_mine','spc_moon:moon_base','spc_red:red_tower','spc_home:nav_beacon','int_proxima:xfer_station','gxy_stargate:telemetry_beacon','int_nebula:nexus','gxy_stargate:gateway_depot',
                 'spc_dwarf:elerium_contain','spc_gas:gas_mining','spc_belt:space_station','spc_gas_moon:outpost','gxy_gorddon:embassy','gxy_gorddon:dormitory','gxy_alien1:resort','spc_gas_moon:oil_extractor',
-                'int_alpha:int_factory','city:factory','spc_red:red_factory','spc_dwarf:world_controller','prtl_fortress:turret','prtl_badlands:war_drone','city:wardenclyffe','city:biolab','city:mine',
-                'city:rock_quarry','city:cement_plant','city:sawmill','city:mass_driver','int_neutron:neutron_miner','prtl_fortress:war_droid','prtl_pit:soul_forge','gxy_chthonian:excavator',
+                'prtl_wasteland:hell_factory','int_alpha:int_factory','city:factory','spc_red:red_factory','spc_dwarf:world_controller','prtl_fortress:turret','prtl_badlands:war_drone','city:wardenclyffe','city:biolab','city:mine',
+                'city:rock_quarry','city:cement_plant','city:sawmill','city:mass_driver','int_neutron:neutron_miner','prtl_fortress:war_droid','prtl_pit:soul_forge','gxy_chthonian:excavator','prtl_pit:shadow_mine','prtl_pit:tavern',
                 'int_blackhole:far_reach','prtl_badlands:sensor_drone','prtl_badlands:attractor','city:metal_refinery','gxy_stargate:gateway_station','gxy_alien1:vitreloy_plant','gxy_alien2:foothold',
-                'gxy_gorddon:symposium','int_blackhole:mass_ejector','city:casino','spc_hell:spc_casino','tau_home:tauceti_casino','prtl_fortress:repair_droid','gxy_stargate:defense_platform','prtl_ruins:guard_post',
+                'gxy_gorddon:symposium','int_blackhole:mass_ejector','city:casino','spc_hell:spc_casino','tau_home:tauceti_casino','prtl_wasteland:hell_casino','prtl_fortress:repair_droid','gxy_stargate:defense_platform','prtl_ruins:guard_post',
                 'prtl_lake:cooling_tower','prtl_lake:harbor','prtl_spire:purifier','prtl_ruins:archaeology','prtl_pit:gun_emplacement','prtl_gate:gate_turret','prtl_pit:soul_attractor',
                 'prtl_gate:infernite_mine','int_sirius:ascension_trigger','spc_kuiper:orichalcum_mine','spc_kuiper:elerium_mine','spc_kuiper:uranium_mine','spc_kuiper:neutronium_mine','spc_dwarf:m_relay',
                 'tau_home:tau_factory','tau_home:infectious_disease_lab','tau_home:alien_outpost','tau_gas:womling_station','spc_red:atmo_terraformer','tau_star:matrix','tau_home:tau_cultural_center',
@@ -363,8 +363,8 @@ export function initMessageQueue(filters){
     filters.forEach(function (filter){
         message_logs[filter] = [];
         if (!global.settings.msgFilters[message_logs.view].vis){
-            $(`#msgQueueFilter-${message_logs.view}`).removeClass('is-active');
-            $(`#msgQueueFilter-${filter}`).addClass('is-active');
+            $(`#msgQueueFilter-${message_logs.view}`).removeClass('is-active').attr('aria-disabled', 'false');
+            $(`#msgQueueFilter-${filter}`).addClass('is-active').attr('aria-disabled', 'true');
             message_logs.view = filter;
         }
     });
@@ -1940,12 +1940,15 @@ function smolderAdjust(costs, offset, wiki){
 }
 
 function kindlingAdjust(costs, offset, wiki){
-    if (global.race['kindling_kindred'] && (costs['Lumber'] || costs['Plywood'])){
+    if ((global.race['kindling_kindred'] || global.race['iron_wood']) && (costs['Lumber'] || costs['Plywood'])){
         var newCosts = {};
         let adjustRate = 1 + (traits.kindling_kindred.vars()[0] / 100);
         Object.keys(costs).forEach(function (res){
-            if (res !== 'Lumber' && res !== 'Plywood' && res !== 'Structs'){
+            if (global.race['kindling_kindred'] && res !== 'Lumber' && res !== 'Plywood' && res !== 'Structs'){
                 newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * adjustRate) || 0; }
+            }
+            else if (global.race['iron_wood'] && res !== 'Plywood'){
+                newCosts[res] = function(){ return costs[res](offset, wiki); }
             }
             else if (res === 'Structs'){
                 newCosts[res] = function(){ return costs[res](offset, wiki); }
@@ -2179,6 +2182,8 @@ export function svgIcons(icon){
             return `<rect width='24' height='24' stroke='none' fill='#000000' opacity='0'/><g transform="matrix(0.42 0 0 0.42 12 12)" ><g style=""><g transform="matrix(1 0 0 1 0 7)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: rgb(255,160,0); fill-rule: nonzero; opacity: 1;" transform=" translate(-24, -31)" d="M 25 34 L 24 36 L 23 34 L 22 26 L 26 26 z" stroke-linecap="round" /></g><g transform="matrix(1 0 0 1 0 16)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: rgb(251,192,45); fill-rule: nonzero; opacity: 1;" transform=" translate(-24, -40)" d="M 29 44 C 29 45.105 28.104 46 27 46 L 21 46 C 19.896 46 19 45.105 19 44 L 19 37 C 19 35.895 23 34 23 34 L 25 34 C 25 34 29 35.895 29 37 L 29 44 z" stroke-linecap="round" /></g><g transform="matrix(1 0 0 1 0 -5.5)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill-rule: nonzero; opacity: 1;" transform=" translate(-24, -18.5)" d="M 25 34 L 25 35 L 23 35 L 23 34 L 22 26 L 26 26 z M 19.71 24.971 C 19.204 24.842 7.292000000000002 21.735 5.32 12.203 C 4.443 7.958 5.529 5.508 6.596 4.199 C 7.915 2.578 9.713 2 10.955 2 C 12.616 2 13.9 2.457 14.773 3.359 C 15.871 4.496 15.855 5.879 15.850999999999999 6.035 C 15.850999999999999 7.607 14.786 10 11.850999999999999 10 L 11.850999999999999 10 C 11.728 10 11.094999999999999 9.982 10.437 9.635 C 9.48 9.133 8.955 8.195 8.955 7 L 10.955 7 C 10.955 7.574 11.178 7.764 11.37 7.867 C 11.598 7.986 11.85 8 11.852 8 C 13.755 8 13.852 6.333 13.852 6 C 13.852 5.951 13.85 5.268 13.317 4.731 C 12.834 4.246 12.039 4 10.955 4 C 10.353 4 9.086 4.309 8.146 5.461 C 7.01 6.857 6.71 9.047 7.279 11.797 C 8.999 20.115000000000002 20.087 23.002000000000002 20.198999999999998 23.029 L 19.71 24.971 z M 28.09 25 L 27.491 23.092 C 27.591 23.063 37.562 19.83 40.397999999999996 11.714999999999998 C 41.266999999999996 9.234999999999998 41.206999999999994 7.273999999999998 40.217999999999996 5.882999999999998 C 39.263 4.534999999999998 37.644 4.046999999999998 36.79 4.046999999999998 C 33.824 4.046999999999998 33.79 5.964999999999998 33.79 6.046999999999998 C 33.798 6.507999999999998 33.964 8.046999999999997 35.79 8.046999999999997 C 36.24 8.034999999999997 36.79 7.851999999999997 36.79 7.046999999999997 L 38.79 7.046999999999997 C 38.79 9.245999999999997 36.996 10.046999999999997 35.79 10.046999999999997 C 32.854 10.046999999999997 31.79 7.6519999999999975 31.79 6.046999999999997 C 31.79 4.663999999999997 32.835 2.046999999999997 36.79 2.046999999999997 C 38.311 2.046999999999997 40.544 2.882999999999997 41.851 4.722999999999997 C 42.802 6.062999999999997 43.65 8.480999999999998 42.289 12.374999999999996 C 39.115 21.449 28.539 24.859 28.09 25 z" stroke-linecap="round" /></g><g transform="matrix(1 0 0 1 0 -3)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill-rule: nonzero; opacity: 1;" transform=" translate(-24, -21)" d="M 29 39 L 19 39 L 19 37 C 19 35.896 23 34 23 34 L 25 34 C 25 34 29 35.896 29 37 L 29 39 z M 34 3 C 34 11 31.916 28 24 28 C 16.084 28 14 11 14 3 L 34 3 z" stroke-linecap="round" /></g><g transform="matrix(1 0 0 1 -1 -10)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: rgb(255,236,179); fill-rule: nonzero; opacity: 1;" transform=" translate(-23, -14)" d="M 25 19 L 23 19 L 23 11.609 L 21 12.275 L 21 10.515 L 24.813 9 L 25 9 L 25 19 z" stroke-linecap="round" /></g><g transform="matrix(1 0 0 1 0 18)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: rgb(122,83,75); fill-rule: nonzero; opacity: 1;" transform=" translate(-24, -42)" d="M 17 38 L 31 38 L 31 46 L 17 46 z" stroke-linecap="round" /></g><g transform="matrix(1 0 0 1 0 18)" ><path style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill-rule: nonzero; opacity: 1;" transform=" translate(-24, -42)" d="M 19 41 L 29 41 L 29 43 L 19 43 z" stroke-linecap="round" /></g></g></g>`;
         case 'sludge':
             return `<path d="M269.614 30.044c-41.094.11-65.414 10.652-81.03 26.75-16.656 17.17-24.139 42.145-28.03 71.115-3.893 28.97-4.132 61.396-7.866 92.127-3.734 30.73-10.966 60.248-30.557 82.406-15.817 17.892-42.361 25.805-62.95 35.092-10.296 4.643-19.02 9.523-23.905 14.351-4.885 4.829-6.475 8.28-4.984 15.149 1.096 5.052 1.608 4.95 5.66 5.863.26.059.576.099.865.147.557 5.33.8 11.75-.547 15.793-2.607 7.825-15.762 11.07-15.469 19.314.375 10.517 11.005 24.543 21.44 23.178 9.19-1.203 13.373-15.322 12.992-24.582-.206-4.997-6.993-7.761-8.076-12.643-1.234-5.558.271-14.423 1.748-20.937 2.398-.154 4.955-.365 7.662-.627 17.928-1.738 42.524-4.773 62.908 10.922l.188.144.18.154c8.02 6.876 11.601 15.838 13.708 23.77 2.107 7.931 3.122 15.205 5.084 20.517 1.963 5.313 4.028 8.479 9.606 11.131 5.527 2.63 15.524 4.371 32.275 2.875 6.943-1.197 23.278-9.063 40.928-16.4 17.776-7.39 37.824-14.455 57.451-11.662 22.195 3.158 36.671 21.628 50.092 35.969 6.71 7.17 13.151 13.532 19.105 17.296 5.955 3.765 10.752 5.103 16.756 3.752 3.784-.85 6.019-2.717 8.604-6.716 2.585-4 4.872-10.023 7.088-16.815 4.43-13.584 8.153-30.887 22.523-41.054 15.43-10.919 35.04-9.373 51.36-9.366 2.497.001 4.914-.024 7.236-.088 1.676 6.563 3.632 16.245 2.43 22.186-1.07 5.28-8.3 8.397-8.44 13.781-.322 12.39 5.349 32.649 17.742 32.672 12.318.023 18.463-20.109 17.758-32.406-.326-5.692-7.844-8.637-9.877-13.963-2.372-6.216-3.17-17.085-3.437-24.25 3.643-1.11 5.647-2.575 6.986-4.809 1.073-1.79 1.352-3.25.978-5.77-.373-2.519-1.69-5.98-4.097-9.984-4.815-8.008-13.776-17.92-24.324-28.353-21.097-20.867-48.347-43.68-62.825-67.358-4.863-7.952-8.993-16.588-12.576-25.705-7.318-.474-14.554-.62-21.726-.51-.277 9.449-.298 27.428 3.062 37.31 3.313 9.743 17.026 11.318 17.207 25.634.193 15.237-6.193 39.866-21.422 40.383-15.972.541-25.213-24.753-25.283-40.735-.06-13.684 12.29-14.826 14.397-23.879 1.635-7.029.603-17.906-.751-26.676-1.116-5.49-5.266-11.503-12.227-10.64-33.643 3.153-66.13 10.934-98.915 17.518 3.746-21.205 11.727-47.904 35.3-65.721a73.974 73.974 0 0 1 4.52-3.154c-.304 5.65-.976 11.957-2.492 16.06-1.742 4.717-9.088 7.325-8.68 12.336.611 7.504 8.295 16.512 15.815 16.13 8.506-.434 16.796-11.492 15.943-19.966-.404-4.016-7.606-4.097-9.29-7.765-2.548-5.546-1.784-15.554-.835-22.373 21.352-9.2 44.721-6.84 64.479.29 8.004 2.89 13.774 7.568 18.152 13.231-4.283-18.421-7.608-37.494-11.049-56.047-4.684 11.104-23.122 12.455-42.303 4.672 15.512-9.746 25.996-23.802 35.4-38.783-5.935-25.782-13.52-48.61-24.792-64.387-11.33-15.859-25.448-25.085-48.428-25.775a258.397 258.397 0 0 0-8.445-.12zm-41.33 90.005c.635-.009 1.278.256 1.91.832 17.36 15.839 31.196 35.58 54.338 41.11-10.236 9.53-31.876 14.4-57.028 1.125-10.858-17.297-5.365-42.982.78-43.067zm41.023 318.409c-16.932.1-38.307 8.538-36.385 22.369 3.127 22.496 55.236 28.997 67.424 9.832 6.62-10.41-8.522-27.451-20.367-30.903-3.094-.901-6.764-1.321-10.672-1.298z"/>`;
+        case 'robot':
+            return `<path d="M5,7A1,1,0,0,0,4,8V22a1,1,0,0,0,1,1H19a1,1,0,0,0,1-1V8a1,1,0,0,0-1-1H13V4.723a2,2,0,1,0-2,0V7ZM18,9V21H6V9ZM7,13a1,1,0,0,1,1-1h2a1,1,0,0,1,0,2H8A1,1,0,0,1,7,13Zm6,0a1,1,0,0,1,1-1h2a1,1,0,0,1,0,2H14A1,1,0,0,1,13,13ZM1,14V12a1,1,0,0,1,2,0v2a1,1,0,0,1-2,0Zm22-2v2a1,1,0,0,1-2,0V12a1,1,0,0,1,2,0ZM7,18a1,1,0,0,1,1-1h8a1,1,0,0,1,0,2H8A1,1,0,0,1,7,18Z"/>`
     }
 }
 
@@ -2260,6 +2265,8 @@ export function svgViewBox(icon){
             return `0 0 24 24`;
         case 'sludge':
             return `0 0 512 512`;
+        case 'robot':
+            return `0 0 24 24`;
     }
 }
 
@@ -2296,6 +2303,8 @@ export function getBaseIcon(name,type){
                 return 'meat';
             case 'wish':
                 return 'trophy';
+            case 'existential_risk':
+                return 'robot';
             case 'friday':
                 return 'mask';
             case 'valentine':
@@ -2909,6 +2918,7 @@ const valAdjust = {
     living_tool: false,
     empowered: false,
     living_materials: true,
+    blurry: true
 };
 
 function getTraitVals(trait, rank, species){
@@ -2943,6 +2953,9 @@ function getTraitVals(trait, rank, species){
         }
         else if (trait === 'living_materials'){
             vals = [global.resource.Lumber.name, global.resource.Plywood.name, global.resource.Furs.name, loc('resource_Amber_name')];
+        }
+        else if (trait === 'blurry' && global.race['warlord']){
+            vals = [+((100/(100-vals[0])-1)*100).toFixed(1)];
         }
         else if (!valAdjust[trait]){
             vals = [];
@@ -3090,6 +3103,10 @@ function rName(r){
     return `<span class="has-text-warning">${res}</span>`;
 }
 
+const altTraitDesc = {
+    blurry: 'warlord'
+};
+
 export function getTraitDesc(info, trait, opts){
     let fanatic = opts['fanatic'] || false;
     let tpage = opts['tpage'] || false;
@@ -3141,7 +3158,8 @@ export function getTraitDesc(info, trait, opts){
                     trait_desc = loc(`wiki_trait_effect_${alt_trait}`, getTraitVals(trait, trank, species));
                 }
                 else {
-                    trait_desc = loc(`wiki_trait_effect_${trait}`, getTraitVals(trait, trank, species));
+                    let key = altTraitDesc[trait] && global.race.hasOwnProperty(altTraitDesc[trait]) ? altTraitDesc[trait] : 'effect';
+                    trait_desc = loc(`wiki_trait_${key}_${trait}`, getTraitVals(trait, trank, species));
                 }
             }
             info.append(`<div class="has-text-${color} effect">${trait_desc}</div>`);
@@ -3170,7 +3188,8 @@ export function getTraitDesc(info, trait, opts){
                         let alt_trait = trait === 'spiritual' ? 'manipulator' : 'blasphemous_evil';
                         return loc(`wiki_trait_effect_${alt_trait}`, getTraitVals(trait, trank, species));
                     }
-                    return loc(`wiki_trait_effect_${trait}`, getTraitVals(trait, rk, species));
+                    let key = altTraitDesc[trait] && global.race.hasOwnProperty(altTraitDesc[trait]) ? altTraitDesc[trait] : 'effect';
+                    return loc(`wiki_trait_${key}_${trait}`, getTraitVals(trait, rk, species));
                 },
                 up(){
                     switch (data.rank){
