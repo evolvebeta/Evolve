@@ -1,7 +1,7 @@
 import { global, save, seededRandom, webWorker, intervals, keyMap, atrack, resizeGame, breakdown, sizeApproximation, keyMultiplier, power_generated, p_on, support_on, int_on, gal_on, spire_on, set_qlevel, quantum_level } from './vars.js';
 import { loc } from './locale.js';
 import { unlockAchieve, checkAchievements, drawAchieve, alevel, universeAffix, challengeIcon, unlockFeat, checkAdept } from './achieve.js';
-import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, deepClone, addATime, exceededATimeThreshold, loopTimers, calcQuantumLevel } from './functions.js';
+import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, deepClone, addATime, exceededATimeThreshold, loopTimers, calcQuantumLevel, drawPet } from './functions.js';
 import { races, traits, racialTrait, orbitLength, servantTrait, randomMinorTrait, biomes, planetTraits, shapeShift, fathomCheck, blubberFill } from './races.js';
 import { defineResources, resource_values, spatialReasoning, craftCost, plasmidBonus, faithBonus, faithTempleCount, tradeRatio, craftingRatio, crateValue, containerValue, tradeSellPrice, tradeBuyPrice, atomic_mass, supplyValue, galaxyOffers } from './resources.js';
 import { defineJobs, job_desc, loadFoundry, farmerValue, jobName, jobScale, workerScale, limitCraftsmen, loadServants} from './jobs.js';
@@ -408,8 +408,22 @@ popover('morale',
         }
 
         if (global.race['pet']){
-            total += 1;
-            obj.popper.append(`<p class="modal_bd"><span>${loc(`event_pet_${global.race.pet.type}_owner`)}</span> <span class="has-text-success"> ${1}%</span></p>`);
+            let change = 1;
+            if (global.race['pet']){
+                if (global.race.pet.event > 0){
+                    change++;
+                }
+                if (global.race.pet.pet > 0){
+                    change++;
+                }
+                else if (global.race.pet.pet < 0){
+                    change--;
+                }
+            }
+            if (change > 0){
+                total += change;
+                obj.popper.append(`<p class="modal_bd"><span>${loc(`event_pet_${global.race.pet.type}_owner`)}</span> <span class="has-text-success"> ${change}%</span></p>`);
+            }
         }
 
         if (global.race['wishStats'] && global.race.wishStats.fame !== 0){
@@ -547,6 +561,22 @@ vBind({
         },
         pausedesc(){
             return global.settings.pause ? loc('game_play') : loc('game_pause');
+        },
+        showPet(){
+            return global.race['pet'] ? true : false;
+        },
+        petPet(){
+            if (global.race['pet'] && global.race.pet.pet === 0){
+                let outcome = Math.rand(0,3);
+                if (outcome === 0){
+                    global.race.pet.pet = -300;
+                    messageQueue(loc(`event_${global.race.pet.type}_pet_failure`,[loc(`event_${global.race.pet.type}_name${global.race.pet.name}`)]),false,false,['events','minor_events']);
+                }
+                else {
+                    global.race.pet.pet = 300;
+                    messageQueue(loc(`event_${global.race.pet.type}_pet_success`,[loc(`event_${global.race.pet.type}_name${global.race.pet.name}`)]),false,false,['events','minor_events']);
+                }
+            }
         }
     },
     filters: {
@@ -717,6 +747,7 @@ if (global.race['orbit_decay'] && !global.race['orbit_decayed']){
 }
 
 challengeIcon();
+drawPet();
 
 if (global.race.species === 'protoplasm'){
     global.resource.RNA.display = true;
@@ -1378,7 +1409,16 @@ function fastLoop(){
         }
 
         if (global.race['pet']){
-            morale += 1;
+            morale++;
+            if (global.race.pet.event > 0){
+                morale++;
+            }
+            if (global.race.pet.pet > 0){
+                morale++;
+            }
+            else if (global.race.pet.pet < 0){
+                morale--;
+            }
         }
 
         if (global.race['wish'] && global.race['wishStats'] && global.race.wishStats.fame !== 0){
@@ -9165,6 +9205,10 @@ function midLoop(){
         }
         if (global.portal['twisted_lab'] && global.portal.twisted_lab.count > 0 && global.race['absorbed']){
             let gain = (p_on['twisted_lab'] * 10000 * global.race.absorbed.length);
+            if (global.tech['supercollider'] && global.race['warlord']){
+                let ratio = global.tech['tp_particles'] || (global.tech['particles'] && global.tech['particles'] >= 3) ? 12.5: 25;
+                gain *= (global.tech['supercollider'] / ratio) + 1;
+            }
             caps['Knowledge'] += gain;
             breakdown.c.Knowledge[loc('portal_twisted_lab_title')] = gain+'v';
         }
@@ -11297,6 +11341,18 @@ function longLoop(){
         if (global.race['truepath'] && global.civic.foreign.gov3.mil < 500){
             if (Math.rand(0, 50) === 0){
                 global.civic.foreign.gov3.mil++;
+            }
+        }
+
+        if (global.race['pet']){
+            if (global.race.pet.event > 0){
+                global.race.pet.event--;
+            }
+            if (global.race.pet.pet > 0){
+                global.race.pet.pet--;
+            }
+            else if (global.race.pet.pet < 0){
+                global.race.pet.pet++;
             }
         }
 
