@@ -1233,6 +1233,13 @@ if (convertVersion(global['version']) < 104002){
     }
 }
 
+if (convertVersion(global['version']) < 104003){
+    if (global.portal.hasOwnProperty('observe') && global.portal.observe.hasOwnProperty('stats')){
+        global.portal.observe.stats.period.gems['compactor'] ??= 0;
+        global.portal.observe.stats.total.gems['compactor'] ??= 0;
+    }
+}
+
 if (convertVersion(global['version']) <= 104003){
     if(global.race['pet'] && !global.race.pet.hasOwnProperty('event')){
         global.race.pet['event'] = 0;
@@ -1242,7 +1249,7 @@ if (convertVersion(global['version']) <= 104003){
 
 global['version'] = '1.4.3';
 delete global['revision'];
-global['beta'] = 3;
+global['beta'] = 4;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
