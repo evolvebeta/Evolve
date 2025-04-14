@@ -2308,7 +2308,7 @@ export const actions = {
             },
             effect(wiki){
                 let storage = '<div class="aTable">';
-                let multiplier = storageMultipler(wiki);
+                let multiplier = storageMultipler(1, wiki);
                 for (const res of $(this)[0].res()){
                     if (global.resource[res].display){
                         let val = sizeApproximation(+(spatialReasoning($(this)[0].val(res)) * multiplier).toFixed(0),1);
@@ -5435,6 +5435,10 @@ export function casino_vault(){
     if (global.race['warlord']){
         let absorb = global.race?.absorbed?.length || 1;
         vault *= 1 + (absorb / 10);
+        if (global.portal['hell_casino'] && global.portal.hell_casino.rank > 1){
+            let rank = global.portal.hell_casino.rank - 1;
+            vault *= 1 + rank * 0.05;
+        }
     }
     return vault;
 }
@@ -5475,6 +5479,10 @@ export function casinoEarn(){
     }
     if (global.race['wish'] && global.race['wishStats'] && global.race.wishStats.casino){
         cash *= 1.35;
+    }
+    if (global.race['warlord'] && global.portal['hell_casino'] && global.portal.hell_casino.rank > 1){
+        let rank = global.portal.hell_casino.rank - 1;
+        cash *= 1 + rank * 0.12;
     }
     return cash;
 }
@@ -6888,7 +6896,7 @@ export function getStructNumActive(c_action,wiki){
 
     // Electricity: production is negative, consumption is positive
     if (c_action.hasOwnProperty('powered') && c_action.powered() > 0) {
-        if (global.city.hasOwnProperty('powered')){
+        if (global.city.hasOwnProperty('powered') && checkPowerRequirements(c_action)){
             // The p_on struct is empty in the wiki view
             if (!wiki){
                 num_on = p_on[parts[1]];

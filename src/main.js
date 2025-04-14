@@ -7,8 +7,8 @@ import { defineResources, resource_values, spatialReasoning, craftCost, plasmidB
 import { defineJobs, job_desc, loadFoundry, farmerValue, jobName, jobScale, workerScale, limitCraftsmen, loadServants} from './jobs.js';
 import { defineIndustry, f_rate, manaCost, setPowerGrid, gridEnabled, gridDefs, nf_resources, replicator, luxGoodPrice, smelterUnlocked } from './industry.js';
 import { checkControlling, garrisonSize, armyRating, govTitle, govCivics, govEffect, weaponTechModifer } from './civics.js';
-import { actions, updateDesc, checkTechRequirements, drawEvolution, BHStorageMulti, storageMultipler, checkAffordable, drawCity, drawTech, gainTech, housingLabel, updateQueueNames, wardenLabel, planetGeology, resQueue, bank_vault, start_cataclysm, orbitDecayed, postBuild, skipRequirement, structName, templeCount, initStruct, casino_vault, casinoEarn } from './actions.js';
-import { renderSpace, convertSpaceSector, fuel_adjust, int_fuel_adjust, zigguratBonus, planetName, genPlanets, setUniverse, universe_types, gatewayStorage, piracy, spaceTech, universe_affixes } from './space.js';
+import { actions, updateDesc, checkTechRequirements, drawEvolution, BHStorageMulti, storageMultipler, checkAffordable, checkPowerRequirements, drawCity, drawTech, gainTech, housingLabel, updateQueueNames, wardenLabel, planetGeology, resQueue, bank_vault, start_cataclysm, orbitDecayed, postBuild, skipRequirement, structName, templeCount, initStruct, casino_vault, casinoEarn } from './actions.js';
+import { renderSpace, convertSpaceSector, fuel_adjust, int_fuel_adjust, zigguratBonus, planetName, genPlanets, setUniverse, universe_types, gatewayStorage, piracy, spaceTech, universe_affixes, galaxyRegions, gatewayArmada, galaxy_ship_types } from './space.js';
 import { renderFortress, bloodwar, soulForgeSoldiers, hellSupression, genSpireFloor, mechRating, mechCollect, updateMechbay, hellguard } from './portal.js';
 import { asphodelResist, mechStationEffect, renderEdenic } from './edenic.js';
 import { renderTauCeti, syndicate, shipFuelUse, spacePlanetStats, genXYcoord, shipCrewSize, tpStorageMultiplier, tritonWar, sensorRange, erisWar, calcAIDrift, drawMap, tauEnabled, shipCosts, buildTPShipQueue } from './truepath.js';
@@ -1072,7 +1072,7 @@ function fastLoop(){
         global_multiplier *= 1 + (heat / 100);
     }
     if (global.race['heat_intolerance'] && global.city['hot']){
-        let heat = global.city['hot'] * traits.heat_intolerance.vars()[0];
+        let heat = Math.min(100, global.city['hot'] * traits.heat_intolerance.vars()[0]);
         breakdown.p['Global'][loc('hot')] = `-${heat}%`;
         global_multiplier *= 1 - (heat / 100);
     }
@@ -1089,12 +1089,12 @@ function fastLoop(){
         global_multiplier *= 1 + (cold / 100);
     }
     if (global.race['cold_intolerance'] && global.city['cold']){
-        let cold = global.city['cold'] * traits.cold_intolerance.vars()[0];
+        let cold = Math.min(100, global.city['cold'] * traits.cold_intolerance.vars()[0]);
         breakdown.p['Global'][loc('cold')] = `-${cold}%`;
         global_multiplier *= 1 - (cold / 100);
     }
-    if (global.civic.govern.type === 'anarchy' && global.resource[global.race.species].amount >= jobScale(10)){
-        let chaos = (global.resource[global.race.species].amount - (jobScale(10) - 1)) * (global.race['high_pop'] ? (0.25 / traits.high_pop.vars()[0]) : 0.25);
+    if (global.civic.govern.type === 'anarchy' && global.resource[global.race.species].amount > jobScale(10)){
+        let chaos = (global.resource[global.race.species].amount - jobScale(10)) * (global.race['high_pop'] ? (0.25 / traits.high_pop.vars()[0]) : 0.25);
         breakdown.p['Global'][loc('govern_anarchy')] = `-${chaos}%`;
         global_multiplier *= 1 - (chaos / 100);
     }
@@ -2003,7 +2003,7 @@ function fastLoop(){
             const region = parts[0] === 'city' ? parts[0] : convertSpaceSector(parts[0]);
             const c_action = parts[0] === 'city' ? actions.city[struct] : actions[region][parts[0]][struct];
             if (global[region][struct]?.on){
-                if (region !== 'galaxy' || p_on['s_gate']){
+                if (checkPowerRequirements(c_action) && (region !== 'galaxy' || p_on['s_gate'])){
                     totalPowerDemand += global[region][struct].on * c_action.powered();
                     p_on[struct] = global[region][struct].on;
                 } else {
@@ -2777,44 +2777,6 @@ function fastLoop(){
             }
         }
 
-        var galaxy_ship_types = [
-            {
-                area: 'galaxy',
-                region: 'gxy_gateway',
-                ships: global.support.gateway.map(x => x.split(':')[1])
-            },
-            {
-                area: 'galaxy',
-                region: 'gxy_gorddon',
-                ships: ['freighter'],
-                req: 'embassy'
-            },
-            {
-                area: 'galaxy',
-                region: 'gxy_alien1',
-                ships: ['super_freighter'],
-                req: 'embassy'
-            },
-            {
-                area: 'galaxy',
-                region: 'gxy_alien2',
-                ships: global.support.alien2.map(x => x.split(':')[1]),
-                req: 'foothold'
-            },
-            {
-                area: 'galaxy',
-                region: 'gxy_chthonian',
-                ships: ['minelayer','raider'],
-                req: 'starbase'
-            },
-            {
-                area: 'portal',
-                region: 'prtl_lake',
-                ships: global.support.lake.map(x => x.split(':')[1]),
-                req: 'harbor'
-            }
-        ];
-
         let crew_civ = 0;
         let crew_mil = 0;
         let total = 0;
@@ -3257,12 +3219,12 @@ function fastLoop(){
             }
             else {
                 global_multiplier *= global.city.morale.current / 100;
-                breakdown.p['Global'][loc('morale')] = (global.city.morale.current - 100) + '%';
+                breakdown.p['Global'][loc('morale')] = +(global.city.morale.current - 100).toFixed(2) + '%';
             }
         }
         else {
             global_multiplier *= 1 + ((global.city.morale.current - 100) / 200);
-            breakdown.p['Global'][loc('morale')] = ((global.city.morale.current - 100) / 2) + '%';
+            breakdown.p['Global'][loc('morale')] = +((global.city.morale.current - 100) / 2).toFixed(2) + '%';
         }
 
         if (global.race['lazy'] && global.city.calendar.temp === 2){
@@ -4340,12 +4302,12 @@ function fastLoop(){
             let on_factories = (p_on['factory'] || 0)
                 + (p_on['red_factory'] || 0)
                 + ((p_on['int_factory'] || 0) * 2)
-                + ((p_on['hell_factory'] || 0) * 6)
+                + ((p_on['hell_factory'] || 0) * actions.portal.prtl_wasteland.hell_factory.lines())
                 + ((support_on['tau_factory'] || 0) * (global.tech['isolation'] ? 5 : 3));
             let max_factories = global.city['factory'].on
                 + (global.space['red_factory'] ? global.space['red_factory'].on : 0)
                 + (global.interstellar['int_factory'] ? global.interstellar['int_factory'].on * 2 : 0)
-                + (global.portal['hell_factory'] ? global.portal['hell_factory'].on * 6 : 0)
+                + (global.portal['hell_factory'] ? global.portal['hell_factory'].on * actions.portal.prtl_wasteland.hell_factory.lines() : 0)
                 + (global.tauceti['tau_factory'] ? global.tauceti['tau_factory'].on * (global.tech['isolation'] ? 5 : 3) : 0);
             let eff = max_factories > 0 ? on_factories / max_factories : 0;
             let remaining = max_factories;
@@ -5029,7 +4991,7 @@ function fastLoop(){
                 if (global.city.geology['Uranium']){
                     ash_base *= global.city.geology['Uranium'] + 1;
                 }
-                let ash = (ash_base / 65 / global_multiplier) * production('psychic_boost','Uranium');
+                let ash = (ash_base / 65) * production('psychic_boost','Uranium');
                 breakdown.p['Uranium'][loc('city_coal_ash')] = breakdown.p['Uranium'][loc('city_coal_ash')] ? breakdown.p['Uranium'][loc('city_coal_ash')] + ash : ash;
                 modRes('Uranium', (ash_base * time_multiplier) / 65);
             }
@@ -6853,7 +6815,7 @@ function fastLoop(){
 
         // Neutronium
         if (p_on['outpost']){
-            let p_values = production('outpost',true);
+            let p_values = production('outpost');
             let psy = production('psychic_boost','Neutronium');
 
             breakdown.p['Neutronium'][loc('space_gas_moon_outpost_bd')] = (p_values.b * psy * p_on['outpost']) + 'v';
@@ -7636,8 +7598,9 @@ function fastLoop(){
             let teamsters = global.civic.teamster.workers;
             let revenue = teamsters * rawCash * 0.00045;
             breakdown.p['Money'][jobName('teamster')] = Math.round(revenue) + 'v';
-            modRes('Money', +(revenue * time_multiplier * global_multiplier * hunger).toFixed(2));
-            rawCash += revenue * global_multiplier * hunger;
+            // Allow quadratic hunger penalty, but remove quadratic global production bonus
+            modRes('Money', +(revenue * time_multiplier * hunger).toFixed(2));
+            rawCash += revenue * hunger;
         }
         breakdown.p['Money'][loc('hunger')] = ((hunger - 1) * 100) + '%';
 
@@ -8773,7 +8736,7 @@ function midLoop(){
                     breakdown.c[res][label] = gain+'v';
                 }
             };
-            let cc_gain = global.portal.warehouse.count * 100;
+            let cc_gain = global.portal.warehouse.count * (75 + global.portal.warehouse.rank * 25);
             caps['Crates'] += cc_gain;
             breakdown.c['Crates'][label] = cc_gain+'v';
             caps['Containers'] += cc_gain;
@@ -9225,7 +9188,8 @@ function midLoop(){
             breakdown.c.Containers[loc('portal_throne_of_evil_title')] = 500 + 'v';
         }
         if (global.portal['twisted_lab'] && global.portal.twisted_lab.count > 0 && global.race['absorbed']){
-            let gain = (p_on['twisted_lab'] * 10000 * global.race.absorbed.length);
+            let baseVal = 6000 + global.portal.twisted_lab.rank * 2000;
+            let gain = (p_on['twisted_lab'] * baseVal * global.race.absorbed.length);
             if (global.tech['supercollider'] && global.race['warlord']){
                 let ratio = global.tech['tp_particles'] || (global.tech['particles'] && global.tech['particles'] >= 3) ? 12.5: 25;
                 gain *= (global.tech['supercollider'] / ratio) + 1;
@@ -9277,37 +9241,38 @@ function midLoop(){
         }
 
         if (p_on['embassy'] && global.galaxy['symposium']){
-            let pirate = piracy('gxy_gorddon');
-            let dorm = 1750 * p_on['dormitory'] * pirate;
-            let gtrade = 650 * global.galaxy.trade.cur * pirate;
+            let dorm = 1750 * p_on['dormitory'];
+            let gtrade = 650 * global.galaxy.trade.cur;
             let leave = 0;
             if (global.tech.xeno >= 7){
-                let crew = global.galaxy.defense.gxy_gorddon.scout_ship * (actions.galaxy.gxy_gateway.scout_ship.ship.civ() + actions.galaxy.gxy_gateway.scout_ship.ship.mil());
-                crew += global.galaxy.defense.gxy_gorddon.corvette_ship * (actions.galaxy.gxy_gateway.corvette_ship.ship.civ() + actions.galaxy.gxy_gateway.corvette_ship.ship.mil());
-                crew += global.galaxy.defense.gxy_gorddon.frigate_ship * (actions.galaxy.gxy_gateway.frigate_ship.ship.civ() + actions.galaxy.gxy_gateway.frigate_ship.ship.mil());
-                crew += global.galaxy.defense.gxy_gorddon.cruiser_ship * (actions.galaxy.gxy_gateway.cruiser_ship.ship.civ() + actions.galaxy.gxy_gateway.cruiser_ship.ship.mil());
-                crew += global.galaxy.defense.gxy_gorddon.dreadnought * (actions.galaxy.gxy_gateway.dreadnought.ship.civ() + actions.galaxy.gxy_gateway.dreadnought.ship.mil());
+                for (let j = 0; j < galaxy_ship_types.length; j++){
+                    const area = galaxy_ship_types[j].area;
+                    const region = galaxy_ship_types[j].region;
+                    if (area !== 'galaxy') { continue; }
 
-                if (gal_on['freighter']){
-                    crew += gal_on['freighter'] * (actions.galaxy.gxy_gorddon.freighter.ship.civ() + actions.galaxy.gxy_gorddon.freighter.ship.mil());
-                }
-                leave = +highPopAdjust(crew).toFixed(2) * 300 * pirate;
-
-                ['gxy_gateway','gxy_stargate','gxy_alien1','gxy_alien2','gxy_chthonian'].forEach(function(area){
-                    let crew = global.galaxy.defense[area].scout_ship * (actions.galaxy.gxy_gateway.scout_ship.ship.civ() + actions.galaxy.gxy_gateway.scout_ship.ship.mil());
-                    crew += global.galaxy.defense[area].corvette_ship * (actions.galaxy.gxy_gateway.corvette_ship.ship.civ() + actions.galaxy.gxy_gateway.corvette_ship.ship.mil());
-                    crew += global.galaxy.defense[area].frigate_ship * (actions.galaxy.gxy_gateway.frigate_ship.ship.civ() + actions.galaxy.gxy_gateway.frigate_ship.ship.mil());
-                    crew += global.galaxy.defense[area].cruiser_ship * (actions.galaxy.gxy_gateway.cruiser_ship.ship.civ() + actions.galaxy.gxy_gateway.cruiser_ship.ship.mil());
-                    crew += global.galaxy.defense[area].dreadnought * (actions.galaxy.gxy_gateway.dreadnought.ship.civ() + actions.galaxy.gxy_gateway.dreadnought.ship.mil());
-
-                    if (gal_on['super_freighter'] && area === 'gxy_alien1'){
-                        crew += gal_on['super_freighter'] * (actions.galaxy.gxy_alien1.super_freighter.ship.civ() + actions.galaxy.gxy_alien1.super_freighter.ship.mil());
+                    let crew = 0;
+                    for (const ship of gatewayArmada){
+                        crew += global.galaxy.defense[region][ship] * (actions[area]['gxy_gateway'][ship].ship.civ() + actions[area]['gxy_gateway'][ship].ship.mil());
                     }
 
-                    leave += +highPopAdjust(crew).toFixed(2) * 150 * pirate * piracy(area);
-                });
+                    for (let i=0; i<galaxy_ship_types[j].ships.length; i++){
+                        const ship = galaxy_ship_types[j].ships[i];
+                        if (!gatewayArmada.includes(ship) && actions[area][region][ship].hasOwnProperty('ship') && gal_on[ship]){
+                            // Every ship with the 'ship' property has both civ() and mil() functions
+                            crew += gal_on[ship] * (actions[area][region][ship].ship.civ() + actions[area][region][ship].ship.mil());
+                        }
+                    }
+
+                    if (region === 'gxy_gorddon'){
+                        leave += +highPopAdjust(crew).toFixed(2) * 300;
+                    }
+                    else {
+                        leave += +highPopAdjust(crew).toFixed(2) * 100 * piracy(region);
+                    }
+                }
             }
-            let know = (dorm + gtrade + leave) * p_on['symposium'];
+            let pirate = piracy('gxy_gorddon');
+            let know = (dorm + gtrade + leave) * pirate * p_on['symposium'];
             caps['Knowledge'] += know;
             breakdown.c.Knowledge[loc('galaxy_symposium')] = know +'v';
         }
@@ -10381,27 +10346,29 @@ function midLoop(){
         }
 
         if (global.galaxy['defense']){
-            let armada_ships = ['dreadnought','cruiser_ship','frigate_ship','corvette_ship','scout_ship']
-            for (let i=0; i<armada_ships.length; i++){
+            // Check both ships and regions in reverse order to prioritize bigger ships and later systems above smaller ships and earlier systems
+            for (let i = gatewayArmada.length - 1; i >= 0; i--){
+                let ship = gatewayArmada[i];
                 let count = 0;
-                Object.keys(global.galaxy.defense).forEach(function (region){
+                for (let j = galaxyRegions.length - 1; j >= 0; j--){
+                    let region = galaxyRegions[j];
                     if (global.galaxy.defense.hasOwnProperty(region)){
-                        count += global.galaxy.defense[region][armada_ships[i]];
-                        if (isNaN(global.galaxy.defense[region][armada_ships[i]])){
-                            global.galaxy.defense[region][armada_ships[i]] = 0;
+                        count += global.galaxy.defense[region][ship];
+                        if (isNaN(global.galaxy.defense[region][ship])){
+                            global.galaxy.defense[region][ship] = 0;
                         }
-                        if (count > gal_on[armada_ships[i]]){
-                            let overflow = count - gal_on[armada_ships[i]];
-                            global.galaxy.defense[region][armada_ships[i]] -= overflow;
+                        if (count > gal_on[ship]){
+                            let overflow = count - gal_on[ship];
+                            global.galaxy.defense[region][ship] -= overflow;
                         }
-                        if (global.galaxy.defense[region][armada_ships[i]] < 0){
-                            global.galaxy.defense[region][armada_ships[i]] = 0;
+                        if (global.galaxy.defense[region][ship] < 0){
+                            global.galaxy.defense[region][ship] = 0;
                         }
                     }
-                });
-                if (count < gal_on[armada_ships[i]]){
-                    let underflow = gal_on[armada_ships[i]] - count;
-                    global.galaxy.defense.gxy_gateway[armada_ships[i]] += underflow;
+                }
+                if (count < gal_on[ship]){
+                    let underflow = gal_on[ship] - count;
+                    global.galaxy.defense.gxy_gateway[ship] += underflow;
                 }
             }
         }
