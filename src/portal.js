@@ -598,6 +598,10 @@ const fortressModules = {
                         genSpireFloor();
                         redraw = true;
                     }
+                    else if (global.race?.absorbed?.length >= 43 && global.tech.hellspawn === 4){
+                        global.tech.hellspawn = 5;
+                        redraw = true;
+                    }
                     if (global.race?.absorbed?.length >= 53){
                         global.stats.warlord.k = true;
                         checkWarlordAchieve();
@@ -651,10 +655,18 @@ const fortressModules = {
                 if (global.race['forge']){
                     power += traits.forge.vars()[0] * 5;
                 }
+                if (global.tech['hellspawn'] && global.tech.hellspawn >= 6){
+                    power += (global.portal?.incinerator?.rank || 1) * 2.5;
+                }
                 return powerModifier(-(power));
             },
             effect(wiki){
-                return `<div>${loc('space_dwarf_reactor_effect1',[-($(this)[0].powered(wiki))])}</div>`;
+                let desc = `<div>${loc('space_dwarf_reactor_effect1',[-($(this)[0].powered(wiki))])}</div>`;
+                if ((global.portal?.incinerator?.rank || 1) > 1){
+                    let rank = global.portal.incinerator.rank - 1;
+                    desc += `<div>${loc('portal_incinerator_effect',[15 * rank,loc('portal_twisted_lab_title'),global.resource.Graphene.name])}</div>`;
+                }
+                return desc;
             },
             action(){
                 if (global.portal['throne'] && global.portal.throne.skill && global.portal.throne.points > 0 && global.portal.incinerator.rank < 5){
@@ -1484,7 +1496,7 @@ const fortressModules = {
                     desc += `<div>${loc('portal_soul_attractor_effect2',[3])}</div>`;
                 }
                 if (global.tech['pitspawn']){
-                    desc += `<div>${loc('production',[5,loc('portal_shadow_mine_title')])}</div>`;
+                    desc += `<div>${loc('production',[10,loc('portal_shadow_mine_title')])}</div>`;
                 }
                 desc += `<div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
 
@@ -1639,8 +1651,10 @@ const fortressModules = {
             effect(wiki){
                 let elerium_cap = spatialReasoning(225);
                 let elerium = production('shadow_mine', 'elerium', wiki);
+                let infernite = production('shadow_mine', 'infernite', wiki);
                 let vitreloy = production('shadow_mine', 'vitreloy', wiki);
                 let desc = `<div>${loc('gain',[+(elerium).toFixed(3), global.resource.Elerium.name])}</div>`;
+                desc += `<div>${loc('gain',[+(infernite).toFixed(3), global.resource.Infernite.name])}</div>`;
                 desc += `<div>${loc('gain',[+(vitreloy).toFixed(3), global.resource.Vitreloy.name])}</div>`;
                 desc += `<div>${loc('plus_max_resource',[elerium_cap, global.resource.Elerium.name])}</div>`;
                 desc += `<div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
@@ -3055,10 +3069,9 @@ const fortressModules = {
         },
         sphinx: {
             id: 'portal-sphinx',
-            title(){ return global.tech.hell_spire === 7 ? loc('portal_sphinx_solve') : loc('portal_sphinx_title'); },
-            desc: loc('portal_sphinx_desc'),
+            title(){ return global.race['warlord'] ? loc('portal_sphinx_warlord') : (global.tech.hell_spire === 7 ? loc('portal_sphinx_solve') : loc('portal_sphinx_title')); },
+            desc(){ return global.race['warlord'] ? loc('portal_sphinx_warlord_desc') : loc('portal_sphinx_desc'); },
             reqs: { hell_spire: 6 },
-            not_trait: ['warlord'],
             queue_complete(){ return 8 - global.tech.hell_spire; },
             cost: {
                 Knowledge(offset){
@@ -3072,7 +3085,7 @@ const fortressModules = {
                     return loc('portal_sphinx_effect2');
                 }
                 else if (count === 2){
-                    return loc('portal_sphinx_effect3');
+                    return global.race['warlord'] ? loc('portal_sphinx_warlord_effect') :loc('portal_sphinx_effect3');
                 }
                 return loc('portal_sphinx_effect');
             },
@@ -3168,9 +3181,9 @@ const fortressModules = {
         },
         mechbay: {
             id: 'portal-mechbay',
-            title: loc('portal_mechbay_title'),
+            title(){ return global.race['warlord'] ? loc('portal_demon_artificer_title') : loc('portal_mechbay_title'); },
             desc(){
-                return `<div>${loc('portal_mechbay_title')}</div><div class="has-text-special">${loc('portal_spire_support')}</div>`;
+                return `<div>${loc('portal_demon_artificer_title')}</div><div class="has-text-special">${loc('portal_spire_support')}</div>`;
             },
             reqs: { hell_spire: 9 },
             cost: {
@@ -3192,7 +3205,7 @@ const fortressModules = {
             effect(){
                 let bay = global.portal.hasOwnProperty('mechbay') ? global.portal.mechbay.bay : 0;
                 let max = global.portal.hasOwnProperty('mechbay') ? global.portal.mechbay.max : 0;
-                return `<div class="has-text-caution">${loc('portal_port_effect1',[$(this)[0].support()])}</div><div>${loc('portal_mechbay_effect')}</div><div>${loc('portal_mechbay_effect2',[bay,max])}</div>`;
+                return `<div class="has-text-caution">${loc('portal_port_effect1',[$(this)[0].support()])}</div><div>${loc(global.race['warlord'] ? 'portal_demon_artificer_effect' : 'portal_mechbay_effect')}</div><div>${loc('portal_mechbay_effect2',[bay,max])}</div>`;
             },
             action(){
                 if (payCosts($(this)[0])){
