@@ -1723,6 +1723,10 @@ export function calcPrestige(type,inputs){
             else {
                 gains.supercoiled = pr_gain ** 3;
             }
+            if (global.race['warlord']){
+                gains.supercoiled /= 2;
+                gains.artifact = 5;
+            }
         }
     }
 
@@ -1769,6 +1773,7 @@ export function adjustCosts(c_action, offset, wiki){
     costs = heavyAdjust(costs, offset, wiki);
     costs = dictatorAdjust(costs, offset, wiki);
     costs = lMatAdjust(costs, c_action, offset, wiki);
+    costs = nexusAdjust(costs, c_action, offset, wiki);
     return craftAdjust(costs, offset, wiki);
 }
 
@@ -2070,6 +2075,23 @@ function lMatAdjust(costs, c_action, offset, wiki){
     return costs;
 }
 
+function nexusAdjust(costs, c_action, offset, wiki){
+    if(global.tech['nexus'] && global.race['witch_hunter'] && global.tech['roguemagic'] && global.tech.roguemagic >= 7){
+        let newCosts = {};
+        let adjustRate = 0.96 ** global.tech['nexus'];
+        Object.keys(costs).forEach(function (res){
+            if (['Mana'].includes(res)){
+                newCosts[res] = function(){ return costs[res](offset, wiki) * adjustRate; }
+            }
+            else {
+                newCosts[res] = function(){ return costs[res](offset, wiki); }
+            }
+        });
+        return newCosts;
+    }
+    return costs;
+}
+
 export function popCost(p){
     if (global.race['high_pop']){
         p *= traits.high_pop.vars()[0];
@@ -2320,7 +2342,7 @@ export function getBaseIcon(name,type){
                 return 'meat';
             case 'wish':
                 return 'trophy';
-            case 'existential_risk':
+            case 'planned_obsolescence':
                 return 'robot';
             case 'friday':
                 return 'mask';
