@@ -5944,7 +5944,7 @@ function customRace(hybrid){
             }
         }
 
-        return {
+        let def = {
             name: global.custom[slot].name,
             desc: global.custom[slot].desc,
             type: global.custom[slot].genus,
@@ -5961,6 +5961,12 @@ function customRace(hybrid){
             fanaticism: fanatic,
             basic(){ return false; }
         };
+
+        if (hybrid){
+            def['hybrid'] = global.custom[slot].hybrid;
+        }
+
+        return def;
     }
     else {
         return {};
