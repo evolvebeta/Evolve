@@ -1506,7 +1506,7 @@ const fortressModules = {
         },
         soul_forge: {
             id: 'portal-soul_forge',
-            title: loc('portal_soul_forge_title'),
+            title(){ return loc('portal_soul_forge_title'); },
             desc(){
                 return `<div>${loc('portal_soul_forge_desc')}</div><div class="has-text-special">${loc('requires_power')}</div>`;
             },
@@ -1529,7 +1529,7 @@ const fortressModules = {
                     let cap = global.tech.hell_pit >= 6 ? 750000 : 1000000;
                     let num_s_attractor_on = (wiki ? global.portal.soul_attractor.on : p_on['soul_attractor']);
                     if (global.tech.hell_pit >= 7 && num_s_attractor_on > 0){
-                        cap *= 0.97 ** num_s_attractor_on;
+                        cap *= (global.stats.achieve['what_is_best'] && global.stats.achieve.what_is_best.e >= 3 ? 0.96 : 0.97) ** num_s_attractor_on;
                     }
                     if (global.race['ghostly'] && global.race['warlord']){
                         cap *= 2 - traits.ghostly.vars()[1];
@@ -1593,7 +1593,7 @@ const fortressModules = {
         },
         soul_attractor: {
             id: 'portal-soul_attractor',
-            title: loc('portal_soul_attractor_title'),
+            title(){ return loc('portal_soul_attractor_title'); },
             desc(){
                 return `<div>${loc('portal_soul_attractor_title')}</div><div class="has-text-special">${loc('requires_power')}</div>`;
             },
@@ -1621,7 +1621,7 @@ const fortressModules = {
 
                 let desc = `<div>${loc('portal_soul_attractor_effect',[low, high])}</div>`;
                 if (global.tech.hell_pit >= 7){
-                    desc += `<div>${loc('portal_soul_attractor_effect2',[3])}</div>`;
+                    desc += `<div>${loc('portal_soul_attractor_effect2',[global.stats.achieve['what_is_best'] && global.stats.achieve.what_is_best.e >= 3 ? 4 : 3])}</div>`;
                 }
                 if (global.tech['pitspawn']){
                     desc += `<div>${loc('production',[global.tech.pitspawn >= 3 ? 20 : 10,loc('portal_shadow_mine_title')])}</div>`;
@@ -2773,7 +2773,7 @@ const fortressModules = {
         },
         transport: {
             id: 'portal-transport',
-            title: loc('portal_transport_title'),
+            title(){ return loc('portal_transport_title'); },
             desc(){
                 return `<div>${loc('portal_transport_title')}</div><div class="has-text-special">${loc('space_support',[loc('lake')])}</div>`;
             },
@@ -2793,7 +2793,7 @@ const fortressModules = {
                 let rating = global.blood['spire'] && global.blood.spire >= 2 ? 0.8 : 0.85;
                 let num_on = wiki ? (global.portal?.bireme?.on ?? 0) : gal_on['bireme'];
                 let bireme = +((rating ** num_on) * 100).toFixed(1);
-                return `<div class="has-text-caution">${loc('space_used_support',[loc('lake')])}</div><div>${loc('portal_transport_effect',[5])}</div><div class="has-text-danger">${loc('portal_transport_effect2',[bireme])}</div><div class="has-text-caution">${loc('galaxy_starbase_civ_crew',[$(this)[0].ship.civ()])}</div>`;
+                return `<div class="has-text-caution">${loc('space_used_support',[loc('lake')])}</div><div>${loc('portal_transport_effect',[global.stats.achieve['what_is_best'] && global.stats.achieve.what_is_best.e >= 4 ? 8 : 5])}</div><div class="has-text-danger">${loc('portal_transport_effect2',[bireme])}</div><div class="has-text-caution">${loc('galaxy_starbase_civ_crew',[$(this)[0].ship.civ()])}</div>`;
             },
             special: true,
             sAction(){
@@ -4749,7 +4749,7 @@ export function bloodwar(){
 
         let cap = global.tech.hell_pit >= 6 ? 750000 : 1000000;
         if (global.tech.hell_pit >= 7 && p_on['soul_attractor'] > 0){
-            cap *= 0.97 ** p_on['soul_attractor'];
+            cap *= (global.stats.achieve['what_is_best'] && global.stats.achieve.what_is_best.e >= 3 ? 0.96 : 0.97) ** p_on['soul_attractor'];
         }
         if (forgeOperating && global.portal.soul_forge.kills >= Math.round(cap)){
             day_report.soul_forge.gem_craft = true;
@@ -4949,7 +4949,7 @@ export function hellguard(){
 
         let cap = global.tech.hell_pit >= 6 ? 750000 : 1000000;
         if (global.tech.hell_pit >= 7 && p_on['soul_attractor'] > 0){
-            cap *= 0.97 ** p_on['soul_attractor'];
+            cap *= (global.stats.achieve['what_is_best'] && global.stats.achieve.what_is_best.e >= 3 ? 0.96 : 0.97) ** p_on['soul_attractor'];
         }
         if (global.race['ghostly']){
             cap *= 2 - traits.ghostly.vars()[1];
@@ -5003,6 +5003,7 @@ function rankDesc(label, struct){
 
 function addHellEnemy(type = [], allowRecursion = true, allowRepeat = false){
     let invaders = [];
+    let current = window.evolve.global.portal.throne.enemy.map(e => e.r);
     if (type.includes('basic')){
         [
             'human','elven','orc','cath','wolven','vulpine','centaur','rhinotaur','capybara','kobold','goblin',
@@ -5010,21 +5011,21 @@ function addHellEnemy(type = [], allowRecursion = true, allowRepeat = false){
             'entish','cacti','pinguicula','sporgar','shroomi','moldling','mantis','scorpid','antid'
         ].forEach(function(r){
             if (allowRepeat || (!global.portal.throne.spawned.includes(r) && ![global.race.gods,global.race.old_gods,global.race.origin].includes(r))){
-                invaders.push(r);
+                if (!current.includes(r)){ invaders.push(r); }
             }
         });
     }
     if (type.includes('advanced')){
         ['sharkin','octigoran','dryad','satyr','phoenix','salamander','yeti','wendigo','tuskin','kamel','balorg','imp','seraph','unicorn','synth'].forEach(function(r){
             if (allowRepeat || (!global.portal.throne.spawned.includes(r) && ![global.race.gods,global.race.old_gods,global.race.origin].includes(r))){
-                invaders.push(r);
+                if (!current.includes(r)){ invaders.push(r); }
             }
         });
     }
     if (type.includes('rare')){
         ['ghast','shoggoth','dwarf','raccoon','lichen','wyvern','beholder','djinn','narwhal','bombardier','nephilim'].forEach(function(r){
             if (allowRepeat || (!global.portal.throne.spawned.includes(r) && ![global.race.gods,global.race.old_gods,global.race.origin].includes(r))){
-                invaders.push(r);
+                if (!current.includes(r)){ invaders.push(r); }
             }
         });
     }
