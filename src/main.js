@@ -576,11 +576,11 @@ vBind({
             if (global.race['pet'] && global.race.pet.pet === 0){
                 let outcome = global.race.pet.type === 'cat' ? Math.rand(0,3) : Math.rand(0,10);
                 if (outcome === 0){
-                    global.race.pet.pet = -300;
+                    global.race.pet.pet = -60;
                     messageQueue(loc(`event_${global.race.pet.type}_pet_failure`,[loc(`event_${global.race.pet.type}_name${global.race.pet.name}`)]),false,false,['events','minor_events']);
                 }
                 else {
-                    global.race.pet.pet = 300;
+                    global.race.pet.pet = 60;
                     messageQueue(loc(`event_${global.race.pet.type}_pet_success`,[loc(`event_${global.race.pet.type}_name${global.race.pet.name}`)]),false,false,['events','minor_events']);
                 }
             }
@@ -1530,11 +1530,15 @@ function fastLoop(){
                 }
             }
             Object.keys(global.resource).forEach(function (res){
-                if (global.resource[res].trade > 0){
-                    used_trade += global.resource[res].trade;
-                    let price = tradeBuyPrice(res) * global.resource[res].trade;
+                let routes = global.resource[res].trade;
+                if (routes > 0){
+                    used_trade += routes;
+                    let price = tradeBuyPrice(res);
+                    const affordable_routes = Math.floor(global.resource.Money.amount / (price * time_multiplier));
+                    routes = Math.min(routes, affordable_routes);
 
-                    if (global.resource.Money.amount >= price * time_multiplier){
+                    if (routes > 0){
+                        price *= routes;
                         let rate = tradeRatio[res];
                         if (dealVal){
                             rate *= 1 + (dealVal / 100);
@@ -1575,16 +1579,15 @@ function fastLoop(){
                         if (global.race['truepath']){
                             rate *= 1 - (global.civic.foreign.gov3.hstl / 101);
                         }
-                        modRes(res,global.resource[res].trade * time_multiplier * rate);
+                        modRes(res,routes * time_multiplier * rate);
                         modRes('Money', -(price * time_multiplier));
                         breakdown.p.consume.Money[loc('trade')] -= price;
-                        breakdown.p.consume[res][loc('trade')] = global.resource[res].trade * rate;
+                        breakdown.p.consume[res][loc('trade')] = routes * rate;
                     }
                     steelCheck();
                 }
-                else if (global.resource[res].trade < 0){
-                    used_trade -= global.resource[res].trade;
-                    let price = tradeSellPrice(res) * global.resource[res].trade;
+                else if (routes < 0){
+                    used_trade -= routes;
 
                     let rate = tradeRatio[res];
                     if (global.stats.achieve.hasOwnProperty('trade')){
@@ -1593,11 +1596,14 @@ function fastLoop(){
                         rate *= 1 - (rank / 100);
                     }
 
-                    if (global.resource[res].amount >= rate * time_multiplier){
-                        modRes(res,global.resource[res].trade * time_multiplier * rate);
+                    const affordable_routes = Math.floor(global.resource[res].amount / (rate * time_multiplier));
+                    routes = Math.max(routes, -affordable_routes);
+                    if (routes < 0){
+                        let price = tradeSellPrice(res) * routes;
+                        modRes(res,routes * time_multiplier * rate);
                         modRes('Money', -(price * time_multiplier));
                         breakdown.p.consume.Money[loc('trade')] -= price;
-                        breakdown.p.consume[res][loc('trade')] = global.resource[res].trade * rate;
+                        breakdown.p.consume[res][loc('trade')] = routes * rate;
                     }
                     steelCheck();
                 }
@@ -4845,11 +4851,14 @@ function fastLoop(){
             if (global.race['forge']){
                 global.city.smelter.Wood = 0;
                 global.city.smelter.Coal = 0;
-                global.city.smelter.Oil = global.city.smelter.cap - global.city.smelter.Star - global.city.smelter.Inferno;
+                global.city.smelter.Oil = Math.max(0, global.city.smelter.cap - global.city.smelter.Star - global.city.smelter.Inferno);
             }
 
             if ((global.race['kindling_kindred'] || global.race['smoldering']) && !global.race['evil']){
-                global.city.smelter.Wood = 0;
+                if (global.city.smelter.Wood !== 0){
+                    global.city.smelter.Coal += global.city.smelter.Wood;
+                    global.city.smelter.Wood = 0;
+                }
             }
 
             let total_fuel = 0;
@@ -4870,6 +4879,9 @@ function fastLoop(){
                     if (global.city.smelter.Iridium < 0){
                         overflow = global.city.smelter.Iridium;
                         global.city.smelter.Iridium = 0;
+                    }
+                    else {
+                        overflow = 0;
                     }
                     global.city.smelter.Steel += overflow;
                     if (global.city.smelter.Steel < 0){
@@ -12330,6 +12342,7 @@ function longLoop(){
                     global.tech['smelting'] = 2;
                 }
                 drawTech();
+                drawCity();
             }
             if (moldFathom >= 0.04 && global.resource.Knowledge.max >= (actions.tech.dynamite.cost.Knowledge() * know_adjust) && checkTechRequirements('dynamite',false) && global.tech['explosives'] && global.tech.explosives === 1){
                 messageQueue(loc(tech_source,[loc('tech_dynamite')]),'info',false,['progress']);
