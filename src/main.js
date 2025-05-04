@@ -8128,7 +8128,7 @@ function midLoop(){
         var caps = {
             Money: 1000,
             Slave: 0,
-            Authority: global.race['cataclysm'] || global.race['orbit_decayed'] || global.race['lone_survivor'] ? 90 : 80,
+            Authority: global.race['cataclysm'] || global.race['orbit_decayed'] ? 90 : (global.race['lone_survivor'] ? 100 : 80),
             Mana: 0,
             Energy: 100,
             Sus: 100,
@@ -8314,6 +8314,11 @@ function midLoop(){
                 caps.Authority += gain;
                 breakdown.c.Authority[loc('eden_bunker_title')] = gain+'v';
             }
+            if (global.race['lone_survivor'] || global.tech['isolation']){
+                let gain = p_on['orbital_station'];
+                caps.Authority += gain;
+                breakdown.c.Authority[loc('tau_home_orbital_station')] = gain+'v';
+            }
 
             let pet = 0;
             if (global.race['pet']){
@@ -8333,7 +8338,7 @@ function midLoop(){
                 breakdown.c.Authority[loc(`event_pet_${global.race.pet.type}_owner`)] = pet+'v';
             }
 
-            global.resource.Authority.amount = global.race['cataclysm'] || global.race['orbit_decayed'] || global.race['lone_survivor'] ? 90 : 80;
+            global.resource.Authority.amount = global.race['cataclysm'] || global.race['orbit_decayed'] ? 90 : (global.race['lone_survivor'] ? 100 : 80);
             if (global.city.morale.current > 100){
                 let excess = global.city.morale.current - 100;
                 if (global.civic.govern.type === 'democracy'){
@@ -8363,6 +8368,10 @@ function midLoop(){
 
             if (pet !== 0){
                 global.resource.Authority.amount += pet;
+            }
+
+            if ((global.race['lone_survivor'] || global.tech['isolation']) && global.tauceti['colony'] && support_on['colony']){
+                global.resource.Authority.amount += support_on['colony'] * 5;
             }
 
             global.resource.Authority.amount = Math.floor(global.resource.Authority.amount);
