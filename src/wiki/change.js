@@ -3,6 +3,28 @@ import { clearElement } from './../functions.js';
 
 export const changeList = [
     {
+        version: `1.4.5`,
+        date: `5/??/2025`,
+        changes: [
+            `New Custom/Hybrid Lab mechanics.`,
+            `Technophobe perk race complexity changed to flat gene point bonus.`,
+            `Overtapped has been removed, Negative traits instead pay a complexity tax.`,
+            `Enviromentalist now scales with trait rank.`,
+            `Thalassophobia replaced with Unfavored.`,
+            `Optimistic cost lowered from 5 points to 3.`
+        ]
+    },
+    {
+        version: `1.4.4`,
+        date: `5/7/2025`,
+        changes: [
+            `The native rank of Empowered for Nephilim is now 2.`,
+            `Build queue will no longer spend Warlord skill points.`,
+            `Dreaded will no longer unlock from Apotheosis.`,
+            `Custom Hybrids will no longer unlock Gross.`
+        ]
+    },
+    {
         version: `1.4.3`,
         date: `5/4/2025`,
         changes: [
@@ -11,7 +33,7 @@ export const changeList = [
             `You can now queue Spire Mechs.`,
             `You can now pet your cat or dog once every 5 minutes.`,
             `Symposium now gain Knowledge for all crew in Andromeda.`,
-            `Evil Authority adjustments for Cataclysm, Lone Survivor, and Orbit Decay`,
+            `Evil Authority adjustments for Cataclysm, Lone Survivor, and Orbit Decay.`,
             `Soldiers assigned to Fortress guard duty now contribute Authority.`,
             `Updated Empowered trait mechanics.`,
             `Adjusted values for Master Artisan.`,

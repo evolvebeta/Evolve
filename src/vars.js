@@ -1249,9 +1249,9 @@ if (convertVersion(global['version']) <= 104003){
     }
 }
 
-global['version'] = '1.4.3';
+global['version'] = '1.4.5';
 delete global['revision'];
-global['beta'] = 30;
+global['beta'] = 1;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
