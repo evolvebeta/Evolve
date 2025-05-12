@@ -7,11 +7,13 @@ export const changeList = [
         date: `5/??/2025`,
         changes: [
             `New Custom/Hybrid Lab mechanics.`,
+            `Added New Theme GrubBox (RedGreen CB) for Red color blind players.`,
             `Technophobe perk race complexity changed to flat gene point bonus.`,
             `Overtapped has been removed, Negative traits instead pay a complexity tax.`,
             `Enviromentalist now scales with trait rank.`,
             `Thalassophobia replaced with Unfavored.`,
-            `Optimistic cost lowered from 5 points to 3.`
+            `Optimistic cost lowered from 5 points to 3.`,
+            `Fixed bug that could cause archfiends to queue with extra weapons.`
         ]
     },
     {
