@@ -1292,23 +1292,14 @@ const fortressModules = {
                 return false;
             },
             postPower(o){
-                let count = $(this)[0].citizens();
-                if (o){
-                    global.resource[global.race.species].max += count;
-                    global.resource[global.race.species].amount += count;
-                    global.civic.miner.max += count;
-                    global.civic.miner.workers += count;
-                    global.civic.miner.assigned += count;
-                }
-                else {
-                    global.resource[global.race.species].max -= count;
-                    global.resource[global.race.species].amount -= count;
-                    if (global.resource[global.race.species].amount < 0){ global.resource[global.race.species].amount = 0; }
-                    if (global.resource[global.race.species].max < 0){ global.resource[global.race.species].max = 0; }
-                    global.civic.miner.max -= count;
-                    global.civic.miner.workers -= count;
-                    global.civic.miner.assigned -= count;
-                }
+                const prev_count = global.civic.miner.max;
+                const new_count = $(this)[0].citizens() * global.portal.dig_demon.on;
+                const delta = new_count - prev_count;
+                global.resource[global.race.species].max = Math.max(0, global.resource[global.race.species].max + delta);
+                global.resource[global.race.species].amount = Math.max(0, global.resource[global.race.species].amount + delta);
+                global.civic.miner.max = new_count;
+                global.civic.miner.workers = new_count;
+                global.civic.miner.assigned = new_count;
             },
             struct(){
                 return {
@@ -1926,7 +1917,18 @@ const fortressModules = {
             action(args){
                 if (payCosts($(this)[0])){
                     incrementStruct('guard_post','portal');
-                    powerOnNewStruct($(this)[0]);
+
+                    let army = global.portal.fortress.garrison - (global.portal.fortress.patrols * global.portal.fortress.patrol_size);
+                    if (p_on['soul_forge']){
+                        let forge = soulForgeSoldiers();
+                        if (forge <= army){
+                            army -= forge;
+                        }
+                    }
+                    if (army >= jobScale(global.portal.guard_post.on + 1)){
+                        // Don't power on unless there are enough guards
+                        powerOnNewStruct($(this)[0]);
+                    }
                     return true;
                 }
                 return false;
@@ -2112,10 +2114,6 @@ const fortressModules = {
                     return true;
                 }
                 return false;
-            },
-            post(){
-                vBind({el: `#srprtl_ruins`},'update');
-                drawTech();
             },
             postPower(){
                 vBind({el: `#srprtl_ruins`},'update');
@@ -2499,9 +2497,6 @@ const fortressModules = {
                     d: { count: 0, on: 0 },
                     p: ['gate_turret','portal']
                 };
-            },
-            post(){
-                vBind({el: `#srprtl_gate`},'update');
             },
             postPower(){
                 vBind({el: `#srprtl_gate`},'update');
@@ -3355,7 +3350,7 @@ const fortressModules = {
             id: 'portal-mechbay',
             title(){ return global.race['warlord'] ? loc('portal_demon_artificer_title') : loc('portal_mechbay_title'); },
             desc(){
-                return `<div>${loc('portal_demon_artificer_title')}</div><div class="has-text-special">${loc('portal_spire_support')}</div>`;
+                return `<div>${$(this)[0].title()}</div><div class="has-text-special">${loc('portal_spire_support')}</div>`;
             },
             reqs: { hell_spire: 9 },
             cost: {
@@ -3789,7 +3784,7 @@ function buildEnemyFortress(parent){
 
     let enemy = $(`<div v-for="(e, index) of enemy" :key="index" class="enemyFortress">
         <div class="fortRow"><span class="has-text-success">{{ e.r | species }}</span><span class="has-text-warning">${loc(`fortress_wall`)} {{ e.f }}%</span></div>
-        <div class="fortRow second"><span class="has-text-caution">${loc(`fortress_demon_kills`)} {{ e.k | kills }}</span><a class="button" v-on:click="attack(index)">${loc(`civics_garrison_attack`)}</a></div>
+        <div class="fortRow second"><span class="has-text-caution">${loc(`fortress_demon_kills`)} {{ e.k | kills }}</span><a class="button" v-on:click="attack(index)" role="button">${loc(`civics_garrison_attack`)}</a></div>
     </div>`);
     fort.append(enemy);
 
@@ -4582,7 +4577,7 @@ export function bloodwar(){
     // Surveyor threats
     if (global.civic.hell_surveyor.display && global.civic.hell_surveyor.workers > 0){
         let divisor = 1000;
-        let painVal = govActive('nopain',1);
+        let painVal = govActive('runner',0);
         if (painVal){
             divisor *= 1 + (painVal / 100);
         }
@@ -6967,7 +6962,7 @@ function drawMechs(){
 
     list.append(`
       <div v-for="(mech, index) of mechs" :key="index" class="mechRow" :class="index < active ? '' : 'inactive-row' ">
-        <a class="scrap" @click="scrap(index)">${loc(global.race['warlord'] ? 'portal_mech_unsummon' : 'portal_mech_scrap')}</a>
+        <a class="scrap" @click="scrap(index)" role="button">${loc(global.race['warlord'] ? 'portal_mech_unsummon' : 'portal_mech_scrap')}</a>
         <span> | </span><span>${loc(global.race['warlord'] ? 'portal_demon' : 'portal_mech')} #{{index + 1}}: </span>
         <span class="has-text-caution">{{ mech.infernal ? "${loc('portal_mech_infernal')} " : "" }}{{ mech | size }} {{ mech | chassis }}</span>
         <div :class="'gearList '+mech.size">
@@ -7273,7 +7268,7 @@ function statusEffect(mech,effect){
             break;
         case 'radioactive':
             {
-                if (!mech.equip.includes('shields') && mech.equip.includes('manashield')){
+                if (!mech.equip.includes('shields') && !mech.equip.includes('manashield')){
                     rating = 0.5;
                 }
             }
@@ -7364,11 +7359,13 @@ function statusEffect(mech,effect){
                         break;
                     case 'cyberdemon':
                         rating = 0.5;
+                        break;
                     case 'large':
                         rating = 0.45;
                         break;
                     case 'archfiend':
                         rating = 0.35;
+                        break;
                     case 'titan':
                         rating = 0.25;
                         break;
