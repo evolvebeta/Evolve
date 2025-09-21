@@ -5051,7 +5051,7 @@ function addHellEnemy(type = [], allowRecursion = true, allowRepeat = false){
 }
 
 function soulCapacitor(souls){
-    if (global.race['witch_hunter'] && global.portal.hasOwnProperty('soul_capacitor') && p_on['soul_capacitor'] > 0){
+    if (global.race['witch_hunter'] && global.portal.hasOwnProperty('soul_capacitor')){
         global.portal.soul_capacitor.energy += souls;
         if (global.portal.soul_capacitor.energy > global.portal.soul_capacitor.ecap){
             global.portal.soul_capacitor.energy = global.portal.soul_capacitor.ecap;
@@ -7380,7 +7380,7 @@ function statusEffect(mech,effect){
             break;
     }
     if (mech.equip.includes('lucky')){
-        rating += 0.01 * Math.floor(seededRandom(1,10,false, global.stats.resets + (global.portal?.spire?.count || 1) * 42 ));
+        rating += 0.01 * Math.floor(seededRandom(1,10,false, global.stats.reset + (global.portal?.spire?.count || 1) * 42 ));
         if (rating > 1){ rating = 1; }
     }
     return rating;
