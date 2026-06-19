@@ -1144,35 +1144,8 @@ export function vBind(bind,action){
                 $(bind.el)[0].__vue_app__._instance.proxy.$forceUpdate();
             }
             else {
-                console.log(`unmount ${bind.el} called`);
-                const app = $(bind.el)[0].__vue_app__;
-                
-                // Clean up any intervals before unmounting
-                if (app._instance && app._instance.proxy && app._instance.proxy._syncInterval) {
-                    clearInterval(app._instance.proxy._syncInterval);
-                    delete app._instance.proxy._syncInterval;
-                }
-                
-                // Force cleanup of reactive references
-                if (app._instance && app._instance.proxy && app._instance.proxy.$data) {
-                    // Clear data references to help GC
-                    const data = app._instance.proxy.$data;
-                    for (const key in data) {
-                        if (data.hasOwnProperty(key)) {
-                            try {
-                                delete data[key];
-                            } catch(e) {
-                                // Some properties might be non-configurable
-                                data[key] = null;
-                            }
-                        }
-                    }
-                }
-                
-                app.unmount();
+                $(bind.el)[0].__vue_app__.unmount();
                 delete $(bind.el)[0].__vue_app__;
-                
-                // Remove any lingering Vue-related classes
                 $(bind.el).removeClass('vb');
             }
         }
@@ -1184,105 +1157,14 @@ export function vBind(bind,action){
         if ($(bind.el).length > 0) {
             const vueOptions = { ...bind };
 
+            // Bind Vue's reactivity directly to the original data object so that
+            // mutations made elsewhere (the game loop mutates `global` directly and
+            // refreshes via vBind(...,'update')) and structural changes such as
+            // deleting array elements propagate without any copy/sync layer.
             if (vueOptions.data && typeof vueOptions.data === 'object') {
                 const originalData = vueOptions.data;
-                
-                // Create a deep reactive copy for Vue
-                function createReactiveData(obj) {
-                    if (obj === null || typeof obj !== 'object') {
-                        return obj;
-                    }
-                    
-                    const result = Array.isArray(obj) ? [] : {};
-                    for (const key in obj) {
-                        if (obj.hasOwnProperty(key)) {
-                            result[key] = createReactiveData(obj[key]);
-                        }
-                    }
-                    return result;
-                }
-                
                 vueOptions.data = function() {
-                    return createReactiveData(originalData);
-                };
-                
-                // Set up watchers to sync changes back to original objects
-                const originalMounted = vueOptions.mounted;
-                vueOptions.mounted = function() {
-                    const vueInstance = this;
-                    
-                    // Function to sync changes from Vue back to original data
-                    function syncToOriginal(vueObj, originalObj, path = '') {
-                        for (const key in vueObj) {
-                            if (vueObj.hasOwnProperty(key)) {
-                                if (typeof vueObj[key] === 'object' && vueObj[key] !== null && 
-                                    typeof originalObj[key] === 'object' && originalObj[key] !== null) {
-                                    syncToOriginal(vueObj[key], originalObj[key], path ? `${path}.${key}` : key);
-                                } else if (originalObj[key] !== vueObj[key]) {
-                                    originalObj[key] = vueObj[key];
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Function to sync changes from original data to Vue
-                    function syncFromOriginal(originalObj, vueObj, path = '') {
-                        for (const key in originalObj) {
-                            if (originalObj.hasOwnProperty(key)) {
-                                if (typeof originalObj[key] === 'object' && originalObj[key] !== null && 
-                                    typeof vueObj[key] === 'object' && vueObj[key] !== null) {
-                                    syncFromOriginal(originalObj[key], vueObj[key], path ? `${path}.${key}` : key);
-                                } else if (vueObj[key] !== originalObj[key]) {
-                                    vueObj[key] = originalObj[key];
-                                }
-                            }
-                        }
-                    }
-                    
-                    // Set up periodic sync from original to Vue (for external changes)
-                    this._syncInterval = setInterval(() => {
-                        syncFromOriginal(originalData, vueInstance.$data);
-                    }, 100);
-                    
-                    // Set up watchers for Vue to original sync
-                    this.$watch(
-                        () => JSON.stringify(this.$data),
-                        () => {
-                            syncToOriginal(vueInstance.$data, originalData);
-                        },
-                        { deep: true }
-                    );
-                    
-                    if (originalMounted) {
-                        originalMounted.call(this);
-                    }
-                };
-                
-                // Clean up interval on unmount
-                const originalBeforeUnmount = vueOptions.beforeUnmount;
-                vueOptions.beforeUnmount = function() {
-                    // Clear sync interval
-                    if (this._syncInterval) {
-                        clearInterval(this._syncInterval);
-                        delete this._syncInterval;
-                    }
-                    
-                    // Clear all data references to help with GC
-                    const data = this.$data;
-                    for (const key in data) {
-                        if (data.hasOwnProperty(key)) {
-                            try {
-                                delete data[key];
-                            } catch(e) {
-                                // Some properties might be non-configurable
-                                data[key] = null;
-                            }
-                        }
-                    }
-                    
-                    if (originalBeforeUnmount) {
-                        originalBeforeUnmount.call(this);
-                    }
+                    return Vue.reactive(originalData);
                 };
             }
 
@@ -1290,7 +1172,7 @@ export function vBind(bind,action){
             if (!bind.hasOwnProperty('buefy') || bind.buefy) {
                 app.use(Buefy.default);
             }
-            
+
             app.mount(bind.el);
             $(bind.el)[0].__vue_app__ = app;
             $(bind.el).addClass('vb');
