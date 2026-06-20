@@ -1888,13 +1888,15 @@ export function clearGrids(grids){
 
 function dragPowerGrid(grid_type){
     let el = $(`#grid${grid_type}`)[0];
-    let grids = gridDefs();
-    Sortable.create(el,{
-        onEnd(e){
-            let order = grids[grid_type].l;
-            order.splice(e.newDraggableIndex, 0, order.splice(e.oldDraggableIndex, 1)[0]);
-            grids[grid_type].l = order;
-            setPowerGrid();
-        }
-    });
+    if (el){
+        let grids = gridDefs();
+        Sortable.create(el,{
+            onEnd(e){
+                let order = grids[grid_type].l;
+                order.splice(e.newDraggableIndex, 0, order.splice(e.oldDraggableIndex, 1)[0]);
+                grids[grid_type].l = order;
+                setPowerGrid();
+            }
+        });
+    }
 }

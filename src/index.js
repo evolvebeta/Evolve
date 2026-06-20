@@ -1259,7 +1259,7 @@ export function index(){
         <b-switch class="setting" v-model="s.qAny_res"><span class="settings14" aria-label="${loc('settings14')}">{{ label('q_any_res') }}</span></b-switch>
         <b-switch class="setting" v-model="s.sPackOn" @input="stringPackOn"><span class="settings13" aria-label="${loc('settings13')}">{{ label('s_pack_on') }}</span></b-switch>
         <b-switch class="setting" v-model="s.expose"><span class="settings8" aria-label="${loc('settings8')}">{{ label('expose') }}</span></b-switch>
-        <b-switch class="setting" v-model="s.tabLoad" @input="toggleTabLoad"><span class="settings11" aria-label="${loc('settings11')}">{{ label('tabLoad') }}</span></b-switch>
+        <b-switch class="setting" v-model="s.tabLoad" @update:model-value="toggleTabLoad"><span class="settings11" aria-label="${loc('settings11')}">{{ label('tabLoad') }}</span></b-switch>
         <b-switch class="setting" v-model="s.boring"><span class="settings10" aria-label="${loc('settings10')}">{{ label('boring') }}</span></b-switch>
         <b-switch class="setting" v-model="s.touch"><span class="settings16" aria-label="${loc('settings16')}">{{ label('touch') }}</span></b-switch>
         <div>
