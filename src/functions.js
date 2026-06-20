@@ -1120,14 +1120,22 @@ export function clearElement(elm,remove){
         }
         catch(e){}
     });
-    if (remove){
+    // Unmount any Vue app mounted directly on the element(s) BEFORE its DOM is
+    // torn down. Emptying/removing the DOM first orphans the app's vnodes, so a
+    // later app.unmount() (e.g. when re-vBinding the same element) throws while
+    // walking the detached fragment ("Cannot read properties of null (reading
+    // 'nextSibling')"). This must run for the empty branch too, not just remove.
+    elm.each(function(){
         try {
-            if (elm[0].__vue_app__) {
-                elm[0].__vue_app__.unmount();
-                delete elm[0].__vue_app__;
+            if (this.__vue_app__) {
+                this.__vue_app__.unmount();
+                delete this.__vue_app__;
+                $(this).removeClass('vb');
             }
         }
         catch(e){}
+    });
+    if (remove){
         elm.remove();
     }
     else {
