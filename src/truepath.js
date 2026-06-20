@@ -4919,14 +4919,16 @@ export function clearShipDrag(){
 
 function dragShipList(){
     let el = $('#shipList')[0];
-    Sortable.create(el,{
-        onEnd(e){
-            let order = global.space.shipyard.ships;
-            order.splice(e.newDraggableIndex, 0, order.splice(e.oldDraggableIndex, 1)[0]);
-            global.space.shipyard.ships = order;
-            drawShips();
-        }
-    });
+    if (el){
+        Sortable.create(el,{
+            onEnd(e){
+                let order = global.space.shipyard.ships;
+                order.splice(e.newDraggableIndex, 0, order.splice(e.oldDraggableIndex, 1)[0]);
+                global.space.shipyard.ships = order;
+                drawShips();
+            }
+        });
+    }
 }
 
 const shipyardRanks = {

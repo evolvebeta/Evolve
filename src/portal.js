@@ -7074,16 +7074,18 @@ export function clearMechDrag(){
 
 function dragMechList(){
     let el = $('#mechList')[0];
-    Sortable.create(el,{
-        onEnd(e){
-            let items = e.from.querySelectorAll(':scope > .mechRow');
-            e.from.insertBefore(e.item, items[e.oldIndex + (e.oldIndex > e.newIndex)]);
+    if (el){
+        Sortable.create(el,{
+            onEnd(e){
+                let items = e.from.querySelectorAll(':scope > .mechRow');
+                e.from.insertBefore(e.item, items[e.oldIndex + (e.oldIndex > e.newIndex)]);
 
-            let order = global.portal.mechbay.mechs;
-            order.splice(e.newDraggableIndex, 0, order.splice(e.oldDraggableIndex, 1)[0]);
-            updateMechbay();
-        }
-    });
+                let order = global.portal.mechbay.mechs;
+                order.splice(e.newDraggableIndex, 0, order.splice(e.oldDraggableIndex, 1)[0]);
+                updateMechbay();
+            }
+        });
+    }
 }
 
 export function updateMechbay(){

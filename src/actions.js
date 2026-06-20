@@ -9618,14 +9618,16 @@ export function clearResDrag(){
 
 function resDragQueue(){
     let el = $('#resQueue .buildList')[0];
-    Sortable.create(el,{
-        onEnd(e){
-            let order = global.r_queue.queue;
-            order.splice(e.newDraggableIndex, 0, order.splice(e.oldDraggableIndex, 1)[0]);
-            global.r_queue.queue = order;
-            resQueue();
-        }
-    });
+    if (el){
+        Sortable.create(el,{
+            onEnd(e){
+                let order = global.r_queue.queue;
+                order.splice(e.newDraggableIndex, 0, order.splice(e.oldDraggableIndex, 1)[0]);
+                global.r_queue.queue = order;
+                resQueue();
+            }
+        });
+    }
     attachQueuePopovers();
 }
 

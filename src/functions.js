@@ -581,15 +581,17 @@ function clearDragQueue(){
 
 function dragQueue(){
     let el = $('#buildQueue .buildList')[0];
-    Sortable.create(el,{
-        onEnd(e){
-            let order = global.queue.queue;
-            order.splice(e.newDraggableIndex, 0, order.splice(e.oldDraggableIndex, 1)[0]);
-            global.queue.queue = order;
-            buildQueue();
-            resizeGame();
-        }
-    });
+    if (el){
+        Sortable.create(el,{
+            onEnd(e){
+                let order = global.queue.queue;
+                order.splice(e.newDraggableIndex, 0, order.splice(e.oldDraggableIndex, 1)[0]);
+                global.queue.queue = order;
+                buildQueue();
+                resizeGame();
+            }
+        });
+    }
     resizeGame();
     attachQueuePopovers();
 }
