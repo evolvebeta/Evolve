@@ -1350,7 +1350,7 @@ export function buildGarrison(garrison,full){
 
     ['tactic','bat','soldier','crew','wounded','hmerc','defenseRating','offenseRating','soldierRating'].forEach(function(k){
         popover(full ? `garrison${k}` : `cGarrison${k}`,
-            function(){ return '<span v-html="label()"></span>'; },
+            function(){ return '<span><span v-html="label()"></span></span>'; },
             {
                 elm: `${full ? '#garrison' : '#c_garrison'} .${k}`,
                 in: function(obj){
