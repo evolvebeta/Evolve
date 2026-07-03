@@ -7705,17 +7705,9 @@ export function drawHellObservations(startup){
     let observe = $(`<div id="hellObservations"></div>`);
     info.append(observe);
     
-    observe.append(`<b-tabs id="hellTabs" class="resTabs" v-model="s.hellTabs" :animated="s.animated" @input="swapTab">
-        <b-tab-item id="h_Report">
-            <template slot="header">
-                <span>${loc('hell_tabs_reports')}</span>
-            </template>
-        </b-tab-item>
-        <b-tab-item id="h_Analysis">
-            <template slot="header">
-                <span>${loc('hell_tabs_analysis')}</span>
-            </template>
-        </b-tab-item>
+    observe.append(`<b-tabs id="hellTabs" class="resTabs" v-model="s.hellTabs" :animated="s.animated" @update:model-value="swapTab($event)">
+        <b-tab-item id="h_Report" label="${loc('hell_tabs_reports')}"></b-tab-item>
+        <b-tab-item id="h_Analysis" label="${loc('hell_tabs_analysis')}"></b-tab-item>
     </b-tabs>`);
     
     vBind({
@@ -7972,10 +7964,10 @@ function drawHellAnalysis(){
     stats = ($(`#hellAnalysis`));
     let graphs = $(`<div></div>`);
     stats.append(graphs);
-    graphs.append(`<div><h2 id="hellGraphCreator" class="text-button has-text-success" @click="createGraph()">${loc('hell_graph_create')}</h2></div>`);
+    graphs.append(`<div id="hellGraphCreator"><h2 class="text-button has-text-success" @click="createGraph()">${loc('hell_graph_create')}</h2></div>`);
     let graphArea = $(`<div id="hellGraphingArea" class="graphingArea"></div>`);
     graphs.append(graphArea);
-    
+
     vBind({
         el: '#hellGraphCreator',
         methods: {
