@@ -5807,4 +5807,85 @@ div.bigbang {
     .resources {
         height: ~"calc(100svh - 8rem)";
     }
+
+    // --- Touch-target sizing ---
+    // The desktop UI is tuned for a mouse cursor; fingers need larger, well-spaced hit
+    // areas. Enlarge the controls that get tapped most, without altering the calc() heights
+    // the layout above depends on.
+
+    // Kill the 300ms tap delay / double-tap-zoom on the interactive controls
+    .button,
+    .add,
+    .sub,
+    .b-tabs .tabs a,
+    .mobile-nav-btn,
+    .switch,
+    .b-checkbox.checkbox {
+        touch-action: manipulation;
+    }
+
+    // Increment / decrement arrows (resource trade, crafting, market, ejector, storage…)
+    // Widen the tap zone horizontally; leave height alone so the .current box stays aligned.
+    .add,
+    .sub {
+        padding-left: 0.55rem !important;
+        padding-right: 0.55rem !important;
+    }
+
+    // Action / settings / modal buttons — give them a finger-sized minimum height.
+    .button {
+        min-height: 2.1rem;
+    }
+
+    // Tab bar links — taller hit area makes tab switching reliable on touch.
+    .b-tabs .tabs a {
+        padding-top: 0.55rem;
+        padding-bottom: 0.55rem;
+    }
+
+    // The "construct" button injected into action popovers when touch mode is on:
+    // make it a full-width, easy-to-hit target instead of a small inline link.
+    .touchButton {
+        display: block;
+        width: 100%;
+        min-height: 2.4rem;
+        line-height: 2.4rem;
+        margin-bottom: 0.4rem;
+        text-align: center;
+        font-weight: 700;
+    }
+
+    // Per-building on/off toggles and settings switches — a bit more vertical room to tap.
+    .switch,
+    .b-checkbox.checkbox {
+        min-height: 1.6rem;
+    }
+
+    // --- Responsive modals (market buy/sell, mech lab, spy ops, etc.) ---
+    // Desktop modals assume a wide viewport; clamp them to the screen and let their body
+    // scroll rather than overflowing off-screen.
+    .modal .animation-content {
+        width: 96vw !important;
+        max-width: 96vw !important;
+        margin: 0 auto !important;
+    }
+
+    .modal-card {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .modal-card-body {
+        max-height: 78vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    // Wide modal content (trade rows, mech loadouts) may still exceed the viewport width;
+    // let it scroll sideways within the modal instead of forcing the page to scroll.
+    .modalBox {
+        max-width: 96vw;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
 }

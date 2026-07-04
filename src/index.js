@@ -1359,12 +1359,11 @@ export function index(){
     let egg15 = easterEgg(15,8);
     
     // Bottom Mobile navigation bar
-    // Currently uses hard coded english strings for labels, since we don't have any existing strings that accurately label the main game panel and side queue/message log(right column)
     $('body').append(`
         <div id="mobileNav">
-            <button class="mobile-nav-btn is-active" data-panel="resources">${loc('tab_resources')}</button>
-            <button class="mobile-nav-btn" data-panel="game">Game</button>
-            <button class="mobile-nav-btn" data-panel="queue">Queue</button>
+            <button class="mobile-nav-btn is-active" data-panel="resources">${loc('mobile_nav_resources')}</button>
+            <button class="mobile-nav-btn" data-panel="game">${loc('mobile_nav_game')}</button>
+            <button class="mobile-nav-btn" data-panel="queue">${loc('mobile_nav_queue')}</button>
         </div>
     `);
 

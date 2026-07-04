@@ -328,9 +328,9 @@ Content-Type: text/plain\r
         <div id="mTabObserve"></div>
     </b-tab-item>`);n.append(de),a.append('<div id="queueColumn" class="queueCol column"></div>');let y=Wt(15,8);if($("body").append(`
         <div id="mobileNav">
-            <button class="mobile-nav-btn is-active" data-panel="resources">${t("tab_resources")}</button>
-            <button class="mobile-nav-btn" data-panel="game">Game</button>
-            <button class="mobile-nav-btn" data-panel="queue">Queue</button>
+            <button class="mobile-nav-btn is-active" data-panel="resources">${t("mobile_nav_resources")}</button>
+            <button class="mobile-nav-btn" data-panel="game">${t("mobile_nav_game")}</button>
+            <button class="mobile-nav-btn" data-panel="queue">${t("mobile_nav_queue")}</button>
         </div>
     `),$("#mobileNav").on("click",".mobile-nav-btn",function(){let A=$(this).data("panel");$("#main").toggleClass("mobile-panel-game",A==="game").toggleClass("mobile-panel-queue",A==="queue"),$("#mobileNav .mobile-nav-btn").removeClass("is-active"),$(this).addClass("is-active")}),"visualViewport"in window){let A=$("#mobileNav"),T=$(".promoBar"),B=()=>{let oe=window.visualViewport,be=window.innerHeight-(oe.height+oe.offsetTop),ge=-Math.round(Math.max(0,be));A.css("transform",`translateY(${ge}px)`),T.css("transform",`translateY(${ge}px)`)};window.visualViewport.addEventListener("resize",B),window.visualViewport.addEventListener("scroll",B)}$("body").append(`
         <div class="promoBar">
