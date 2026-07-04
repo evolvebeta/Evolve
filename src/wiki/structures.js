@@ -203,7 +203,7 @@ const effectInputs ={
 
 function addCalcInputs(parent,key,section,region,path){
     let hasMax = calcInfo.max[section] && calcInfo.max[section][key] ? calcInfo.max[section][key] : false;
-    let inputs = {
+    let inputs = Vue.reactive({
         owned: 0,
         costVis: false,
         creepVis: false,
@@ -211,7 +211,7 @@ function addCalcInputs(parent,key,section,region,path){
             isWiki: true,
             truepath: path === 'truepath'
         }
-    };
+    });
     let resources = {};
     
     let action = false;
@@ -338,7 +338,7 @@ function addCalcInputs(parent,key,section,region,path){
         parent.append($(`
             <div class="extra">
                 <div>
-                    <div class="calcInput"><span>{{ | ownedLabel }}</span> <b-field><span class="button has-text-danger calcInputButton" role="button" @click="less('owned')">-</span><b-numberinput :input="val('owned')" min="0" v-model="i.owned" :controls="false"></b-numberinput><span class="button has-text-success calcInputButton" role="button" @click="more('owned')">+</span></b-field></div>
+                    <div class="calcInput"><span>{{ ownedLabel() }}</span> <b-field><span class="button has-text-danger calcInputButton" role="button" @click="less('owned')">-</span><b-numberinput :input="val('owned')" min="0" v-model="i.owned" :controls="false"></b-numberinput><span class="button has-text-success calcInputButton" role="button" @click="more('owned')">+</span></b-field></div>
                 </div>
                 <div class="calcButton">
                     <button class="button" @click="importInputs()">${loc('wiki_calc_import')}</button>

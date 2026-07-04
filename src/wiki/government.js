@@ -45,7 +45,7 @@ export function govPage(content){
             para_data: {
                 2: [loc('job_entertainer'),`{{ line2(b, g) }}%`],
                 3: [loc('job_entertainer')],
-                4: [`{{ line4b(line4a(b, g) }}%`,loc('tech_electricity'),`{{ b, g) }}%`,loc('tech_virtual_reality')],
+                4: [`{{ line4a(b, g) }}%`,loc('tech_electricity'),`{{ line4b(b, g) }}%`,loc('tech_virtual_reality')],
                 5: [`{{ line5(g) }}%`],
                 6: [
                     loc('job_farmer'),loc('job_lumberjack'),loc('job_quarry_worker'),loc('job_miner'),loc('job_crystal_miner'),
@@ -81,7 +81,7 @@ export function govPage(content){
             break: [2,6,7],
             para_data: {
                 2: [`{{ line2(b, g) }}%`],
-                3: [`{{ g | line3 }}%`],
+                3: [`{{ line3(g) }}%`],
                 4: ['50%'],
                 6: ['40%',loc('tech_virtual_reality'),'25%',loc('tech_metaphysics')]
             },
@@ -97,8 +97,8 @@ export function govPage(content){
             break: [2,5,6],
             para_data: {
                 2: [`{{ line2(b, g) }}%`],
-                3: [`{{ b | line3(g) }}%`],
-                5: [`{{ b | line5a(g) }}%`,loc('tech_virtual_reality'),`{{ b | line5b(g) }}%`,loc('tech_metaphysics')],
+                3: [`{{ line3(b, g) }}%`],
+                5: [`{{ line5a(b, g) }}%`,loc('tech_virtual_reality'),`{{ line5b(b, g) }}%`,loc('tech_metaphysics')],
                 6: ['30%'],
                 7: [30,90],
             },
@@ -116,10 +116,10 @@ export function govPage(content){
             break: [2,6],
             para_data: {
                 2: [`{{ line2(b, g) }}%`],
-                3: [`{{ b | line3(g) }}%`],
+                3: [`{{ line3(b, g) }}%`],
                 4: ['10%'],
-                5: [`{{ b | line5(g) }}%`],
-                6: [`{{ b | line6a(g) }}%`,loc('tech_virtual_reality'),`{{ b | line6b(g) }}%`,loc('tech_metaphysics')]
+                5: [`{{ line5(b, g) }}%`],
+                6: [`{{ line6a(b, g) }}%`,loc('tech_virtual_reality'),`{{ line6b(b, g) }}%`,loc('tech_metaphysics')]
             },
             vue: {
                 filters: {
@@ -136,13 +136,13 @@ export function govPage(content){
             break: [2,8,9],
             para_data: {
                 2: ['50%'],
-                3: [`{{ b | line3(g) }}%`],
-                4: [`{{ b | line4(g) }}%`],
-                5: [`{{ b | line5(g) }}%`],
+                3: [`{{ line3(b, g) }}%`],
+                4: [`{{ line4(b, g) }}%`],
+                5: [`{{ line5(b, g) }}%`],
                 6: ['10%'],
-                7: [`{{ b | line7(g) }}%`],
+                7: [`{{ line7(b, g) }}%`],
                 8: ['5%',loc('tech_virtual_reality')],
-                9: [`{{ b | line9(g) }}%`,loc('tech_metaphysics')]
+                9: [`{{ line9(b, g) }}%`,loc('tech_metaphysics')]
             },
             vue: {
                 filters: {
@@ -159,7 +159,7 @@ export function govPage(content){
             break: [2,4],
             para_data: {
                 2: ['8%'],
-                3: [`{{ b | line3(g) }}%`],
+                3: [`{{ line3(b, g) }}%`],
                 4: ['2%'],
                 5: ['1%',loc('tech_virtual_reality'),loc('tech_metaphysics')]
             },
@@ -175,9 +175,9 @@ export function govPage(content){
             para_data: {
                 2: ['3%'],
                 4: ['25%'],
-                5: [`{{ b | line5(g) }}%`],
-                6: ['25%',`{{ b | line6(g) }}%`],
-                7: [`{{ b | line7a(g) }}%`,loc('tech_virtual_reality'),`{{ b | line7b(g) }}%`,loc('tech_metaphysics')]
+                5: [`{{ line5(b, g) }}%`],
+                6: ['25%',`{{ line6(b, g) }}%`],
+                7: [`{{ line7a(b, g) }}%`,loc('tech_virtual_reality'),`{{ line7b(b, g) }}%`,loc('tech_metaphysics')]
             },
             vue: {
                 filters: {
@@ -193,8 +193,8 @@ export function govPage(content){
             break: [2,3,5],
             para_data: {
                 2: [`{{ line2(b, g) }}%`],
-                3: [`{{ b | line3(g) }}%`],
-                4: [`{{ line4b(line4a(b, g) }}%`,loc('tech_virtual_reality'),`{{ b, g) }}%`,loc('tech_metaphysics')]
+                3: [`{{ line3(b, g) }}%`],
+                4: [`{{ line4a(b, g) }}%`,loc('tech_virtual_reality'),`{{ line4b(b, g) }}%`,loc('tech_metaphysics')]
             },
             vue: {
                 filters: {
@@ -210,9 +210,9 @@ export function govPage(content){
             break: [2,5,6],
             para_data: {
                 2: [`{{ line2(b, g) }}%`],
-                3: [`{{ b | line3(g) }}%`],
-                4: [`{{ b | line4(g) }}%`, resourceName('Lumber'),resourceName('Stone'),resourceName('Furs'),resourceName('Copper'),resourceName('Iron'),resourceName('Aluminium'),resourceName('Cement'),resourceName('Coal')],
-                5: [`{{ b | line5a(g) }}%`, loc('tech_virtual_reality'), `{{ b | line5b(g) }}%`, loc('tech_metaphysics')]
+                3: [`{{ line3(b, g) }}%`],
+                4: [`{{ line4(b, g) }}%`, resourceName('Lumber'),resourceName('Stone'),resourceName('Furs'),resourceName('Copper'),resourceName('Iron'),resourceName('Aluminium'),resourceName('Cement'),resourceName('Coal')],
+                5: [`{{ line5a(b, g) }}%`, loc('tech_virtual_reality'), `{{ line5b(b, g) }}%`, loc('tech_metaphysics')]
             },
             vue: {
                 filters: {
