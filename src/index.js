@@ -14,6 +14,7 @@ import { renderFortress, buildFortress, drawMechLab, clearMechDrag, drawHellObse
 import { renderEdenic } from './edenic.js';
 import { drawShipYard, clearShipDrag, renderTauCeti } from './truepath.js';
 import { arpa, clearGeneticsDrag } from './arpa.js';
+import { driveSaveGame, driveLoadGame, driveConfigured } from './googledrive.js';
 
 // main.js registers its offline-time handler here so unpausing can trigger the catch-up without
 // index.js importing main.js (which would pull the whole game bootstrap into the wiki bundle).
@@ -116,6 +117,23 @@ export function mainVue(){
                     }
                     window.location.reload();
                 }
+            },
+            driveOn(){
+                return driveConfigured();
+            },
+            driveSave(){
+                driveSaveGame();
+            },
+            driveLoad(){
+                this.$buefy.dialog.confirm({
+                    title: loc('google_drive'),
+                    message: loc('drive_confirm_load'),
+                    ariaModal: true,
+                    confirmText: loc('drive_load'),
+                    onConfirm() {
+                        driveLoadGame();
+                    }
+                });
             },
             restoreGame(){
                 let restore_data = save.getItem('evolveBak') || false;
@@ -1301,6 +1319,12 @@ export function index(){
             <button class="button" @click="saveExport">{{ label('export') }}</button>
             <button class="button" @click="saveExportFile">{{ label('export_file') }}</button>
             <button class="button right" @click="restoreGame"><span class="settings9" aria-label="${loc('settings9')}">{{ label('restore') }}</span></button>
+        </div>
+        <div class="importExport">
+            <b-field label="${loc('google_drive')}"></b-field>
+            <button class="button" @click="driveSave">{{ label('drive_save') }}</button>
+            <button class="button" @click="driveLoad">{{ label('drive_load') }}</button>
+            <span class="drive-note" v-show="!driveOn()">${loc('drive_setup_hint')}</span>
         </div>
         <div class="reset">
             <b-collapse :open="false">
