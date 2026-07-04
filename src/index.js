@@ -1357,6 +1357,45 @@ export function index(){
     columns.append(`<div id="queueColumn" class="queueCol column"></div>`);
 
     let egg15 = easterEgg(15,8);
+    
+    // Bottom Mobile navigation bar
+    $('body').append(`
+        <div id="mobileNav">
+            <button class="mobile-nav-btn is-active" data-panel="resources">${loc('mobile_nav_resources')}</button>
+            <button class="mobile-nav-btn" data-panel="game">${loc('mobile_nav_game')}</button>
+            <button class="mobile-nav-btn" data-panel="queue">${loc('mobile_nav_queue')}</button>
+        </div>
+    `);
+
+    $('#mobileNav').on('click', '.mobile-nav-btn', function () {
+        const panel = $(this).data('panel');
+        $('#main')
+            .toggleClass('mobile-panel-game', panel === 'game')
+            .toggleClass('mobile-panel-queue', panel === 'queue');
+        $('#mobileNav .mobile-nav-btn').removeClass('is-active');
+        $(this).addClass('is-active');
+    });
+
+    // Keep #mobileNav and .promoBar visually anchored when browser toolbars toggle or user zooms.
+    // visualViewport tracks the *visible* window; position:fixed tracks the layout viewport —
+    // when they diverge (toolbar changes, zoom) we correct with a CSS transform offset.
+    if ('visualViewport' in window) {
+        const $navBar = $('#mobileNav');
+        const $promoBar = $('.promoBar');
+
+        const syncFixedToViewport = () => {
+            const vv = window.visualViewport;
+            // How many px the visual viewport is inset from the bottom of the layout viewport
+            const offsetFromBottom = window.innerHeight - (vv.height + vv.offsetTop);
+            const translateY = -Math.round(Math.max(0, offsetFromBottom));
+            $navBar.css('transform', `translateY(${translateY}px)`);
+            $promoBar.css('transform', `translateY(${translateY}px)`);
+        };
+
+        window.visualViewport.addEventListener('resize', syncFixedToViewport);
+        window.visualViewport.addEventListener('scroll', syncFixedToViewport);
+    }
+
     // Bottom Bar
     $('body').append(`
         <div class="promoBar">
