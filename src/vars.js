@@ -68,14 +68,18 @@ Math.rand = function(min, max) {
 
 global['seed'] = 2;
 global['warseed'] = 2;
+global['hellseed'] = 2;
 export function seededRandom(min, max, alt, useSeed) {
     max = max || 1;
     min = min || 0;
 
-    let seed = useSeed || global[alt ? 'warseed' : 'seed'];
+    // alt selects the RNG stream: 'hell' -> hellseed, truthy -> warseed, else the standard seed.
+    // Each stream advances only its own seed, so they never disturb one another.
+    let seedKey = alt === 'hell' ? 'hellseed' : (alt ? 'warseed' : 'seed');
+    let seed = useSeed || global[seedKey];
     let newSeed = (seed * 9301 + 49297) % 233280;
     let rnd = newSeed / 233280;
-    if (!useSeed){ global[alt ? 'warseed' : 'seed'] = newSeed; }
+    if (!useSeed){ global[seedKey] = newSeed; }
     return min + rnd * (max - min);
 }
 
@@ -114,6 +118,14 @@ export function setGlobal(gameState) {
 
 if (!global['version']){
     global['version'] = '0.2.0';
+}
+
+// Offline hell RNG stream. hellseed was added after the versioned migrations below, so an existing
+// save can be past that gate and never receive one; without a valid numeric seed every
+// seededRandom(...,'hell') call returns NaN and all hell combat (kills, soul gems) silently stops.
+// Runs ungated on every load, and self-heals a null/NaN seed left by an earlier build.
+if (!global.hasOwnProperty('hellseed') || typeof global['hellseed'] !== 'number' || isNaN(global['hellseed'])){
+    global['hellseed'] = (global.hasOwnProperty('warseed') ? global['warseed'] : global['seed']) + 2;
 }
 
 if (convertVersion(global['version']) < 2060){
@@ -558,6 +570,10 @@ if (convertVersion(global['version']) < 100000){
     if (!global.hasOwnProperty('warseed')){
         global['warseed'] = global.seed + 1;
         Math.war = global.hasOwnProperty('warseed') ? global.warseed : global.seed;
+    }
+
+    if (!global.hasOwnProperty('hellseed')){
+        global['hellseed'] = global.seed + 2;
     }
 
     if (global.portal.hasOwnProperty('bireme')){
@@ -1282,7 +1298,7 @@ if (convertVersion(global['version']) < 104009){
 
 global['version'] = '1.5.0';
 delete global['revision'];
-global['beta'] = 1;
+global['beta'] = 2;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -1816,9 +1832,9 @@ if (!global.settings['q_resize']){
 $('html').addClass(global.settings.theme);
 $('html').addClass(global.settings.queuestyle);
 
-if (!global.settings['at']){
-    global.settings['at'] = 0;
-}
+// Accelerated time was replaced by offline time; clear any leftover countdown from old saves.
+global.settings['at'] = 0;
+atrack.t = 0;
 
 if (!global.city['morale']){
     global.city['morale'] = {
@@ -2022,6 +2038,7 @@ function newGameData(){
     global['race'] = { species : 'protoplasm', gods: 'none', old_gods: 'none', seeded: false };
     global['seed'] = Math.rand(0,10000);
     global['warseed'] = Math.rand(0,10000);
+    global['hellseed'] = Math.rand(0,10000);
     global['new'] = true;
 }
 
@@ -2275,13 +2292,14 @@ window.soft_reset = function reset(source){
     global.new = true;
     global.seed = Math.rand(0,10000);
     global.warseed = Math.rand(0,10000);
+    global.hellseed = Math.rand(0,10000);
 
     global.stats['current'] = Date.now();
     save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
     window.location.reload();
 }
 
-export var webWorker = { w: false, s: false, mt: 250, midRatio: 4, longRatio: 20 };
+export var webWorker = { w: false, s: false, mt: 250, midRatio: 4, longRatio: 20, offline: false, offlineScale: 1 };
 export var intervals = {};
 
 export function clearSavedMessages(){

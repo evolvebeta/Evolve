@@ -28,18 +28,17 @@ export function mechanicsPage(content){
         sideMenu('add',`mechanics-gameplay`,`save`,loc('wiki_mechanics_save'));
     }
 
-    { // Accelerated Time
-        infoBoxBuilder(mainContent,{ name: 'atime', template: 'mechanics', label: loc('wiki_mechanics_atime'), paragraphs: 6, break: [4,6], h_level: 2,
+    { // Offline Time
+        infoBoxBuilder(mainContent,{ name: 'offline', template: 'mechanics', label: loc('wiki_mechanics_offline'), paragraphs: 6, break: [4,6], h_level: 2,
             para_data: {
-                1: [loc('wiki_mechanics_atime')],
-                2: [2,loc('wiki_mechanics_atime')],
-                3: ['2x',loc('wiki_mechanics_atime')],
-                4: [loc('wiki_mechanics_atime'),8],
-                5: [12,8,loc('wiki_mechanics_atime')],
-                6: [loc('wiki_mechanics_atime')]
+                1: [loc('wiki_mechanics_offline')],
+                2: [2,loc('wiki_mechanics_offline')],
+                4: [loc('wiki_mechanics_offline')],
+                5: [loc('wiki_mechanics_offline'),7],
+                6: [loc('wiki_mechanics_offline')]
             }
         });
-        sideMenu('add',`mechanics-gameplay`,`atime`,loc('wiki_mechanics_atime'));
+        sideMenu('add',`mechanics-gameplay`,`offline`,loc('wiki_mechanics_offline'));
     }
 
     { // String Packs

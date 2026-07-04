@@ -41,16 +41,6 @@ export function defineGovernment(define){
             <b-tab-item id="r_govern0" :label="govLabel"></b-tab-item>
             <b-tab-item id="r_govern1" v-show="s.showGovernor" :label="governorLabel"></b-tab-item>
         </b-tabs>`,
-        mounted(){
-            // Initialize content after Vue has rendered the tabs
-            this.$nextTick(() => {
-                government($(`#r_govern0`));
-                taxRates($(`#r_govern0`));
-                
-                var civ_garrison = $('<div id="c_garrison" v-show="g.display" class="garrison tile is-child"></div>');
-                $('#r_govern0').append(civ_garrison);
-            });
-        },
         methods: {
             vis(){
                 return global.tech['govern'] ? true : false;
@@ -65,7 +55,18 @@ export function defineGovernment(define){
             }
         }
     });
-    
+
+    // Populate the government tab synchronously. Vue 3's app.mount() renders the
+    // b-tabs immediately, so #r_govern0 already exists once vBind() returns.
+    // Deferring this via mounted()/$nextTick (a Vue 2->3 carryover) let the
+    // synchronous foreignGov()/garrison appends land in #r_govern0 first, so the
+    // system of government rendered AFTER foreign powers instead of before it.
+    government($(`#r_govern0`));
+    taxRates($(`#r_govern0`));
+
+    var civ_garrison = $('<div id="c_garrison" v-show="g.display" class="garrison tile is-child"></div>');
+    $('#r_govern0').append(civ_garrison);
+
     defineGovernor();
 }
 
@@ -1349,7 +1350,7 @@ export function buildGarrison(garrison,full){
 
     ['tactic','bat','soldier','crew','wounded','hmerc','defenseRating','offenseRating','soldierRating'].forEach(function(k){
         popover(full ? `garrison${k}` : `cGarrison${k}`,
-            function(){ return '<span v-html="label()"></span>'; },
+            function(){ return '<span><span v-html="label()"></span></span>'; },
             {
                 elm: `${full ? '#garrison' : '#c_garrison'} .${k}`,
                 in: function(obj){
