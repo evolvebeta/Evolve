@@ -4175,14 +4175,18 @@ function fortressDefenseRating(v){
 }
 
 function casualties(demons,pat_armor,ambush,report){
-    let casualties = Math.round(Math.log2((demons / global.portal.fortress.patrol_size) / (pat_armor || 1))) - Math.rand(0,pat_armor);
+    // Part of the hell war (called only from bloodwar); draw from the hellseed stream so
+    // casualties are reproducible during offline catch-up without disturbing the standard
+    // seed or the warseed. Mirrors Math.rand's integer-in-[min,max) behaviour.
+    const hellRand = (min, max) => Math.floor(seededRandom(min, max, 'hell'));
+    let casualties = Math.round(Math.log2((demons / global.portal.fortress.patrol_size) / (pat_armor || 1))) - hellRand(0,pat_armor);
     let dead = 0;
     if (casualties > 0){
         if (casualties > global.portal.fortress.patrol_size){
             casualties = global.portal.fortress.patrol_size;
         }
-        casualties = Math.rand(ambush ? 1 : 0,casualties + 1);
-        dead = Math.rand(0,casualties + 1);
+        casualties = hellRand(ambush ? 1 : 0,casualties + 1);
+        dead = hellRand(0,casualties + 1);
         let wounded = casualties - dead;
         if (global.race['instinct']){
             let reduction = Math.floor(dead * (traits.instinct.vars()[1] / 100));
@@ -4242,6 +4246,10 @@ function fortressData(dt){
 }
 
 export function bloodwar(){
+    // Hell combat draws from its own RNG stream (hellseed) so soul gem and kill outcomes are
+    // reproducible during offline catch-up without disturbing the standard seed or the warseed.
+    // Mirrors Math.rand's integer-in-[min,max) behaviour.
+    const hellRand = (min, max) => Math.floor(seededRandom(min, max, 'hell'));
     let day_report = {
         start: global.portal.fortress.threat,
         foundGems: 0,
@@ -4302,9 +4310,9 @@ export function bloodwar(){
         day_report.drones = {};
         for (let i=0; i<p_on['war_drone']; i++){
             let drone_report = { encounter: false, kills: 0 };
-            if (Math.rand(0,global.portal.fortress.threat) >= Math.rand(0,999)){
-                let demons = Math.rand(Math.floor(global.portal.fortress.threat / 50), Math.floor(global.portal.fortress.threat / 10));
-                let killed = global.tech.portal >= 7 ? Math.rand(50,125) : Math.rand(25,75);
+            if (hellRand(0,global.portal.fortress.threat) >= hellRand(0,999)){
+                let demons = hellRand(Math.floor(global.portal.fortress.threat / 50), Math.floor(global.portal.fortress.threat / 10));
+                let killed = global.tech.portal >= 7 ? hellRand(50,125) : hellRand(25,75);
                 if (demons < killed){
                     killed = demons;
                 }
@@ -4366,7 +4374,7 @@ export function bloodwar(){
     for (let i=0; i<global.portal.fortress.patrols; i++){
         let patrol_report = { encounter: false, droid: false, ambush: false, gem: 0, kills: 0, wounded: 0, died: 0};
         let hurt = brkpnt > (1 / global.portal.fortress.patrols * i) ? Math.ceil(wounded) : Math.floor(wounded);
-        if (Math.rand(0,global.portal.fortress.threat) >= Math.rand(0,999)){
+        if (hellRand(0,global.portal.fortress.threat) >= hellRand(0,999)){
             patrol_report.encounter = true;
             let pat_size = global.portal.fortress.patrol_size;
             if (terminators > 0){
@@ -4376,10 +4384,10 @@ export function bloodwar(){
             }
             let pat_rating = Math.round(armyRating(pat_size,'hellArmy',hurt));
 
-            let demons = Math.rand(Math.floor(global.portal.fortress.threat / 50), Math.floor(global.portal.fortress.threat / 10));
+            let demons = hellRand(Math.floor(global.portal.fortress.threat / 50), Math.floor(global.portal.fortress.threat / 10));
 
             if (global.race['blood_thirst']){
-                global.race['blood_thirst_count'] += Math.rand(0,Math.ceil(demons / 10));
+                global.race['blood_thirst_count'] += hellRand(0,Math.ceil(demons / 10));
                 if (global.race['blood_thirst_count'] > traits.blood_thirst.vars()[0]){
                     global.race['blood_thirst_count'] = traits.blood_thirst.vars()[0];
                 }
@@ -4394,9 +4402,9 @@ export function bloodwar(){
                 odds += Math.round(3 * traits.ocular_power.vars()[1] / 100);
             }
 
-            if (Math.rand(0,odds) === 0){
+            if (hellRand(0,odds) === 0){
                 patrol_report.ambush = true;
-                dead += casualties(Math.round(demons * (1 + Math.random() * 3)),0,true,patrol_report);
+                dead += casualties(Math.round(demons * (1 + seededRandom(0, 1, 'hell') * 3)),0,true,patrol_report);
                 let killed = Math.round(pat_rating / 2);
                 if (demons < killed){
                     killed = demons;
@@ -4432,7 +4440,7 @@ export function bloodwar(){
                     if (div < 5){ div = 5; }
                     let chances = Math.round(killed / div);
                     for (let j=0; j<chances; j++){
-                        if (Math.rand(0,gem_chance) === 0){
+                        if (hellRand(0,gem_chance) === 0){
                             patrol_report.gem++;
                             day_report.stats.gems.patrols++;
                             global.resource.Soul_Gem.amount++;
@@ -4459,7 +4467,7 @@ export function bloodwar(){
 
     let revive = 0;
     if (global.race['revive']){
-        revive = Math.round(Math.rand(0,(dead / traits.revive.vars()[6]) + 0.25));
+        revive = Math.round(hellRand(0,(dead / traits.revive.vars()[6]) + 0.25));
         day_report.revived = revive;
         day_report.stats.revived = revive;
         global.civic.garrison.workers += revive;
@@ -4492,7 +4500,7 @@ export function bloodwar(){
     if (global.portal.fortress.garrison > 0 && global.portal.fortress.siege > 0){
         global.portal.fortress.siege--;
     }
-    if (global.portal.fortress.siege <= 900 && global.portal.fortress.garrison > 0 && 1 > Math.rand(0,global.portal.fortress.siege)){
+    if (global.portal.fortress.siege <= 900 && global.portal.fortress.garrison > 0 && 1 > hellRand(0,global.portal.fortress.siege)){
         let siege_report = { destroyed: false, damage: 0, kills: 0, surveyors: 0, soldiers: 0};
         let defense = fortressDefenseRating(global.portal.fortress.garrison);
         let defend = defense / 35 > 1 ? defense / 35 : 1;
@@ -4502,7 +4510,7 @@ export function bloodwar(){
         let killed = 0;
         let destroyed = false;
         while (siege > 0 && global.portal.fortress.walls > 0){
-            let terminated = Math.round(Math.rand(1,defend + 1));
+            let terminated = Math.round(hellRand(1,defend + 1));
             if (terminated > siege){
                 terminated = siege;
             }
@@ -4565,7 +4573,7 @@ export function bloodwar(){
         if (global.race.universe === 'evil'){
             influx *= 1.1;
         }
-        let demon_spawn = Math.rand(Math.round(10 * influx),Math.round(50 * influx));
+        let demon_spawn = hellRand(Math.round(10 * influx),Math.round(50 * influx));
         global.portal.fortress.threat += demon_spawn;
         day_report.demons = demon_spawn;
     }
@@ -4596,11 +4604,11 @@ export function bloodwar(){
         // Higher exposure increases only chance of death, up to a limit
         let max_risk = jobScale(10);
         let exposure = Math.min(max_risk, global.civic.hell_surveyor.workers);
-        let risk = max_risk - Math.rand(0,exposure + 1);
+        let risk = max_risk - hellRand(0,exposure + 1);
 
         if (danger > risk){
             let cap = Math.round(danger);
-            let dead = Math.rand(0,cap + 1); // +1 for inclusive cap
+            let dead = hellRand(0,cap + 1); // +1 for inclusive cap
             if (dead > 0){
                 if (dead > global.civic.hell_surveyor.workers){
                     dead = global.civic.hell_surveyor.workers;
@@ -4633,7 +4641,7 @@ export function bloodwar(){
                 drone_kills_left -= max_search_chance;
 
                 // Each surveyor may search from 50% to 100% of 1 equal share of drone kills
-                let searched = Math.rand(min_search_chance, max_search_chance+1);
+                let searched = hellRand(min_search_chance, max_search_chance+1);
                 // Limit to 100 bodies per surveyor
                 let search_limit = highPopAdjust(100);
                 if (searched > search_limit){ searched = search_limit; }
@@ -4643,7 +4651,7 @@ export function bloodwar(){
                     if (div < 5){ div = 5; }
                     let chances = Math.round(searched / div);
                     for (let j=0; j<chances; j++){
-                        if (Math.rand(0,gem_chance) === 0){
+                        if (hellRand(0,gem_chance) === 0){
                             surv_report.gem++;
                             day_report.stats.gems.surveyors++;
                             global.resource.Soul_Gem.amount++;
@@ -4676,7 +4684,7 @@ export function bloodwar(){
         if (forgeOperating && global.tech.hell_pit >= 5 && p_on['soul_attractor']){
             let attract = global.blood['attract'] ? global.blood.attract * 5 : 0;
             if (global.tech['hell_pit'] && global.tech.hell_pit >= 8){ attract *= 2; }
-            let souls = p_on['soul_attractor'] * Math.rand(40 + attract, 120 + attract);
+            let souls = p_on['soul_attractor'] * hellRand(40 + attract, 120 + attract);
             global.portal.soul_forge.kills += souls;
             day_report.soul_attractors = souls;
             soulCapacitor(souls);
@@ -4684,7 +4692,7 @@ export function bloodwar(){
 
         if (forgeOperating && global.tech['asphodel'] && global.tech.asphodel >= 2 && support_on['ectoplasm_processor']){
             let attract = global.blood['attract'] ? global.blood.attract * 5 : 0;
-            let souls = global.civic.ghost_trapper.workers * Math.rand(150 + attract, 250 + attract);
+            let souls = global.civic.ghost_trapper.workers * hellRand(150 + attract, 250 + attract);
             if (p_on['ascension_trigger'] && global.eden.hasOwnProperty('encampment') && global.eden.encampment.asc){
                 let heatSink = actions.interstellar.int_sirius.ascension_trigger.heatSink();
                 heatSink = heatSink < 0 ? Math.abs(heatSink) : 0;
@@ -4702,7 +4710,7 @@ export function bloodwar(){
             let gunKills = 0;
             for (let i=0; i<p_on['gun_emplacement']; i++){
                 day_report.gun_emplacements[i+1] = { kills: 0, gem: false };
-                let kills = global.tech.hell_gun >= 2 ? Math.rand(35,75) : Math.rand(20,40);
+                let kills = global.tech.hell_gun >= 2 ? hellRand(35,75) : hellRand(20,40);
                 gunKills += kills;
                 day_report.gun_emplacements[i+1].kills = kills;
             }
@@ -4715,7 +4723,7 @@ export function bloodwar(){
                 gun_base *= 0.94 ** p_on['soul_attractor'];
             }
             for (let i=0; i<p_on['gun_emplacement']; i++){
-                if (Math.rand(0,Math.round(gun_base)) === 0){
+                if (hellRand(0,Math.round(gun_base)) === 0){
                     day_report.gun_emplacements[i+1].gem = true;
                     day_report.stats.gems.guns++;
                     global.resource.Soul_Gem.amount++;
@@ -4725,7 +4733,7 @@ export function bloodwar(){
 
         if (forgeOperating){
             day_report.soul_forge = { kills: 0, gem: false, gem_craft: false, corrupt: false };
-            let forgeKills = Math.rand(25,150);
+            let forgeKills = hellRand(25,150);
             day_report.stats.kills.soul_forge = forgeKills;
             day_report.soul_forge.kills = forgeKills;
             global.stats.dkills += forgeKills;
@@ -4735,7 +4743,7 @@ export function bloodwar(){
                 global.race.ocularPowerConfig.ds += Math.round(forgeKills * traits.ocular_power.vars()[1]);
             }
             let forge_base = global.stats.achieve['technophobe'] && global.stats.achieve.technophobe.l >= 5 ? 4500 : 5000;
-            if (Math.rand(0,forge_base) === 0){
+            if (hellRand(0,forge_base) === 0){
                 day_report.soul_forge.gem = true;
                 day_report.stats.gems.soul_forge++;
                 global.resource.Soul_Gem.amount++;
@@ -4751,7 +4759,7 @@ export function bloodwar(){
             let gems = Math.floor(global.portal.soul_forge.kills / Math.round(cap));
             global.portal.soul_forge.kills -= Math.round(cap) * gems;
             let c_max = 10 - p_on['soul_attractor'] > 0 ? 10 - p_on['soul_attractor'] : 1;
-            if (global.tech.high_tech >= 16 && !global.tech['corrupt'] && Math.rand(0,c_max + 1) === 0){
+            if (global.tech.high_tech >= 16 && !global.tech['corrupt'] && hellRand(0,c_max + 1) === 0){
                 day_report.soul_forge.corrupt = true;
                 global.resource.Corrupt_Gem.amount++;                  
                 global.resource.Corrupt_Gem.display = true;
@@ -4774,7 +4782,7 @@ export function bloodwar(){
             let max = global.tech.hell_gun >= 2 ? 100 : 60;
             for (let i=0; i<p_on['gate_turret']; i++){
                 day_report.gate_turrets[i+1] = { kills: 0, gem: false };
-                let kills = Math.rand(min,max);
+                let kills = hellRand(min,max);
                 gunKills += kills;
                 day_report.gate_turrets[i+1].kills = kills;
             }
@@ -4786,7 +4794,7 @@ export function bloodwar(){
             global.stats.dkills += gunKills;
             let gun_base = global.stats.achieve['technophobe'] && global.stats.achieve.technophobe.l >= 5 ? 2700 : 3000;
             for (let i=0; i<p_on['gate_turret']; i++){
-                if (Math.rand(0,Math.round(gun_base)) === 0){
+                if (hellRand(0,Math.round(gun_base)) === 0){
                     day_report.gate_turrets[i+1].gem = true;
                     day_report.stats.gems.turrets++;
                     global.resource.Soul_Gem.amount++;
@@ -4837,11 +4845,15 @@ export function bloodwar(){
 }
 
 export function hellguard(){
+    // Warlord hell combat; draw from the hellseed stream so outcomes are reproducible during
+    // offline catch-up without disturbing the standard seed or the warseed. Mirrors Math.rand's
+    // integer-in-[min,max) behaviour.
+    const hellRand = (min, max) => Math.floor(seededRandom(min, max, 'hell'));
     if (global.race['warlord'] && global.portal['minions'] && global.portal.minions.count > 0){
         if ((global.portal.throne.enemy.length === 0 || 
             (global.portal.throne.spawned.length >= 3 && global.portal.throne.enemy.length <= 1) ||
             (global.portal.throne.spawned.length >= 8 && global.portal.throne.enemy.length <= 2)
-        ) && Math.rand(0,10) === 0 && global.portal.minions.spawns > 0){
+        ) && hellRand(0,10) === 0 && global.portal.minions.spawns > 0){
             if (global.portal.throne.spawned.length === 0){
                 addHellEnemy(['basic']);
             }
@@ -4868,7 +4880,7 @@ export function hellguard(){
                 spawn += traits.infectious.vars()[1];
                 low_spawn += traits.infectious.vars()[0];
             }
-            global.portal.minions.spawns += Math.rand(global.portal.minions.on * low_spawn, global.portal.minions.on * spawn);
+            global.portal.minions.spawns += hellRand(global.portal.minions.on * low_spawn, global.portal.minions.on * spawn);
         }
 
         let forgeOperating = false;
@@ -4899,7 +4911,7 @@ export function hellguard(){
                 let reaper = 0.25 + (eRating * 0.01) - ((global.portal?.reaper?.count || 0) ** (1 + ((global.portal?.reaper?.rank || 1) - 1) / 25) / reapEffect);
                 if (reaper < 0.01){ reaper = 0.01; }
                 let bound = Math.round(global.portal.minions.spawns * (0.5 * eRating) * (eRating ** reaper) / rating);
-                let kills = Math.rand(e.s, bound);
+                let kills = hellRand(e.s, bound);
                 if (kills > global.portal.minions.spawns){ kills = global.portal.minions.spawns; }
                 global.portal.minions.spawns -= kills;
                 e.k += kills;
@@ -4907,12 +4919,12 @@ export function hellguard(){
                     global.portal.soul_forge.kills += kills;
                 }
 
-                if (e.f < 100 && Math.rand(0, 10) === 0){
+                if (e.f < 100 && hellRand(0, 10) === 0){
                     e.f++;
                 }
 
                 if (global.race['revive']){
-                    let revive = Math.round(Math.rand(0,(kills / (traits.revive.vars()[6] * 20))));
+                    let revive = Math.round(hellRand(0,(kills / (traits.revive.vars()[6] * 20))));
                     global.portal.minions.spawns += revive;
                 }
             });
@@ -4921,7 +4933,7 @@ export function hellguard(){
         if (forgeOperating && global.tech.hell_pit >= 5 && p_on['soul_attractor']){
             let attract = global.blood['attract'] ? global.blood.attract * 5 : 0;
             if (global.tech['hell_pit'] && global.tech.hell_pit >= 8){ attract *= 2; }
-            let souls = p_on['soul_attractor'] * Math.rand(40 + attract, 120 + attract);
+            let souls = p_on['soul_attractor'] * hellRand(40 + attract, 120 + attract);
             if (global.race['ghostly']){
                 souls *= 1 + (traits.ghostly.vars()[0] / 100);
                 souls = Math.round(souls);
@@ -4931,7 +4943,7 @@ export function hellguard(){
 
         if (forgeOperating && global.tech['asphodel'] && global.tech.asphodel >= 2 && support_on['ectoplasm_processor']){
             let attract = global.blood['attract'] ? global.blood.attract * 5 : 0;
-            let souls = global.civic.ghost_trapper.workers * Math.rand(150 + attract, 250 + attract);
+            let souls = global.civic.ghost_trapper.workers * hellRand(150 + attract, 250 + attract);
             if (global.portal['mortuary'] && global.portal['corpse_pile']){
                 let corpse = (global.portal?.corpse_pile?.count || 0) * (p_on['mortuary'] || 0);
                 if (corpse > 0){

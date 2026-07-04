@@ -1,7 +1,7 @@
 import { global, save, seededRandom, webWorker, intervals, keyMap, atrack, resizeGame, breakdown, sizeApproximation, keyMultiplier, power_generated, p_on, support_on, int_on, gal_on, spire_on, set_qlevel, quantum_level, callback_queue, active_rituals } from './vars.js';
 import { loc } from './locale.js';
 import { unlockAchieve, checkAchievements, drawAchieve, alevel, universeAffix, challengeIcon, unlockFeat, checkAdept } from './achieve.js';
-import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, resetResBuffer, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, deepClone, addATime, exceededATimeThreshold, loopTimers, calcQuantumLevel, drawPet } from './functions.js';
+import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, resetResBuffer, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, deepClone, exceededATimeThreshold, loopTimers, calcQuantumLevel, drawPet } from './functions.js';
 import { races, traits, racialTrait, orbitLength, servantTrait, randomMinorTrait, biomes, planetTraits, shapeShift, fathomCheck, blubberFill, cleanRemoveTrait } from './races.js';
 import { defineResources, resource_values, spatialReasoning, craftCost, plasmidBonus, faithBonus, faithTempleCount, tradeRatio, craftingRatio, crateValue, containerValue, tradeSellPrice, tradeBuyPrice, atomic_mass, supplyValue, galaxyOffers } from './resources.js';
 import { defineJobs, job_desc, loadFoundry, farmerValue, jobName, jobScale, workerScale, limitCraftsmen, loadServants} from './jobs.js';
@@ -18,7 +18,7 @@ import { defineGovernor, govern, govActive, removeTask } from './governor.js';
 import { production, highPopAdjust, teamster, factoryBonus } from './prod.js';
 import { swissKnife } from './tech.js';
 import { vacuumCollapse } from './resets.js';
-import { index, mainVue, initTabs, loadTab } from './index.js';
+import { index, mainVue, initTabs, loadTab, registerOfflineHandler } from './index.js';
 import { setWeather, seasonDesc, astrologySign, astroVal } from './seasons.js';
 import { getTopChange } from './wiki/change.js';
 import { enableDebug, updateDebugData } from './debug.js';
@@ -577,6 +577,8 @@ vBind({
             }
             if (!global.settings.pause && !webWorker.s){
                 gameLoop('start');
+                // Unpausing counts as returning to the game: credit offline time for the pause.
+                processOfflineTime();
             }
         },
         pausedesc(){
@@ -834,11 +836,24 @@ set_qlevel(calcQuantumLevel(true));
 $('#lbl_city').html('Village');
 
 var loopTick = 0; // Used to synchronize the fast, mid, and long loops to each other
-export function execGameLoops(periods = 1){
-    // Currently there is no smart catch-up mechanism
-    // Limit to 1 minute (12 game days) of simulation per call
+export function execGameLoops(periods = 1, offline = false){
+    if (offline){
+        // Offline catch-up: each period is one time-compressed step. A single fast/mid/long
+        // pass advances the game by webWorker.offlineScale whole game days (see fastLoop's
+        // time_multiplier boost and longLoop's day advance), keeping the total number of
+        // iterations bounded no matter how long the player was away.
+        while (periods--){
+            fastLoop();
+            midLoop();
+            doCallbacks();
+            longLoop();
+        }
+        return;
+    }
+
+    // During live play we clamp to 1 minute (12 game days) of simulation per call.
     const maxCatchUp = webWorker.longRatio * 12;
-    periods = Math.min(periods, maxCatchUp); 
+    periods = Math.min(periods, maxCatchUp);
 
     while (webWorker.s && periods--){
         ++loopTick;
@@ -858,18 +873,123 @@ export function execGameLoops(periods = 1){
     }
 }
 
+// Offline time: when the game is reopened after being closed (or unpaused after a long pause),
+// credit the player with the game loops that would have run while away (rounded down to whole
+// long loops / game days), capped at one week of real time, and simulate them behind a progress
+// popup. Called at load and on unpause; the pause guard means a game loaded in a paused state
+// waits until it is unpaused before running the catch-up.
+function processOfflineTime(){
+    if (global.settings.pause){ return; }
+    if (!global.stats.hasOwnProperty('current')){ return; }
+
+    const now = Date.now();
+    let elapsed = now - global.stats.current;
+
+    const minThreshold = 120000;    // 2 minutes - ignore brief closes/reloads
+    const weekCap = 604800000;      // cap credited offline time at 1 week of real time
+    if (elapsed < minThreshold){ return; }
+    if (elapsed > weekCap){ elapsed = weekCap; }
+
+    const longMs = loopTimers().baseLongTimer;      // real ms per long loop (one game day)
+    const missedLong = Math.floor(elapsed / longMs);
+    if (missedLong < 1){ return; }
+
+    // Cap the number of simulated steps so catch-up stays fast (well under a minute) no matter
+    // how long the player was away. Each step is time-compressed to cover daysPerStep game days.
+    const maxSteps = 5000;
+    const daysPerStep = Math.max(1, Math.ceil(missedLong / maxSteps));
+    const steps = Math.ceil(missedLong / daysPerStep);
+    const creditedMinutes = Math.floor(missedLong * longMs / 60000);
+
+    // Advance the stored timestamp so this elapsed time is never counted twice.
+    global.stats.current = now;
+
+    runOfflineCatchup(steps, daysPerStep, creditedMinutes);
+}
+
+function runOfflineCatchup(totalSteps, daysPerStep, creditedMinutes){
+    webWorker.offline = true;
+    webWorker.offlineScale = daysPerStep;
+    let overlay = drawOfflineModal();
+
+    const chunk = 100;    // steps simulated per animation frame
+    let done = 0;
+
+    const step = function(){
+        const batch = Math.min(chunk, totalSteps - done);
+        execGameLoops(batch, true);
+        done += batch;
+
+        const pct = Math.floor(done / totalSteps * 100);
+        $('#offlineProg').css('width', `${pct}%`);
+        $('#offlineProgTxt').text(`${pct}%`);
+
+        if (done < totalSteps){
+            setTimeout(step, 0);
+        }
+        else {
+            webWorker.offline = false;
+            webWorker.offlineScale = 1;
+            if (!global.race.hasOwnProperty('geck')){
+                save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
+            }
+            finishOfflineModal(overlay, creditedMinutes);
+        }
+    };
+    setTimeout(step, 0);
+}
+
+function drawOfflineModal(){
+    $('#offlineModal').remove();
+    let overlay = $(`<div id="offlineModal"><div class="offlineBox">`
+        + `<p class="offlineTitle has-text-warning">${loc('offline_time_title')}</p>`
+        + `<p class="offlineMsg">${loc('offline_time_progress')}</p>`
+        + `<div class="offlineBar"><div id="offlineProg" class="offlineProg"></div></div>`
+        + `<p id="offlineProgTxt" class="offlineMsg">0%</p>`
+        + `</div></div>`);
+    $('body').append(overlay);
+    return overlay;
+}
+
+// Format a duration in minutes as days/hours/minutes, omitting any unit that is zero.
+function formatOfflineTime(totalMinutes){
+    const days = Math.floor(totalMinutes / 1440);
+    const hours = Math.floor((totalMinutes % 1440) / 60);
+    const minutes = totalMinutes % 60;
+    let parts = [];
+    if (days > 0){ parts.push(`${days} ${loc(days === 1 ? 'offline_time_day' : 'offline_time_days')}`); }
+    if (hours > 0){ parts.push(`${hours} ${loc(hours === 1 ? 'offline_time_hour' : 'offline_time_hours')}`); }
+    if (minutes > 0){ parts.push(`${minutes} ${loc(minutes === 1 ? 'offline_time_minute' : 'offline_time_minutes')}`); }
+    if (parts.length === 0){ parts.push(`0 ${loc('offline_time_minutes')}`); }
+    return parts.join(', ');
+}
+
+function finishOfflineModal(overlay, minutes){
+    overlay.find('.offlineBox').html(
+        `<p class="offlineTitle has-text-warning">${loc('offline_time_title')}</p>`
+        + `<p class="offlineMsg">${loc('offline_time_msg',[formatOfflineTime(minutes)])}</p>`
+        + `<button id="offlineClose" class="button">${loc('offline_time_close')}</button>`
+    );
+    overlay.find('#offlineClose').on('click', function(){ overlay.remove(); });
+}
+
 if (window.Worker){
     webWorker.w = new Worker("evolve/evolve.js");
     webWorker.w.addEventListener('message', function(e){
         const data = e.data;
         switch (data.loop) {
             case 'main':
+                // Ignore live ticks while offline time is being simulated.
+                if (webWorker.offline){ break; }
                 execGameLoops(data.periods);
                 break;
         }
     }, false);
 }
 gameLoop('start');
+// Let index.js's unpause handler trigger offline catch-up without importing main.js.
+registerOfflineHandler(processOfflineTime);
+processOfflineTime();
 
 resourceAlt();
 
@@ -1210,6 +1330,11 @@ function fastLoop(){
     }
 
     var time_multiplier = 0.25;
+    if (webWorker.offline){
+        // Offline catch-up: a single fast loop simulates offlineScale whole game days of
+        // production at once (one game day = longRatio fast loops of 0.25s each).
+        time_multiplier *= webWorker.longRatio * webWorker.offlineScale;
+    }
     resetResBuffer();
 
     if (global.race.species === 'protoplasm'){
@@ -11524,6 +11649,50 @@ let sythMap = {
 };
 
 var kplv = 60;
+
+// One game-day roll of the major/minor random events defined in events.js. Extracted so offline
+// catch-up can roll it once per real day (see longLoop), keeping event cadence matching live play.
+function rollDayEvents(astroSign){
+    if (Math.rand(0,global.event.t) === 0){
+        let event_pool = eventList('major');
+        if (event_pool.length > 0){
+            let event = event_pool[Math.floor(seededRandom(0,event_pool.length))];
+            let msg = events[event].effect();
+            messageQueue(msg,'caution',false,['events','major_events']);
+            global.event.l = event;
+        }
+        global.event.t = 999;
+        if (astroSign === 'pisces'){
+            global.event.t -= astroVal('pisces')[0];
+        }
+    }
+    else {
+        global.event.t--;
+    }
+
+    if (global.race.species !== 'protoplasm'){
+        if (Math.rand(0,global.m_event.t) === 0){
+            let event_pool = eventList('minor');
+            if (!global.race['pet'] && ((global.race['catnip'] && global.race.catnip >= 2) || (global.race['anise'] && global.race.anise >= 2))){
+                event_pool = ['pet'];
+            }
+            if (event_pool.length > 0){
+                let event = event_pool[Math.floor(seededRandom(0,event_pool.length))];
+                let msg = events[event].effect();
+                messageQueue(msg,false,false,['events','minor_events']);
+                global.m_event.l = event;
+            }
+            global.m_event.t = 850;
+            if (astroSign === 'pisces'){
+                global.m_event.t -= astroVal('pisces')[1];
+            }
+        }
+        else {
+            global.m_event.t--;
+        }
+    }
+}
+
 function longLoop(){
     const date = new Date();
     const astroSign = astrologySign();
@@ -11770,11 +11939,12 @@ function longLoop(){
         }
 
         if (global.city.calendar.day > 0){
-            // Time
-            global.city.calendar.day++;
-            global.stats.days++;
-            if (global.city.calendar.day > orbitLength()){
-                global.city.calendar.day = 1;
+            // Time. During offline catch-up a single long loop represents offlineScale whole days.
+            let dayStep = webWorker.offline ? webWorker.offlineScale : 1;
+            global.city.calendar.day += dayStep;
+            global.stats.days += dayStep;
+            while (global.city.calendar.day > orbitLength()){
+                global.city.calendar.day -= orbitLength();
                 global.city.calendar.year++;
             }
 
@@ -12716,43 +12886,12 @@ function longLoop(){
 
     // Event triggered
     if (!global.race.seeded || (global.race.seeded && global.race['chose'])){
-        if (Math.rand(0,global.event.t) === 0){
-            let event_pool = eventList('major');
-            if (event_pool.length > 0){
-                let event = event_pool[Math.floor(seededRandom(0,event_pool.length))];
-                let msg = events[event].effect();
-                messageQueue(msg,'caution',false,['events','major_events']);
-                global.event.l = event;
-            }
-            global.event.t = 999;
-            if (astroSign === 'pisces'){
-                global.event.t -= astroVal('pisces')[0];
-            }
-        }
-        else {
-            global.event.t--;
-        }
-
-        if (global.race.species !== 'protoplasm'){
-            if (Math.rand(0,global.m_event.t) === 0){
-                let event_pool = eventList('minor');
-                if (!global.race['pet'] && ((global.race['catnip'] && global.race.catnip >= 2) || (global.race['anise'] && global.race.anise >= 2))){
-                    event_pool = ['pet'];
-                }
-                if (event_pool.length > 0){
-                    let event = event_pool[Math.floor(seededRandom(0,event_pool.length))];
-                    let msg = events[event].effect();
-                    messageQueue(msg,false,false,['events','minor_events']);
-                    global.m_event.l = event;
-                }
-                global.m_event.t = 850;
-                if (astroSign === 'pisces'){
-                    global.m_event.t -= astroVal('pisces')[1];
-                }
-            }
-            else {
-                global.m_event.t--;
-            }
+        // Roll the major/minor random events once per game day. During offline catch-up a single
+        // long loop represents offlineScale days, so roll that many times to keep event cadence
+        // (and their effects) matching real time instead of firing only once per compressed step.
+        let eventRolls = webWorker.offline ? webWorker.offlineScale : 1;
+        for (let er = 0; er < eventRolls; er++){
+            rollDayEvents(astroSign);
         }
 
         if (global.race['witch_hunter'] && global.resource.Sus.amount >= 100){
@@ -12804,19 +12943,11 @@ function longLoop(){
     }
 
     const currentTimestamp = date.valueOf();
-    // Checking if a substantial amount of time elapsed since last longLoop, indicating system suspension,
-    // hibernation or something similar (the threshold is the same as for counting accelerated time during pause).
-    let restartNeeded = false;
-    if (!global.settings.pause && exceededATimeThreshold(currentTimestamp)){
-        // Adding accelerated time based on last current time which is updated below.
-        addATime(currentTimestamp);
-        // The restart is needed to update the duration of the loop interval.
-        restartNeeded = true;
-    }
 
-    // Save game state
+    // Save game state. While simulating offline time the per-loop save is skipped for
+    // performance; runOfflineCatchup() performs a single save once the catch-up finishes.
     global.stats['current'] = currentTimestamp;
-    if (!global.race.hasOwnProperty('geck')){
+    if (!webWorker.offline && !global.race.hasOwnProperty('geck')){
         save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
     }
 
@@ -12824,28 +12955,16 @@ function longLoop(){
         messageQueue(loc(`backup_warning`), 'advanced', true);
     }
 
-    kplv--;
-    if (kplv <= 0){
-        kplv = 60;
-        tagEvent('page_view',{ page_title: `Game Loop` });
+    if (!webWorker.offline){
+        kplv--;
+        if (kplv <= 0){
+            kplv = 60;
+            tagEvent('page_view',{ page_title: `Game Loop` });
+        }
     }
 
     if (global.settings.pause && webWorker.s){
         gameLoop('stop');
-    }
-
-    if (atrack.t > 0){
-        atrack.t--;
-        global.settings.at--;
-        if (global.settings.at <= 0 || atrack.t <= 0){
-            global.settings.at = 0;
-            restartNeeded = true;
-        }
-    }
-
-    if (restartNeeded){
-        gameLoop('stop');
-        gameLoop('start');
     }
 }
 
