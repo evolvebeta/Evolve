@@ -253,7 +253,7 @@ export function prestigeCalc(info,resource,extraType,resetType){
         uni: 'standard'
     };
     
-    let inputs = {
+    let inputs = Vue.reactive({
         cit: { val: undefined, use: false },
         sol: { val: undefined, use: false },
         know: { val: undefined, use: false },
@@ -270,7 +270,7 @@ export function prestigeCalc(info,resource,extraType,resetType){
         synth: { val: false, use: false },
         tp: { val: false, use: false, enabled: true },
         wiki: true // flag to mark this query as coming from wiki
-    };
+    });
     let universes = {
         standard: { use: true },
         evil: { use: true },
@@ -335,25 +335,25 @@ export function prestigeCalc(info,resource,extraType,resetType){
         case 'phage':
             resets.mad.use = false;
             resets.descend.use = false;
-            equation += `<span>log2({{ generic(i.plas.val, 'plasmids') }}) * {{ i.reset.val | phageMulti }} * e * {{ i.genes.val | challenge}} * {{ i.uni.val | universe }}</span><span v-show="i.tp.val"> * 1.1</span>`;
+            equation += `<span>log2({{ generic(i.plas.val, 'plasmids') }}) * {{ phageMulti(i.reset.val) }} * e * {{ challenge(i.genes.val) }} * {{ universe(i.uni.val) }}</span><span v-show="i.tp.val"> * 1.1</span>`;
             break;
         case 'dark':
             inputs.reset.val = 'bigbang';
             universes.magic.use = false;
-            equation += `<span>(ln(1 + ({{ generic(i.exotic.val, 'exotic') }} * 40)) + (log2({{ generic(i.mass.val, 'mass') }} - 7) / 2.5)) * {{ i.genes.val | challenge }} * {{ i.uni.val | universe }}</span>`;
+            equation += `<span>(ln(1 + ({{ generic(i.exotic.val, 'exotic') }} * 40)) + (log2({{ generic(i.mass.val, 'mass') }} - 7) / 2.5)) * {{ challenge(i.genes.val) }} * {{ universe(i.uni.val) }}</span>`;
             break;
         case 'vacuum':
             inputs.reset.val = 'vacuum';
             inputs.uni.val = 'magic';
-            equation += `<span>(log2({{ generic(i.mana.val, 'mana') }}) / 5) * {{ i.genes.val | challenge }}</span>`;
+            equation += `<span>(log2({{ generic(i.mana.val, 'mana') }}) / 5) * {{ challenge(i.genes.val) }}</span>`;
             break;
         case 'harmony':
             inputs.reset.val = 'ascend';
-            equation += `<span>(1 + {{ generic(i.genes.val, 'genes') }}) * {{ i.uni.val | universe }}</span>`;
+            equation += `<span>(1 + {{ generic(i.genes.val, 'genes') }}) * {{ universe(i.uni.val) }}</span>`;
             break;
         case 'artifact':
             inputs.reset.val = 'descend';
-            equation += `<span>1 + </span><span v-show="!i.micro.val">{{ generic(i.genes.val, 'genes') }} + </span><span>{{ i.floor.val | floor }}</span>`;
+            equation += `<span>1 + </span><span v-show="!i.micro.val">{{ generic(i.genes.val, 'genes') }} + </span><span>{{ floor(i.floor.val) }}</span>`;
             break;
         case 'cores':
             inputs.reset.val = 'ai';
@@ -370,7 +370,7 @@ export function prestigeCalc(info,resource,extraType,resetType){
                 <h3 class="has-text-caution">${loc('wiki_calc_plasmid_cap_total',[prestigeType === 'anti' ? loc('resource_AntiPlasmid_name') : loc('resource_Plasmid_name')])}</h2>
             </div>
             <div>
-                <span>{{ i.reset.val, i.synth.val | plasmidCap }} * (1 + (({{ generic(i.genes.val, 'genes') }}</span><span v-show="i.tp.val"> + 1</span><span>) / 8))</span><span v-show="pe.capVis"> = {{ | plasmidCapCalc }} = {{ pe.capVal }}</span>
+                <span>{{ plasmidCap(i.reset.val, i.synth.val) }} * (1 + (({{ generic(i.genes.val, 'genes') }}</span><span v-show="i.tp.val"> + 1</span><span>) / 8))</span><span v-show="pe.capVis"> = {{ plasmidCapCalc() }} = {{ pe.capVal }}</span>
             </div>
             <div>
                 <h3 class="has-text-caution">${loc('wiki_calc_plasmid_gains_raw',[prestigeType === 'anti' ? loc('resource_AntiPlasmid_name') : loc('resource_Plasmid_name')])}</h2>
@@ -379,12 +379,12 @@ export function prestigeCalc(info,resource,extraType,resetType){
         `;
         if (prestigeType === 'plasmid'){
             equation += `
-                    <span>((({{ generic(i.cit.val, 'citizens') }} + {{ generic(i.sol.val, 'soldiers') }})</span><span v-show="i.high_pop.val"> / {{ i.high_pop.val | highPopDivisor }}</span><span> / {{ i.reset.val, i.synth.val | popDivisor }}) + (ln(1 + (({{ i.reset.val | knowMulti }} - 1) * {{ generic(i.know.val, 'knowledge') }} / {{ i.reset.val, i.synth.val | knowInc }})) / ln({{ i.reset.val | knowMulti }}))) * {{ i.genes.val | challenge }} * {{ i.uni.val | universe }}</span><span v-show="i.tp.val"> * 1.1</span>
+                    <span>((({{ generic(i.cit.val, 'citizens') }} + {{ generic(i.sol.val, 'soldiers') }})</span><span v-show="i.high_pop.val"> / {{ highPopDivisor(i.high_pop.val) }}</span><span> / {{ popDivisor(i.reset.val, i.synth.val) }}) + (ln(1 + (({{ knowMulti(i.reset.val) }} - 1) * {{ generic(i.know.val, 'knowledge') }} / {{ knowInc(i.reset.val, i.synth.val) }})) / ln({{ knowMulti(i.reset.val) }}))) * {{ challenge(i.genes.val) }} * {{ universe(i.uni.val) }}</span><span v-show="i.tp.val"> * 1.1</span>
             `;
         }
         else {
             equation += `
-                    <span>((({{ generic(i.cit.val, 'citizens') }} + {{ generic(i.sol.val, 'soldiers') }})</span><span v-show="i.high_pop.val"> / {{ i.high_pop.val | highPopDivisor }}</span><span> / {{ i.reset.val, i.synth.val | popDivisor }}) + (ln(1 + (({{ i.reset.val | knowMulti }} - 1) * {{ generic(i.know.val, 'knowledge') }} / {{ i.reset.val, i.synth.val | knowInc }})) / ln({{ i.reset.val | knowMulti }}))) * {{ i.genes.val | challenge }} * 1.1</span><span v-show="i.tp.val"> * 1.1</span>
+                    <span>((({{ generic(i.cit.val, 'citizens') }} + {{ generic(i.sol.val, 'soldiers') }})</span><span v-show="i.high_pop.val"> / {{ highPopDivisor(i.high_pop.val) }}</span><span> / {{ popDivisor(i.reset.val, i.synth.val) }}) + (ln(1 + (({{ knowMulti(i.reset.val) }} - 1) * {{ generic(i.know.val, 'knowledge') }} / {{ knowInc(i.reset.val, i.synth.val) }})) / ln({{ knowMulti(i.reset.val) }}))) * {{ challenge(i.genes.val) }} * 1.1</span><span v-show="i.tp.val"> * 1.1</span>
             `;
         }
         equation += `
@@ -400,7 +400,7 @@ export function prestigeCalc(info,resource,extraType,resetType){
                 <h3 class="has-text-caution">${loc('wiki_calc_plasmid_gains_total',[prestigeType === 'anti' ? loc('resource_AntiPlasmid_name') : loc('resource_Plasmid_name')])}</h2>
             </div>
             <div>
-                <span>{{ generic(pe.capVal, 'plasmid_cap_total') }} + ({{ generic(pe.overflow, 'overflow') }} / ({{ generic(pe.overflow, 'overflow') }} + {{ generic(pe.capVal, 'plasmid_cap_total') }}) * {{ generic(pe.capVal, 'plasmid_cap_total') }})</span><span v-show="pe.totalVis"> = {{ | plasmidTotalCalc }}</span>
+                <span>{{ generic(pe.capVal, 'plasmid_cap_total') }} + ({{ generic(pe.overflow, 'overflow') }} / ({{ generic(pe.overflow, 'overflow') }} + {{ generic(pe.capVal, 'plasmid_cap_total') }}) * {{ generic(pe.capVal, 'plasmid_cap_total') }})</span><span v-show="pe.totalVis"> = {{ plasmidTotalCalc() }}</span>
             </div>
         `;
     }
@@ -452,15 +452,15 @@ export function prestigeCalc(info,resource,extraType,resetType){
             </b-dropdown></div>
             <div class="calcInput" v-show="i.high_pop.use"><span>${loc('trait_high_pop_name')}</span> <b-dropdown hoverable>
                 <button class="button is-primary" slot="trigger">
-                    <span>{{ i.high_pop.val | highPopLabel }}</span>
+                    <span>{{ highPopLabel(i.high_pop.val) }}</span>
                     <i class="fas fa-sort-down"></i>
                 </button>
-                <b-dropdown-item v-on:click="pickHighPop(0)">{{ 0 | highPopLabel }}</b-dropdown-item>
-                <b-dropdown-item v-on:click="pickHighPop(0.25)">{{ 0.25 | highPopLabel }}</b-dropdown-item>
-                <b-dropdown-item v-on:click="pickHighPop(0.5)">{{ 0.5 | highPopLabel }}</b-dropdown-item>
-                <b-dropdown-item v-on:click="pickHighPop(1)">{{ 1 | highPopLabel }}</b-dropdown-item>
-                <b-dropdown-item v-on:click="pickHighPop(2)">{{ 2 | highPopLabel }}</b-dropdown-item>
-                <b-dropdown-item v-on:click="pickHighPop(3)">{{ 3 | highPopLabel }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="pickHighPop(0)">{{ highPopLabel(0) }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="pickHighPop(0.25)">{{ highPopLabel(0.25) }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="pickHighPop(0.5)">{{ highPopLabel(0.5) }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="pickHighPop(1)">{{ highPopLabel(1) }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="pickHighPop(2)">{{ highPopLabel(2) }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="pickHighPop(3)">{{ highPopLabel(3) }}</b-dropdown-item>
             </b-dropdown></div>
             <div class="calcInput" v-show="i.micro.use"><b-checkbox class="patrol" v-model="i.micro.val">${loc('universe_micro')}</b-checkbox></div>
             <div class="calcInput" v-show="i.synth.use"><b-checkbox class="patrol" v-model="i.synth.val">${loc('wiki_calc_synth')}</b-checkbox></div>
@@ -793,34 +793,34 @@ function plasProdCalc(info,type){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         plas: { val: undefined },
         phage: { val: undefined },
         antimatter: { val: false }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         underResult: { vis: false, val: 0 },
         overResult: { vis: false, val: 0 },
         bleed: { vis: type === 'anti' }
-    }
+    })
     
     formula.append(`
         <div>
-            <span>${loc('wiki_calc_effective',[type === 'plasmid' ? loc('resource_Plasmid_plural_name') : loc('resource_AntiPlasmid_plural_name')])} {{ i.plas.val | effective }} - </span>
-            <span>${loc('wiki_calc_softcap')} {{ i.phage.val | softcap }}</span>
+            <span>${loc('wiki_calc_effective',[type === 'plasmid' ? loc('resource_Plasmid_plural_name') : loc('resource_AntiPlasmid_plural_name')])} {{ effective(i.plas.val) }} - </span>
+            <span>${loc('wiki_calc_softcap')} {{ softcap(i.phage.val) }}</span>
         </div>
         <div>
             <span>${loc('wiki_calc_under_cap')}</span>
         </div>
         <div>
-            <span>(ln(</span><span v-show="s.bleed.vis">(</span><span>{{ generic(i.plas.val, t) }} </span><span v-show="s.bleed.vis">/ {{ | bleedDiv }}) </span><span>+ 50) - 3.91202) / 2.888</span><span v-show="${type === 'anti'}"> / 3</span><span v-show="s.underResult.vis"> = {{ false | calcUnder }} = +{{ true | calcUnder }}%</span>
+            <span>(ln(</span><span v-show="s.bleed.vis">(</span><span>{{ generic(i.plas.val, t) }} </span><span v-show="s.bleed.vis">/ {{ bleedDiv() }}) </span><span>+ 50) - 3.91202) / 2.888</span><span v-show="${type === 'anti'}"> / 3</span><span v-show="s.underResult.vis"> = {{ calcUnder(false) }} = +{{ calcUnder(true) }}%</span>
         </div>
         <div>
             <span>${loc('wiki_calc_over_cap')}</span>
         </div>
         <div>
-            <span>((((ln({{ generic(i.phage.val, 'phage') }} + 300) - 3.91202)) / 2.888) + ((ln(</span><span v-show="s.bleed.vis">(</span><span>{{ generic(i.plas.val, t) }} </span><span v-show="s.bleed.vis">/ {{ | bleedDiv }}) </span><span>+ 1 - ({{ generic(i.phage.val, 'phage') }} + 250)) / ln2 / 250)))</span><span v-show="${type === 'anti'}"> / 3</span><span v-show="s.overResult.vis"> = {{ false | calcOver }} = +{{ true | calcOver }}%</span>
+            <span>((((ln({{ generic(i.phage.val, 'phage') }} + 300) - 3.91202)) / 2.888) + ((ln(</span><span v-show="s.bleed.vis">(</span><span>{{ generic(i.plas.val, t) }} </span><span v-show="s.bleed.vis">/ {{ bleedDiv() }}) </span><span>+ 1 - ({{ generic(i.phage.val, 'phage') }} + 250)) / ln2 / 250)))</span><span v-show="${type === 'anti'}"> / 3</span><span v-show="s.overResult.vis"> = {{ calcOver(false) }} = +{{ calcOver(true) }}%</span>
         </div>
     `);
     
@@ -957,31 +957,31 @@ function storeBonusCalc(info,type){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         res: { val: undefined },
         store: { val: undefined },
         antimatter: { val: false, use: true }
-    }
+    })
     if (type === 'phage'){
         inputs.antimatter.use = false;
     }
     
-    let show = {
+    let show = Vue.reactive({
         result: { vis: false, val: 0 },
         bleed: { vis: type === 'anti' }
-    }
+    })
     
     let equation = ``;
     if (type !== 'phage'){
         equation += `
             <div>
-                <span>${loc('wiki_calc_effective',[titlePlural])} {{ i.res.val | effective }}</span>
+                <span>${loc('wiki_calc_effective',[titlePlural])} {{ effective(i.res.val) }}</span>
             </div>
         `;
     }
     equation += `
         <div>
-            <span v-show="s.bleed.vis">(</span><span>{{ generic(i.res.val, t) }} </span><span v-show="s.bleed.vis">/ {{ | bleedDiv }}) </span><span> * {{ i.store.val | storeVal }}</span><span v-show="s.result.vis"> = {{ calc(false) }} = +{{ calc(true) }}%</span>
+            <span v-show="s.bleed.vis">(</span><span>{{ generic(i.res.val, t) }} </span><span v-show="s.bleed.vis">/ {{ bleedDiv() }}) </span><span> * {{ storeVal(i.store.val) }}</span><span v-show="s.result.vis"> = {{ calc(false) }} = +{{ calc(true) }}%</span>
         </div>
     `;
     formula.append(equation);
@@ -991,14 +991,14 @@ function storeBonusCalc(info,type){
             <div class="calcInput"><span>${titlePlural}</span> <b-numberinput :input="val()" min="0" v-model="i.res.val" :controls="false"></b-numberinput></div>
             <div class="calcInput"><span>${loc('wiki_tech_special_crispr',[loc('wiki_arpa_crispr_store')])}</span> <b-dropdown hoverable>
                 <button class="button is-primary" slot="trigger">
-                    <span>{{ i.store.val | storeLabel }}</span>
+                    <span>{{ storeLabel(i.store.val) }}</span>
                     <i class="fas fa-sort-down"></i>
                 </button>
-                <b-dropdown-item v-on:click="pickStore(0)">{{ 0 | storeLabel }}</b-dropdown-item>
-                <b-dropdown-item v-on:click="pickStore(1)">{{ 1 | storeLabel }}</b-dropdown-item>
-                <b-dropdown-item v-on:click="pickStore(2)">{{ 2 | storeLabel }}</b-dropdown-item>
-                <b-dropdown-item v-on:click="pickStore(3)">{{ 3 | storeLabel }}</b-dropdown-item>
-                <b-dropdown-item v-on:click="pickStore(4)">{{ 4 | storeLabel }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="pickStore(0)">{{ storeLabel(0) }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="pickStore(1)">{{ storeLabel(1) }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="pickStore(2)">{{ storeLabel(2) }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="pickStore(3)">{{ storeLabel(3) }}</b-dropdown-item>
+                <b-dropdown-item v-on:click="pickStore(4)">{{ storeLabel(4) }}</b-dropdown-item>
             </b-dropdown></div>
             <div class="calcInput" v-show="i.antimatter.use"><b-checkbox class="patrol" :input="bleed()" v-model="i.antimatter.val">${loc('universe_antimatter')}</b-checkbox></div>
         </div>
@@ -1139,21 +1139,21 @@ function darkBonusCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         dark: { val: undefined },
         harmony: { val: undefined },
         sludge: { val: undefined },
         uni: { val: 'standard' }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         standard: { vis: true, result: false, val: 0 },
         evil: { vis: false, result: false, val: 0 },
         antimatter: { vis: false, result: false, val: 0 },
         micro: { vis: false, result: false, val1: 0, val2: 0 },
         heavy: { vis: false, result: false, val1: 0, val2: 0 },
         magic: { vis: false, result: false, val: 0 }
-    }
+    })
 
     universe.append(`
             <div class="calcInput"><span>${loc('wiki_calc_universe')}</span> <b-dropdown hoverable>
@@ -1176,7 +1176,7 @@ function darkBonusCalc(info){
                 <span>${loc('wiki_calc_bonuses',[loc('wiki_calc_dark_standard')])}:</span>
             </div>
             <div>
-                <span>({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.001)) * (1 + ({{ i.sludge.val | sludgeLabel }} * 0.03))) / 200</span><span v-show="s.standard.result"> = {{ calc('standard', false) }} = +{{ calc('standard', true) }}%</span>
+                <span>({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.001)) * (1 + ({{ sludgeLabel(i.sludge.val) }} * 0.03))) / 200</span><span v-show="s.standard.result"> = {{ calc('standard', false) }} = +{{ calc('standard', true) }}%</span>
             </div>
         </div>
         <div v-show="s.evil.vis">
@@ -1184,7 +1184,7 @@ function darkBonusCalc(info){
                 <span>${loc('wiki_calc_bonuses',[loc('wiki_calc_dark_evil')])}:</span>
             </div>
             <div>
-                <span>(log2(10 + ({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)) * (1 + ({{ i.sludge.val | sludgeLabel }} * 0.03)))) - 3.321928094887362) / 5</span><span v-show="s.evil.result"> = {{ calc('evil', false) }} = +{{ calc('evil', true) }}%</span>
+                <span>(log2(10 + ({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)) * (1 + ({{ sludgeLabel(i.sludge.val) }} * 0.03)))) - 3.321928094887362) / 5</span><span v-show="s.evil.result"> = {{ calc('evil', false) }} = +{{ calc('evil', true) }}%</span>
             </div>
         </div>
         <div v-show="s.antimatter.vis">
@@ -1192,7 +1192,7 @@ function darkBonusCalc(info){
                 <span>${loc('wiki_calc_bonuses',[loc('wiki_calc_dark_antimatter')])}:</span>
             </div>
             <div>
-                <span>(ln(50 + ({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)) * (1 + ({{ i.sludge.val | sludgeLabel }} * 0.03)))) - 3.912023005428146) / 5</span><span v-show="s.antimatter.result"> = {{ calc('antimatter', false) }} = +{{ calc('antimatter', true) }}%</span>
+                <span>(ln(50 + ({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)) * (1 + ({{ sludgeLabel(i.sludge.val) }} * 0.03)))) - 3.912023005428146) / 5</span><span v-show="s.antimatter.result"> = {{ calc('antimatter', false) }} = +{{ calc('antimatter', true) }}%</span>
             </div>
         </div>
         <div v-show="s.micro.vis">
@@ -1200,13 +1200,13 @@ function darkBonusCalc(info){
                 <span>${loc('wiki_calc_creep_reduction',[loc('wiki_calc_home')])} (${loc('wiki_calc_cap',[0.06])}):</span>
             </div>
             <div>
-                <span>(0.02 + ((ln(100 + ({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)))) - 4.605170185988092) / 20)) * (1 + ({{ i.sludge.val | sludgeLabel }} * 0.03))</span><span v-show="s.micro.result"> = {{ calc('micro', false, 2) }}</span>
+                <span>(0.02 + ((ln(100 + ({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)))) - 4.605170185988092) / 20)) * (1 + ({{ sludgeLabel(i.sludge.val) }} * 0.03))</span><span v-show="s.micro.result"> = {{ calc('micro', false, 2) }}</span>
             </div>
             <div>
                 <span>${loc('wiki_calc_creep_reduction',[loc('wiki_calc_not_home')])} (${loc('wiki_calc_cap',[0.04])}):</span>
             </div>
             <div>
-                <span>(0.01 + ((ln(100 + ({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)))) - 4.605170185988092) / 35)) * (1 + ({{ i.sludge.val | sludgeLabel }} * 0.03))</span><span v-show="s.micro.result"> = {{ calc('micro', false, 1) }}</span>
+                <span>(0.01 + ((ln(100 + ({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)))) - 4.605170185988092) / 35)) * (1 + ({{ sludgeLabel(i.sludge.val) }} * 0.03))</span><span v-show="s.micro.result"> = {{ calc('micro', false, 1) }}</span>
             </div>
         </div>
         <div v-show="s.heavy.vis">
@@ -1214,13 +1214,13 @@ function darkBonusCalc(info){
                 <span>${loc('wiki_calc_dark_heavy',[loc('wiki_menu_space')])}:</span>
             </div>
             <div>
-                <span>0.25 + (0.5 * 0.995^({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)) * (1 + ({{ i.sludge.val | sludgeLabel }} * 0.03))))</span><span v-show="s.heavy.result"> = {{ calc('heavy', false, 1) }} = +{{ calc('heavy', true, 1) }}%</span>
+                <span>0.25 + (0.5 * 0.995^({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)) * (1 + ({{ sludgeLabel(i.sludge.val) }} * 0.03))))</span><span v-show="s.heavy.result"> = {{ calc('heavy', false, 1) }} = +{{ calc('heavy', true, 1) }}%</span>
             </div>
             <div>
                 <span>${loc('wiki_calc_dark_heavy',[loc('wiki_tech_req_or',[loc('wiki_menu_interstellar'),loc('wiki_menu_intergalactic')])])}:</span>
             </div>
             <div>
-                <span>0.2 + (0.3 * 0.995^({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)) * (1 + ({{ i.sludge.val | sludgeLabel }} * 0.03))))</span><span v-show="s.heavy.result"> = {{ calc('heavy', false, 2) }} = +{{ calc('heavy', true, 2) }}%</span>
+                <span>0.2 + (0.3 * 0.995^({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)) * (1 + ({{ sludgeLabel(i.sludge.val) }} * 0.03))))</span><span v-show="s.heavy.result"> = {{ calc('heavy', false, 2) }} = +{{ calc('heavy', true, 2) }}%</span>
             </div>
         </div>
         <div v-show="s.magic.vis">
@@ -1228,7 +1228,7 @@ function darkBonusCalc(info){
                 <span>${loc('wiki_calc_bonuses',[loc('wiki_calc_dark_magic')])}:</span>
             </div>
             <div>
-                <span>(ln(50 + ({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)) * (1 + ({{ i.sludge.val | sludgeLabel }} * 0.03)))) - 3.912023005428146) / 3</span><span v-show="s.magic.result"> = {{ calc('magic', false) }} = +{{ calc('magic', true) }}%</span>
+                <span>(ln(50 + ({{ generic(i.dark.val, 'dark') }} * (1 + ({{ generic(i.harmony.val, 'harmony') }} * 0.01)) * (1 + ({{ sludgeLabel(i.sludge.val) }} * 0.03)))) - 3.912023005428146) / 3</span><span v-show="s.magic.result"> = {{ calc('magic', false) }} = +{{ calc('magic', true) }}%</span>
             </div>
         </div>
     `);
@@ -1348,19 +1348,19 @@ function harmonyCreepCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         harmony: { val: undefined },
         ascended: { val: undefined },
         uni: { val: 'undefined' }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         result: { vis: false, val: 0 }
-    }
+    })
     
     formula.append(`
         <div>
-            <span>(ln(50 + ({{ generic(i.harmony.val, 'harmony') }} * {{ i.ascended.val | ascendedLabel }})) - 3.912023005428146) * 0.01</span><span v-show="s.result.vis"> = {{ | calc }}</span>
+            <span>(ln(50 + ({{ generic(i.harmony.val, 'harmony') }} * {{ ascendedLabel(i.ascended.val) }})) - 3.912023005428146) * 0.01</span><span v-show="s.result.vis"> = {{ calc() }}</span>
         </div>
     `);
     
@@ -1434,16 +1434,16 @@ function coresQuantumCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         cores: { val: undefined }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         result: { vis: false, val: 0 }
-    }
+    })
     formula.append(`
         <div>
-            <span>1 - (0.99^{{ calc(generic(i.cores.val, 'cores') }})</span><span v-show="s.result.vis"> = {{ false) }} = +{{ calc(true) }}%</span>
+            <span>1 - (0.99^{{ generic(i.cores.val, 'cores') }})</span><span v-show="s.result.vis"> = {{ calc(false) }} = +{{ calc(true) }}%</span>
         </div>
     `);
     
@@ -1509,16 +1509,16 @@ function supercoiledCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         supercoiled: { val: undefined }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         result: { vis: false, val: 0 }
-    }
+    })
     formula.append(`
         <div>
-            <span>{{ calc(generic(i.supercoiled.val, 'supercoiled') }} / ({{ generic(i.supercoiled.val, 'supercoiled') }} + 5000)</span><span v-show="s.result.vis"> = {{ false) }} = +{{ calc(true) }}%</span>
+            <span>{{ generic(i.supercoiled.val, 'supercoiled') }} / ({{ generic(i.supercoiled.val, 'supercoiled') }} + 5000)</span><span v-show="s.result.vis"> = {{ calc(false) }} = +{{ calc(true) }}%</span>
         </div>
     `);
     

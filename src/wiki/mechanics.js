@@ -1229,7 +1229,7 @@ function jobStressCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         job: { val: undefined },
         content: { vis: false, val: undefined },
         freespirit: { vis: false, val: undefined },
@@ -1243,12 +1243,12 @@ function jobStressCalc(info){
         annexed: { vis: false, val: undefined },
         electricity: { vis: false, val: false },
         virtual_reality: { val: false }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         result: { vis: false, val: undefined },
         total: { vis: false, val: 0 }
-    }
+    })
     
     let jobs = ['soldier'];
     Object.keys(job_desc).forEach(function (job){
@@ -1627,14 +1627,14 @@ function warmongerCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         fatigue: { val: undefined },
         protest: { val: undefined }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         result: { vis: false, val: 0 }
-    }
+    })
     
     formula.append(`
         <div>
@@ -1704,31 +1704,31 @@ function spyCostCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         military: { val: undefined },
         relations: { val: undefined },
         unrest: { val: undefined },
         spies: { val: undefined },
         infiltrator: { val: false }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         base: { vis: false, val: undefined },
         total: { vis: false, val: undefined }
-    }
+    })
     
     formula.append(`
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_spy_cost_base_title')}</h2>
         </div>
         <div>
-            <span>({{ i.military.val, 'mil_rate' | generic }} / 2) + ((100 - {{ i.relations.val, 'relations' | generic }}) / 2) - {{ i.unrest.val, 'unrest' | generic }} + 10</span><span v-show="s.base.vis"> = {{ | calcBase }}</span>
+            <span>({{ generic(i.military.val, 'mil_rate') }} / 2) + ((100 - {{ generic(i.relations.val, 'relations') }}) / 2) - {{ generic(i.unrest.val, 'unrest') }} + 10</span><span v-show="s.base.vis"> = {{ calcBase() }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_spy_cost_total')}</h2>
         </div>
         <div>
-            <span v-show="i.infiltrator.val">(</span><span>{{ s.base.val, 'unrest' | generic }}</span><span v-show="i.infiltrator.val"> / 3)</span>^({{ i.spies.val, 'spies' | generic }} + 1) + 500<span v-show="s.total.vis"> = {{ | calcTotal }}</span>
+            <span v-show="i.infiltrator.val">(</span><span>{{ generic(s.base.val, 'unrest') }}</span><span v-show="i.infiltrator.val"> / 3)</span>^({{ generic(i.spies.val, 'spies') }} + 1) + 500<span v-show="s.total.vis"> = {{ calcTotal() }}</span>
         </div>
     `);
     
@@ -1827,29 +1827,29 @@ function occupationCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         relations: { val: undefined },
         economic: { val: undefined },
         unrest: { val: undefined }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         annex: { vis: false, val: undefined },
         purchase: { vis: false, val: undefined }
-    }
+    })
     
     formula.append(`
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_occupation_annex')}</h2>
         </div>
         <div>
-            <span>300 - {{ i.relations.val, 'relations' | generic }} - {{ i.unrest.val, 'unrest' | generic }}</span><span v-show="s.annex.vis"> = {{ | calcAnnex }}%</span>
+            <span>300 - {{ generic(i.relations.val, 'relations') }} - {{ generic(i.unrest.val, 'unrest') }}</span><span v-show="s.annex.vis"> = {{ calcAnnex() }}%</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_occupation_purchase')}</h2>
         </div>
         <div>
-            <span>({{ i.economic.val, 'eco_rate' | generic }} * 15384) * (1 + (0.016 * (100 - {{ i.relations.val, 'relations' | generic }}))) * (1 - (0.0025 * {{ i.unrest.val, 'unrest' | generic }}))</span><span v-show="s.purchase.vis"> = {{ | calcPurchase }}</span>
+            <span>({{ generic(i.economic.val, 'eco_rate') }} * 15384) * (1 + (0.016 * (100 - {{ generic(i.relations.val, 'relations') }}))) * (1 - (0.0025 * {{ generic(i.unrest.val, 'unrest') }}))</span><span v-show="s.purchase.vis"> = {{ calcPurchase() }}</span>
         </div>
     `);
     
@@ -1921,28 +1921,28 @@ function genomeDecayCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         mutations: { val: undefined },
         days: { val: undefined }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         game: { vis: false, val: undefined },
         real: { vis: false, val: undefined }
-    }
+    })
     
     formula.append(`
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_g_decay_game')}</h2>
         </div>
         <div>
-            <span>(50000000 / (1 + {{ i.mutations.val, 'mutations' | generic }})) - {{ i.days.val, 'days' | generic }}</span><span v-show="s.game.vis"> = {{ calc(false) }}</span>
+            <span>(50000000 / (1 + {{ generic(i.mutations.val, 'mutations') }})) - {{ generic(i.days.val, 'days') }}</span><span v-show="s.game.vis"> = {{ calc(false) }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_g_decay_real')}</h2>
         </div>
         <div>
-            <span>{{ s.game.val, 'game' | generic }} / 17280</span><span v-show="s.real.vis"> = {{ calc(true) }}</span>
+            <span>{{ generic(s.game.val, 'game') }} / 17280</span><span v-show="s.real.vis"> = {{ calc(true) }}</span>
         </div>
     `);
     
@@ -2016,7 +2016,7 @@ function quantumLevelCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         knowledge: { val: undefined },
         citadels: { val: undefined },
         cores: { val: undefined },
@@ -2024,16 +2024,16 @@ function quantumLevelCalc(info){
         linked: { val: undefined },
         citizens: { val: undefined },
         
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         linked: { val: undefined },
         result: { vis: false, val: 0 }
-    }
+    })
     
     formula.append(`
         <div>
-            <span>(ln(1 + ((1.1 - 1) * {{ i.knowledge.val, 'knowledge' | generic }} / 250000)) / ln(1.1)) * (1 + (0.05 * {{ i.citadels.val, 'citadels' | generic }})) * (2 - (0.99^{{ i.cores.val, 'cores' | generic }}))</span><span v-show="i.supercore.val"> * 1.25</span><span v-show="i.linked.val"> * {{ s.linked.val, 'linked' | generic }}</span><span v-show="s.result.vis"> = {{ | calc }}</span>
+            <span>(ln(1 + ((1.1 - 1) * {{ generic(i.knowledge.val, 'knowledge') }} / 250000)) / ln(1.1)) * (1 + (0.05 * {{ generic(i.citadels.val, 'citadels') }})) * (2 - (0.99^{{ generic(i.cores.val, 'cores') }}))</span><span v-show="i.supercore.val"> * 1.25</span><span v-show="i.linked.val"> * {{ generic(s.linked.val, 'linked') }}</span><span v-show="s.result.vis"> = {{ calc() }}</span>
         </div>
     `);
     
@@ -2158,21 +2158,21 @@ export function massCalc(info){
     
     let resources = ['Food','Lumber','Chrysotile','Stone','Crystal','Furs','Copper','Iron','Aluminium','Cement','Coal','Oil','Uranium','Steel','Titanium','Alloy','Polymer','Iridium','Helium_3','Deuterium','Neutronium','Adamantite','Infernite','Elerium','Nano_Tube','Graphene','Stanene','Bolognium','Vitreloy','Orichalcum','Plywood','Brick','Wrought_Iron','Sheet_Metal','Mythril','Aerogel','Nanoweave','Scarletite'];
     
-    let show = {
+    let show = Vue.reactive({
         result: {
             vis: false, kt: undefined, solar: undefined, MW: undefined,
             exoVis: false, exotic: undefined,
             MWVis: false, MWTot: undefined,
             timeVis: false, timeTot: undefined
         }
-    }
+    })
     
-    let inputs = {
+    let inputs = Vue.reactive({
         solar_tot: { val: undefined },
         exotic_tot: { val: undefined },
         gWell: { val: undefined },
         grav: { val: true }
-    }
+    })
     let resVariables = $(`<div></div>`);
     let ktFormula = $(`<div></div>`);
     
@@ -2188,7 +2188,7 @@ export function massCalc(info){
         resVariables.append(`
             <div class="calcInput"><span>${loc('resource_' + res + '_name')}</span> <b-numberinput :input="val('${res}')" min="0" v-model="i.${res}.val" :controls="false"></b-numberinput></div>
         `);
-        ktFormula.append(`<span>({{ i.${res}.val, '${res}' | generic }} * ${atomic_mass[res]})`);
+        ktFormula.append(`<span>({{ generic(i.${res}.val, '${res}') }} * ${atomic_mass[res]})`);
     });
     ktFormula.append(`<span v-show="s.result.vis"> = {{ calc(true, 'kt') }}</span>`);
     
@@ -2203,49 +2203,49 @@ export function massCalc(info){
             <h2 class="has-text-caution">${loc('wiki_calc_mass_solar')}</h2>
         </div>
         <div>
-            <span>{{ s.result.kt, 'kt' | generic }} / 10000000000</span><span v-show="s.result.vis"> = {{ calc(false, 'solar') }}</span>
+            <span>{{ generic(s.result.kt, 'kt') }} / 10000000000</span><span v-show="s.result.vis"> = {{ calc(false, 'solar') }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_mass_exotic')}</h2>
         </div>
         <div>
-            <span>(({{ i.Infernite.val, 'Infernite' | generic }} * 222.666) + ({{ i.Elerium.val, 'Elerium' | generic }} * 297.115)) / 10000000000</span><span v-show="s.result.exoVis"> = {{ | calcExotic }}</span>
+            <span>(({{ generic(i.Infernite.val, 'Infernite') }} * 222.666) + ({{ generic(i.Elerium.val, 'Elerium') }} * 297.115)) / 10000000000</span><span v-show="s.result.exoVis"> = {{ calcExotic() }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_mass_MW')}</h2>
         </div>
         <div>
-            <span>({{ s.result.solar, 'solar' | generic }} * {{ amountMW(false) }}) + ({{ s.result.exotic, 'exotic' | generic }} * {{ amountMW(true) }})</span><span v-show="s.result.vis"> = {{ calc(false, 'MW') }}</span>
+            <span>({{ generic(s.result.solar, 'solar') }} * {{ amountMW(false) }}) + ({{ generic(s.result.exotic, 'exotic') }} * {{ amountMW(true) }})</span><span v-show="s.result.vis"> = {{ calc(false, 'MW') }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_mass_MW_tot')}</h2>
         </div>
         <div>
-            <span>{{ | baseMW }} + (({{ i.solar_tot.val, 'solar_tot' | generic }} - 8) * {{ amountMW(false) }}) + ({{ i.exotic_tot.val, 'exotic_tot' | generic }} * {{ amountMW(true) }})</span><span v-show="s.result.MWVis"> = {{ calcMW(true, 'MWTot') }}</span>
+            <span>{{ baseMW() }} + (({{ generic(i.solar_tot.val, 'solar_tot') }} - 8) * {{ amountMW(false) }}) + ({{ generic(i.exotic_tot.val, 'exotic_tot') }} * {{ amountMW(true) }})</span><span v-show="s.result.MWVis"> = {{ calcMW(true, 'MWTot') }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_mass_MW_adj_10k')}</h2>
         </div>
         <div>
-            <span>{{ calcMW(false, 'MW10k') }}</span><span v-show="s.result.MWIs10k"> + ({{ s.result.MWTot, 'MW_tot' | generic }} - 10000) ** 0.975</span><span v-show="s.result.MWVis"> = {{ calcMW(false, 'MWAdj10k') }}</span>
+            <span>{{ calcMW(false, 'MW10k') }}</span><span v-show="s.result.MWIs10k"> + ({{ generic(s.result.MWTot, 'MW_tot') }} - 10000) ** 0.975</span><span v-show="s.result.MWVis"> = {{ calcMW(false, 'MWAdj10k') }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_mass_MW_adj_20k')}</h2>
         </div>
         <div>
-            <span>{{ calcMW(false, 'MW20k') }}</span><span v-show="s.result.MWIs20k"> + ({{ s.result.MWAdj10k, 'MW_adj_10k' | generic }} - 20000) ** 0.95</span><span v-show="s.result.MWVis"> = {{ calcMW(false, 'MWAdj20k') }}</span>
+            <span>{{ calcMW(false, 'MW20k') }}</span><span v-show="s.result.MWIs20k"> + ({{ generic(s.result.MWAdj10k, 'MW_adj_10k') }} - 20000) ** 0.95</span><span v-show="s.result.MWVis"> = {{ calcMW(false, 'MWAdj20k') }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_mass_MW_adj_30k')}</h2>
         </div>
         <div>
-            <span>{{ calcMW(false, 'MW30k') }}</span><span v-show="s.result.MWIs30k"> + ({{ s.result.MWAdj20k, 'MW_adj_20k' | generic }} - 30000) ** 0.925</span><span v-show="s.result.MWVis"> = {{ calcMW(false, 'MWAdj30k') }}</span>
+            <span>{{ calcMW(false, 'MW30k') }}</span><span v-show="s.result.MWIs30k"> + ({{ generic(s.result.MWAdj20k, 'MW_adj_20k') }} - 30000) ** 0.925</span><span v-show="s.result.MWVis"> = {{ calcMW(false, 'MWAdj30k') }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_mass_time_to_explode')}</h2>
         </div>
         <div>
-            <span>(0.025 - {{ i.exotic_tot.val, 'exotic_tot' | generic }}) / {{ s.result.exotic, 'exotic' | generic }}</span><span v-show="s.result.timeVis"> = {{ | calcTime }}</span>
+            <span>(0.025 - {{ generic(i.exotic_tot.val, 'exotic_tot') }}) / {{ generic(s.result.exotic, 'exotic') }}</span><span v-show="s.result.timeVis"> = {{ calcTime() }}</span>
         </div>
     `);
     
@@ -2479,17 +2479,17 @@ function untappedCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         genes: { val: undefined }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         result: { vis: false, val: 0 }
-    }
+    })
     
     formula.append(`
         <div>
-            <span>({{ i.genes.val | generic }} / ({{ i.genes.val | generic }} + 20) / 10) + 0.00024</span><span v-show="s.result.vis"> = {{ calc(false) }} = +{{ calc(true) }}%</span>
+            <span>({{ generic(i.genes.val) }} / ({{ generic(i.genes.val) }} + 20) / 10) + 0.00024</span><span v-show="s.result.vis"> = {{ calc(false) }} = +{{ calc(true) }}%</span>
         </div>
     `);
     
@@ -2554,10 +2554,10 @@ function syndicateCapCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         triton1: { val: false },
         outer4: { val: false }
-    }
+    })
     
     let regions = ``;
     ['moon','red','gas','gas_moon','belt','titan','enceladus','triton','kuiper','eris'].forEach(function(region){
@@ -2627,7 +2627,7 @@ function syndicatePenaltyCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         region: { val: undefined },
         relations: { val: undefined, vis: false, alliance: false, war: false },
         triton1: { val: false, vis: false },
@@ -2638,39 +2638,39 @@ function syndicatePenaltyCalc(info){
         fob: { val: false, vis: false },
         intel: { val: undefined },
         syndicate: { val: undefined }
-    };
+    });
     
-    let show = {
+    let show = Vue.reactive({
         divisor: { vis: false, val: undefined },
         region_security: { vis: false, val: undefined },
         residual: { vis: false, val: undefined },
         penalty: { vis: false, val: undefined }
-    };
+    });
     
     formula.append(`
         <div>
-            <h2 class="has-text-caution">${loc('wiki_calc_syndicate_penalty_divisor')}</h2><h2 class="has-text-caution" v-show="i.relations.vis"> - {{ i.relations.val | relationsType}}</h2>
+            <h2 class="has-text-caution">${loc('wiki_calc_syndicate_penalty_divisor')}</h2><h2 class="has-text-caution" v-show="i.relations.vis"> - {{ relationsType(i.relations.val) }}</h2>
         </div>
         <div>
-            <span>{{ i.region.val | divisorBase }}</span><span v-show="i.relations.vis && i.relations.alliance"> + (25 * ({{ i.relations.val, 'relations' | generic }} - 90))</span><span v-show="i.relations.vis && i.relations.war"> + (13 * ({{ i.relations.val, 'relations' | generic }} - 40))</span><span v-show="s.divisor.vis"> = {{ | calcDivisor }}</span>
+            <span>{{ divisorBase(i.region.val) }}</span><span v-show="i.relations.vis && i.relations.alliance"> + (25 * ({{ generic(i.relations.val, 'relations') }} - 90))</span><span v-show="i.relations.vis && i.relations.war"> + (13 * ({{ generic(i.relations.val, 'relations') }} - 40))</span><span v-show="s.divisor.vis"> = {{ calcDivisor() }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_syndicate_penalty_region_security')}</h2>
         </div>
         <div>
-            <span>({{ i.ship_security.val, 'ship_security' | generic }}</span><span v-show="i.base.vis"> + (50 * {{ i.base.val, 'base' | generic }})</span><span v-show="i.sam.vis"> + (25 * {{ i.sam.val, 'sam' | generic }})</span><span v-show="i.fob.val && i.fob.vis"> + 500</span>) * ({{ i.intel.val, 'intel' | generic }} / 100)</span><span v-show="s.region_security.vis"> = {{ | calcSecurity }}</span>
+            <span>({{ generic(i.ship_security.val, 'ship_security') }}</span><span v-show="i.base.vis"> + (50 * {{ generic(i.base.val, 'base') }})</span><span v-show="i.sam.vis"> + (25 * {{ generic(i.sam.val, 'sam') }})</span><span v-show="i.fob.val && i.fob.vis"> + 500</span>) * ({{ generic(i.intel.val, 'intel') }} / 100)</span><span v-show="s.region_security.vis"> = {{ calcSecurity() }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_syndicate_penalty_residual')}</h2>
         </div>
         <div>
-            <span>{{ i.syndicate.val, 'syndicate' | generic }} - {{ s.region_security.val, 'region_security' | generic }}</span><span v-show="s.residual.vis"> = {{ | calcResidual }}</span>
+            <span>{{ generic(i.syndicate.val, 'syndicate') }} - {{ generic(s.region_security.val, 'region_security') }}</span><span v-show="s.residual.vis"> = {{ calcResidual() }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_mechanics_syndicate_penalty')}</h2>
         </div>
         <div>
-            <span>{{ s.residual.val, 'residual' | generic }} / {{ s.divisor.val, 'divisor' | generic }} </span><span v-show="s.penalty.vis"> = {{ false | calcPenalty }}</span><span v-show="s.penalty.vis"> = -{{ true | calcPenalty }}%
+            <span>{{ generic(s.residual.val, 'residual') }} / {{ generic(s.divisor.val, 'divisor') }} </span><span v-show="s.penalty.vis"> = {{ calcPenalty(false) }}</span><span v-show="s.penalty.vis"> = -{{ calcPenalty(true) }}%
         </div>
     `);
    
@@ -2994,7 +2994,7 @@ function tpShipsCostsCalc(info){
     calc.append(formulaCreep);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         owned: { val: undefined },
         class: { val: undefined },
         power: { val: undefined },
@@ -3002,7 +3002,7 @@ function tpShipsCostsCalc(info){
         armor: { val: undefined },
         engine: { val: undefined },
         sensor: { val: undefined }
-    }
+    })
     
     let res = {
         Money: { base: undefined, preVal: undefined, preVis: false, val: undefined, vis: false },
@@ -3020,11 +3020,11 @@ function tpShipsCostsCalc(info){
         Quantium: { base: undefined, preVal: undefined, preVis: false, val: undefined, vis: false }
     }
     
-    let show = {
+    let show = Vue.reactive({
         exp1: { val: undefined },
         exp2: { val: undefined },
         creep: { val: undefined }
-    }
+    })
     
     formulaBase.append(`
         <div>
@@ -3032,43 +3032,43 @@ function tpShipsCostsCalc(info){
                 <h2 class="has-text-caution">${loc('wiki_calc_tp_ships_costs_base_costs')}</h2>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Money_name')}:</h3><span> {{ getBase(i.class.val, 'class', 'Money') }}</span><span v-show="i.class.val !== 'explorer'">^{{ i.sensor.val, 'sensor', 'Money' | getExponent }}</span><span v-show="r.Money.preVis"> = {{ calcPre('Money') }}</span>
+                <h3 class="has-text-info">${loc('resource_Money_name')}:</h3><span> {{ getBase(i.class.val, 'class', 'Money') }}</span><span v-show="i.class.val !== 'explorer'">^{{ getExponent(i.sensor.val, 'sensor', 'Money') }}</span><span v-show="r.Money.preVis"> = {{ calcPre('Money') }}</span>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Aluminium_name')}:</h3><span> {{ calcPre(getBase(i.class.val, 'class', 'Aluminium') }}</span><span v-show="r.Aluminium.preVis"> = {{ 'Aluminium') }}</span>
+                <h3 class="has-text-info">${loc('resource_Aluminium_name')}:</h3><span> {{ getBase(i.class.val, 'class', 'Aluminium') }}</span><span v-show="r.Aluminium.preVis"> = {{ calcPre('Aluminium') }}</span>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Adamantite_name')}:</h3><span> {{ calcPre(getBase(i.class.val, 'class', 'Adamantite') }}</span><span v-show="r.Adamantite.preVis"> = {{ 'Adamantite') }}</span>
+                <h3 class="has-text-info">${loc('resource_Adamantite_name')}:</h3><span> {{ getBase(i.class.val, 'class', 'Adamantite') }}</span><span v-show="r.Adamantite.preVis"> = {{ calcPre('Adamantite') }}</span>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Steel_name')}:</h3><span> {{ getBase(i.armor.val, 'armor', 'Steel') }}^{{ s.exp1.val, 'exp1' | generic }}</span><span v-show="r.Steel.preVis"> = {{ calcPre('Steel') }}</span>
+                <h3 class="has-text-info">${loc('resource_Steel_name')}:</h3><span> {{ getBase(i.armor.val, 'armor', 'Steel') }}^{{ generic(s.exp1.val, 'exp1') }}</span><span v-show="r.Steel.preVis"> = {{ calcPre('Steel') }}</span>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Alloy_name')}:</h3><span> {{ getBase(i.armor.val, 'armor', 'Alloy') }}^{{ s.exp1.val, 'exp1' | generic }}</span><span v-show="r.Alloy.preVis"> = {{ calcPre('Alloy') }}</span>
+                <h3 class="has-text-info">${loc('resource_Alloy_name')}:</h3><span> {{ getBase(i.armor.val, 'armor', 'Alloy') }}^{{ generic(s.exp1.val, 'exp1') }}</span><span v-show="r.Alloy.preVis"> = {{ calcPre('Alloy') }}</span>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Neutronium_name')}:</h3><span> {{ getBase(i.armor.val, 'armor', 'Neutronium') }}^{{ s.exp1.val, 'exp1' | generic }}</span><span v-show="r.Neutronium.preVis"> = {{ calcPre('Neutronium') }}</span>
+                <h3 class="has-text-info">${loc('resource_Neutronium_name')}:</h3><span> {{ getBase(i.armor.val, 'armor', 'Neutronium') }}^{{ generic(s.exp1.val, 'exp1') }}</span><span v-show="r.Neutronium.preVis"> = {{ calcPre('Neutronium') }}</span>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Titanium_name')}:</h3><span> {{ getBase(i.engine.val, 'engine', 'Titanium') }}^{{ s.exp2.val, 'exp2' | generic }}</span><span v-show="i.class.val === 'explorer'"> * 5</span><span v-show="r.Titanium.preVis"> = {{ calcPre('Titanium') }}</span>
+                <h3 class="has-text-info">${loc('resource_Titanium_name')}:</h3><span> {{ getBase(i.engine.val, 'engine', 'Titanium') }}^{{ generic(s.exp2.val, 'exp2') }}</span><span v-show="i.class.val === 'explorer'"> * 5</span><span v-show="r.Titanium.preVis"> = {{ calcPre('Titanium') }}</span>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Copper_name')}:</h3><span> {{ getBase(i.power.val, 'power', 'Copper') }}^{{ s.exp1.val, 'exp1' | generic }}</span><span v-show="r.Copper.preVis"> = {{ calcPre('Copper') }}</span>
+                <h3 class="has-text-info">${loc('resource_Copper_name')}:</h3><span> {{ getBase(i.power.val, 'power', 'Copper') }}^{{ generic(s.exp1.val, 'exp1') }}</span><span v-show="r.Copper.preVis"> = {{ calcPre('Copper') }}</span>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Orichalcum_name')}:</h3><span> {{ getBase(i.power.val, 'power', 'Orichalcum') }}^{{ s.exp1.val, 'exp1' | generic }}</span><span v-show="r.Orichalcum.preVis"> = {{ calcPre('Orichalcum') }}</span>
+                <h3 class="has-text-info">${loc('resource_Orichalcum_name')}:</h3><span> {{ getBase(i.power.val, 'power', 'Orichalcum') }}^{{ generic(s.exp1.val, 'exp1') }}</span><span v-show="r.Orichalcum.preVis"> = {{ calcPre('Orichalcum') }}</span>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Iridium_name')}:</h3><span> ({{ getBase(i.power.val, 'power', 'Iridium') }}^{{ s.exp2.val, 'exp2' | generic }})^{{ i.weapon.val, 'weapon', 'Iridium' | getExponent }}</span><span v-show="i.class.val === 'explorer'"> * 50</span><span v-show="r.Iridium.preVis"> = {{ calcPre('Iridium') }}</span>
+                <h3 class="has-text-info">${loc('resource_Iridium_name')}:</h3><span> ({{ getBase(i.power.val, 'power', 'Iridium') }}^{{ generic(s.exp2.val, 'exp2') }})^{{ getExponent(i.weapon.val, 'weapon', 'Iridium') }}</span><span v-show="i.class.val === 'explorer'"> * 50</span><span v-show="r.Iridium.preVis"> = {{ calcPre('Iridium') }}</span>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Iron_name')}:</h3><span> {{ getBase(i.weapon.val, 'weapon', 'Iron') }}^{{ s.exp1.val, 'exp1' | generic }}</span><span v-show="i.class.val === 'explorer'"> * 10</span><span v-show="r.Iron.preVis"> = {{ calcPre('Iron') }}</span>
+                <h3 class="has-text-info">${loc('resource_Iron_name')}:</h3><span> {{ getBase(i.weapon.val, 'weapon', 'Iron') }}^{{ generic(s.exp1.val, 'exp1') }}</span><span v-show="i.class.val === 'explorer'"> * 10</span><span v-show="r.Iron.preVis"> = {{ calcPre('Iron') }}</span>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Nano_Tube_name')}:</h3><span> {{ getBase(i.weapon.val, 'weapon', 'Nano_Tube') }}^{{ s.exp1.val, 'exp1' | generic }}</span><span v-show="r.Nano_Tube.preVis"> = {{ calcPre('Nano_Tube') }}</span>
+                <h3 class="has-text-info">${loc('resource_Nano_Tube_name')}:</h3><span> {{ getBase(i.weapon.val, 'weapon', 'Nano_Tube') }}^{{ generic(s.exp1.val, 'exp1') }}</span><span v-show="r.Nano_Tube.preVis"> = {{ calcPre('Nano_Tube') }}</span>
             </div>
             <div>
-                <h3 class="has-text-info">${loc('resource_Quantium_name')}:</h3><span> {{ getBase(i.weapon.val, 'weapon', 'Quantium') }}^{{ s.exp1.val, 'exp1' | generic }}</span><span v-show="r.Quantium.preVis"> = {{ calcPre('Quantium') }}</span>
+                <h3 class="has-text-info">${loc('resource_Quantium_name')}:</h3><span> {{ getBase(i.weapon.val, 'weapon', 'Quantium') }}^{{ generic(s.exp1.val, 'exp1') }}</span><span v-show="r.Quantium.preVis"> = {{ calcPre('Quantium') }}</span>
             </div>
         </div>
     `);
@@ -3076,13 +3076,13 @@ function tpShipsCostsCalc(info){
     let finalForms = `
         <div>
             <div>
-                <h2 class="has-text-caution">{{ i.owned.val, i.class.val | finalLabel }}</h2>
+                <h2 class="has-text-caution">{{ finalLabel(i.owned.val, i.class.val) }}</h2>
             </div>
     `;
     ['Money', 'Aluminium', 'Adamantite', 'Steel', 'Alloy', 'Neutronium', 'Titanium', 'Copper', 'Orichalcum', 'Iridium', 'Iron', 'Nano_Tube', 'Quantium'].forEach(function(resource) {
         finalForms += `
             <div>
-                <h3 class="has-text-info">${loc('resource_' + resource + '_name')}:</h3><span> {{ r.${resource}.preVal, 'base' | generic }} * </span><span v-show="i.class.val !== 'explorer' && i.owned.val === 0">0.75</span><span v-show="i.class.val !== 'explorer' && i.owned.val === 1">0.9</span><span v-show="i.class.val !== 'explorer' && i.owned.val !== 0 && i.owned.val !== 1">(1 + ({{ i.owned.val, 'owned' | generic }} - 2) / 25 * {{ s.creep.val, 'creep' | generic }})</span><span v-show="i.class.val === 'explorer'">3 * (1 + {{ i.owned.val, 'owned' | generic }})</span><span v-show="r.${resource}.vis"> = {{ '${resource}' | calcFinal }}</span>
+                <h3 class="has-text-info">${loc('resource_' + resource + '_name')}:</h3><span> {{ generic(r.${resource}.preVal, 'base') }} * </span><span v-show="i.class.val !== 'explorer' && i.owned.val === 0">0.75</span><span v-show="i.class.val !== 'explorer' && i.owned.val === 1">0.9</span><span v-show="i.class.val !== 'explorer' && i.owned.val !== 0 && i.owned.val !== 1">(1 + ({{ generic(i.owned.val, 'owned') }} - 2) / 25 * {{ generic(s.creep.val, 'creep') }})</span><span v-show="i.class.val === 'explorer'">3 * (1 + {{ generic(i.owned.val, 'owned') }})</span><span v-show="r.${resource}.vis"> = {{ calcFinal('${resource}') }}</span>
             </div>
         `;
     });
@@ -3562,15 +3562,15 @@ function tpShipsPowerCalc(info){
     calc.append(powerGen);
     calc.append(powerUse);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         class: { val: undefined },
         power: { val: undefined },
         weapon: { val: undefined },
         engine: { val: undefined },
         sensor: { val: undefined }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         genMulti: { val: undefined },
         useMulti: { val: undefined },
         power: { val: undefined, vis: false },
@@ -3578,7 +3578,7 @@ function tpShipsPowerCalc(info){
         engine: { val: undefined, vis: false },
         sensor: { val: undefined, vis: false },
         net: { val: undefined, vis: false, neg: undefined }
-    }
+    })
     
     shipClass.append(`
         <div>
@@ -3611,7 +3611,7 @@ function tpShipsPowerCalc(info){
                 <h2 class="has-text-caution">${loc('wiki_calc_tp_ships_power_gen')}</h2>
             </div>
             <div>
-                <span>{{ genericVal(i.power.val, 'power') }} * {{ s.genMulti.val, 'gen_multi' | generic }}</span><span v-show="s.power.vis"> = {{ | calcPower }}</span>
+                <span>{{ genericVal(i.power.val, 'power') }} * {{ generic(s.genMulti.val, 'gen_multi') }}</span><span v-show="s.power.vis"> = {{ calcPower() }}</span>
             </div>
         </div>
         <div>
@@ -3642,25 +3642,25 @@ function tpShipsPowerCalc(info){
                 <h2 class="has-text-caution">${loc('wiki_calc_tp_ships_power_use',[loc('outer_shipyard_weapon')])}</h2>
             </div>
             <div>
-                <span>{{ genericVal(i.weapon.val, 'weapon') }} * {{ s.useMulti.val, 'use_multi' | generic }}</span><span v-show="s.weapon.vis"> = {{ | calcWeapon }}</span>
+                <span>{{ genericVal(i.weapon.val, 'weapon') }} * {{ generic(s.useMulti.val, 'use_multi') }}</span><span v-show="s.weapon.vis"> = {{ calcWeapon() }}</span>
             </div>
             <div>
                 <h2 class="has-text-caution">${loc('wiki_calc_tp_ships_power_use',[loc('outer_shipyard_engine')])}</h2>
             </div>
             <div>
-                <span>{{ genericVal(i.engine.val, 'engine') }} * {{ s.useMulti.val, 'use_multi' | generic }}</span><span v-show="s.engine.vis"> = {{ | calcEngine }}</span>
+                <span>{{ genericVal(i.engine.val, 'engine') }} * {{ generic(s.useMulti.val, 'use_multi') }}</span><span v-show="s.engine.vis"> = {{ calcEngine() }}</span>
             </div>
             <div>
                 <h2 class="has-text-caution">${loc('wiki_calc_tp_ships_power_use',[loc('outer_shipyard_sensor')])}</h2>
             </div>
             <div>
-                <span>{{ genericVal(i.sensor.val, 'sensor') }} * {{ s.useMulti.val, 'use_multi' | generic }}</span><span v-show="s.sensor.vis"> = {{ | calcSensor }}</span>
+                <span>{{ genericVal(i.sensor.val, 'sensor') }} * {{ generic(s.useMulti.val, 'use_multi') }}</span><span v-show="s.sensor.vis"> = {{ calcSensor() }}</span>
             </div>
             <div>
                 <h2 class="has-text-caution">${loc('wiki_calc_tp_ships_power_net')}</h2>
             </div>
             <div>
-                <span>{{ genericResult(s.power.val, 'power') }} - {{ genericResult(s.weapon.val, 'weapon') }} - {{ genericResult(s.engine.val, 'engine') }} - {{ genericResult(s.sensor.val, 'sensor') }}</span><span v-show="s.net.vis"> = {{ | calcNet }}</span><span v-show="s.net.neg === false"> = ${loc('wiki_calc_tp_ships_power_net_pos')}</span><span v-show="s.net.neg"> = ${loc('wiki_calc_tp_ships_power_net_neg')}</span>
+                <span>{{ genericResult(s.power.val, 'power') }} - {{ genericResult(s.weapon.val, 'weapon') }} - {{ genericResult(s.engine.val, 'engine') }} - {{ genericResult(s.sensor.val, 'sensor') }}</span><span v-show="s.net.vis"> = {{ calcNet() }}</span><span v-show="s.net.neg === false"> = ${loc('wiki_calc_tp_ships_power_net_pos')}</span><span v-show="s.net.neg"> = ${loc('wiki_calc_tp_ships_power_net_neg')}</span>
             </div>
         </div>
         <div>
@@ -3880,18 +3880,18 @@ function tpShipsFirepowerCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         weapon: { val: undefined },
         class: { val: undefined }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         result: { vis: false, val: 0 }
-    }
+    })
     
     formula.append(`
         <div>
-            <span>{{ i.weapon.val | weaponVal }} * {{ i.class.val | classVal }}</span><span v-show="s.result.vis"> = {{ | calc }}</span>
+            <span>{{ weaponVal(i.weapon.val) }} * {{ classVal(i.class.val) }}</span><span v-show="s.result.vis"> = {{ calc() }}</span>
         </div>
     `);
     
@@ -4030,18 +4030,18 @@ function tpShipsHullCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         hull: { val: undefined },
         triton: { val: false }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         result: { vis: false, val: undefined }
-    }
+    })
     
     formula.append(`
         <div>
-            <span v-show="s.result.vis">1 - {{ | calc }}</span>
+            <span v-show="s.result.vis">1 - {{ calc() }}</span>
         </div>
     `);
     
@@ -4129,18 +4129,18 @@ function tpShipsScanCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         sensor: { val: undefined },
         class: { val: undefined }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         result: { vis: false, val: 0 }
-    }
+    })
     
     formula.append(`
         <div>
-            <span>{{ i.sensor.val | sensorVal }}</span><span v-show="i.sensor.val !== 'visual'"> * {{ i.class.val | classVal }}</span><span v-show="s.result.vis"> = {{ | calc }}</span>
+            <span>{{ sensorVal(i.sensor.val) }}</span><span v-show="i.sensor.val !== 'visual'"> * {{ classVal(i.class.val) }}</span><span v-show="s.result.vis"> = {{ calc() }}</span>
         </div>
     `);
     
@@ -4268,17 +4268,17 @@ function tpShipsIntelCalc(info){
     calc.append(formula);
     calc.append(variables);
     
-    let inputs = {
+    let inputs = Vue.reactive({
         range: { val: undefined },
         triton: { val: false },
         fob: { val: false }
-    }
+    })
     
-    let show = {
+    let show = Vue.reactive({
         combined: { vis: false, val: undefined },
         adjusted: { vis: false, val: undefined, adjust: false },
         intel: { vis: false, val: undefined }
-    }
+    })
     
     
     formula.append(`
@@ -4286,25 +4286,25 @@ function tpShipsIntelCalc(info){
             <h2 class="has-text-caution">${loc('wiki_calc_tp_ships_intel_combined_range')}</h2>
         </div>
         <div>
-            <span>{{ i.range.val, 'ship_range' | generic }}</span><span v-show="i.triton.val && i.fob.val"> + 10</span><span v-show="s.combined.vis"> = {{ | calcRange }}</span>
+            <span>{{ generic(i.range.val, 'ship_range') }}</span><span v-show="i.triton.val && i.fob.val"> + 10</span><span v-show="s.combined.vis"> = {{ calcRange() }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_tp_ships_intel_adjusted_range_below',[loc('wiki_calc_tp_ships_intel_adjusted_range'),loc('wiki_calc_tp_ships_intel_combined_range')])}</h2>
         </div>
         <div>
-            <span>{{ s.combined.val, 'combined_range' | generic }}</span><span v-show="s.adjusted.vis && !s.adjusted.adjust"> = {{ | calcAdjusted }}</span>
+            <span>{{ generic(s.combined.val, 'combined_range') }}</span><span v-show="s.adjusted.vis && !s.adjusted.adjust"> = {{ calcAdjusted() }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('wiki_calc_tp_ships_intel_adjusted_range_above',[loc('wiki_calc_tp_ships_intel_adjusted_range'),loc('wiki_calc_tp_ships_intel_combined_range')])}</h2>
         </div>
         <div>
-            <span>(({{ s.combined.val, 'combined_range' | generic }} - 100) / (({{ s.combined.val, 'combined_range' | generic }} - 100) + 200) * 100) + 100</span><span v-show="s.adjusted.vis && s.adjusted.adjust"> = {{ | calcAdjusted }}</span>
+            <span>(({{ generic(s.combined.val, 'combined_range') }} - 100) / (({{ generic(s.combined.val, 'combined_range') }} - 100) + 200) * 100) + 100</span><span v-show="s.adjusted.vis && s.adjusted.adjust"> = {{ calcAdjusted() }}</span>
         </div>
         <div>
             <h2 class="has-text-caution">${loc('space_scan_effectiveness')}</h2>
         </div>
         <div>
-            <span>({{ s.adjusted.val, 'adjusted_range' | generic }} + 25) / 1.25</span><span v-show="s.intel.vis"> = {{ | calcIntel }}</span>
+            <span>({{ generic(s.adjusted.val, 'adjusted_range') }} + 25) / 1.25</span><span v-show="s.intel.vis"> = {{ calcIntel() }}</span>
         </div>
     `);
     
