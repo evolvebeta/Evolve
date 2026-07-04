@@ -1082,6 +1082,7 @@ export function clearElement(elm,remove){
             if ($(this)[0].__vue_app__) {
                 $(this)[0].__vue_app__.unmount();
                 delete $(this)[0].__vue_app__;
+                delete $(this)[0].__vue_bind__;
             }
         }
         catch(e){}
@@ -1096,6 +1097,7 @@ export function clearElement(elm,remove){
             if (this.__vue_app__) {
                 this.__vue_app__.unmount();
                 delete this.__vue_app__;
+                delete this.__vue_bind__;
                 $(this).removeClass('vb');
             }
         }
@@ -1114,16 +1116,58 @@ export function vBind(bind,action){
     if (action === 'native'){
         return vBindNative(bind,'create');
     }
+    if (action === 'update'){
+        // An 'update' call carries only { el } — no data/methods/template — so it can
+        // only refresh a binding that already exists. Refresh a live one; otherwise
+        // rebuild it from the config stashed at create time (see __vue_bind__ below).
+        if ($(bind.el).length === 0){ return; }
+        let el = $(bind.el)[0];
+        let app = el.__vue_app__;
+        // A live app: force a re-render. $forceUpdate bypasses reactivity and re-runs
+        // the render function, so method-based interpolations (e.g. the fortress
+        // {{ filter(on,'army') }} panels, which read non-reactive values like p_on)
+        // are re-evaluated even when the bound data object itself didn't change.
+        if (app && app._instance && app._instance.proxy){
+            try {
+                app._instance.proxy.$forceUpdate();
+            }
+            catch(e){
+                console.warn('Error during vBind update:', e);
+            }
+            return;
+        }
+        // No live app. It was torn down (unmounted -> _instance null / detached) but the
+        // element still stands, so the update would otherwise silently no-op and the panel
+        // would go stale forever. If the original create config was stashed on the element,
+        // re-mount from it so it starts rendering again; otherwise there's nothing to do.
+        if (typeof app !== "undefined"){ delete el.__vue_app__; }
+        $(el).removeClass('vb');
+        if (el.__vue_bind__){
+            // Unmount clears the element's innerHTML (its template); restore it so create
+            // has the markup to compile again, then re-mount from the stashed config. Guard
+            // the remount so a mount failure can never take down the game loop; drop the stash
+            // on failure so we don't retry (and re-throw) every tick — the next full re-render
+            // re-creates it. (create clears the stale _vnode that would otherwise crash mount.)
+            if (typeof el.__vue_template__ === 'string'){ el.innerHTML = el.__vue_template__; }
+            try {
+                return vBind(el.__vue_bind__, 'create');
+            }
+            catch(e){
+                console.warn('Error during vBind rebuild:', e);
+                delete el.__vue_app__;
+                delete el.__vue_bind__;
+                $(el).removeClass('vb');
+            }
+        }
+        return;
+    }
+    // create / destroy: tear down any existing app on the element first.
     if ($(bind.el).length > 0 && typeof $(bind.el)[0].__vue_app__ !== "undefined"){
         try {
-            if (action === 'update'){
-                $(bind.el)[0].__vue_app__._instance.proxy.$forceUpdate();
-            }
-            else {
-                $(bind.el)[0].__vue_app__.unmount();
-                delete $(bind.el)[0].__vue_app__;
-                $(bind.el).removeClass('vb');
-            }
+            $(bind.el)[0].__vue_app__.unmount();
+            delete $(bind.el)[0].__vue_app__;
+            delete $(bind.el)[0].__vue_bind__;
+            $(bind.el).removeClass('vb');
         }
         catch(e){
             console.warn('Error during vBind cleanup:', e);
@@ -1131,7 +1175,14 @@ export function vBind(bind,action){
     }
     if (action === 'create'){
         if ($(bind.el).length > 0) {
+            const el = $(bind.el)[0];
             const vueOptions = { ...bind };
+
+            // The panel's template is the element's innerHTML, which Vue consumes on mount
+            // and clears on unmount. Capture it (read-only — normal create still lets Vue read
+            // innerHTML as before) so a later self-heal rebuild can restore it before
+            // re-mounting, instead of mounting a now-blank element. See the 'update' branch.
+            const template = el.innerHTML;
 
             // Vue 3 removed the `filters` option. A lot of (mostly wiki) templates still declare
             // helper functions in a `filters` block and call them as ordinary methods in
@@ -1159,9 +1210,20 @@ export function vBind(bind,action){
                 app.use(Buefy.default);
             }
 
+            // Every create mounts a brand-new app, so mount must always do a clean
+            // patch(null, ...). If a prior app was torn down but its unmount threw (the
+            // documented "nextSibling of null" on detached DOM), Vue's internal _vnode
+            // pointer can be left on the element; the fresh mount would then diff against
+            // that stale, detached tree and crash. Clear it to enforce the clean-mount path.
+            el._vnode = null;
             app.mount(bind.el);
-            $(bind.el)[0].__vue_app__ = app;
-            $(bind.el).addClass('vb');
+            el.__vue_app__ = app;
+            // Stash the original (unmutated) bind config and template so a later
+            // vBind('update') can self-heal — re-mounting the panel from these if its
+            // app has since been torn down.
+            el.__vue_bind__ = bind;
+            if (typeof template === 'string' && template.length > 0){ el.__vue_template__ = template; }
+            $(el).addClass('vb');
 
             return app;
         }
