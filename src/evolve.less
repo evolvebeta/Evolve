@@ -2868,6 +2868,9 @@ a {
 
         .tab-content {
             padding: 0 .25rem 0 0;
+            // Positioning context so the outgoing tab (which we absolutely-position during the
+            // transition) slides across the incoming one instead of stacking below it.
+            position: relative;
         }
 
         >.tab-content {
@@ -2876,6 +2879,55 @@ a {
 
         .tab-item {
             padding: 0 0 0 1rem;
+        }
+
+        // Directional slide when switching tabs (main tabs and every nested sub-tab group). Buefy
+        // computes the transition name from the direction of travel — `slide-next` when moving to
+        // a tab further right, `slide-prev` when moving left — so the slide direction follows the
+        // click. The incoming tab stays in normal flow (so it defines the container height) and
+        // slides in via `transform`; the outgoing tab is absolutely positioned so the two overlap
+        // and slide across each other. We re-declare everything here because the bundled Buefy 0.9
+        // CSS uses Vue 2 transition class names (`-enter`), while the game runs Buefy 3 on Vue 3,
+        // which emits `-enter-from`/`-leave-from` — so the original slide only half-applied.
+        // Gated by the b-tabs :animated setting: with animations off Buefy emits no transition
+        // wrapper and none of these classes ever appear.
+        .slide-next-enter-active,
+        .slide-prev-enter-active,
+        .slide-next-leave-active,
+        .slide-prev-leave-active {
+            transition: transform 300ms cubic-bezier(.785, .135, .15, .86) !important;
+            backface-visibility: hidden;
+        }
+
+        .slide-next-leave-active,
+        .slide-prev-leave-active {
+            position: absolute !important;
+            top: 0;
+            width: 100%; // left stays at its static position so it stays horizontally aligned
+        }
+
+        // Advancing right (next): incoming enters from the left, outgoing exits to the right.
+        .slide-next-enter-from { transform: translate3d(-100%, 0, 0) !important; }
+        .slide-next-leave-to   { transform: translate3d(100%, 0, 0) !important; }
+
+        // Going back left (prev): incoming enters from the right, outgoing exits to the left.
+        .slide-prev-enter-from { transform: translate3d(100%, 0, 0) !important; }
+        .slide-prev-leave-to   { transform: translate3d(-100%, 0, 0) !important; }
+
+        .slide-next-enter-to,
+        .slide-prev-enter-to,
+        .slide-next-leave-from,
+        .slide-prev-leave-from {
+            transform: translate3d(0, 0, 0) !important;
+        }
+
+        // Clip the off-screen tabs only while a slide is in flight, so the incoming/outgoing tab
+        // parked at ±100% can't spawn a horizontal scrollbar. Scoped to the active transition via
+        // :has() (and a direct-child match, so a sub-tab slide doesn't clip its parent) — the rest
+        // of the time overflow stays visible, so dropdown/tooltip menus aren't clipped.
+        .tab-content:has(> .slide-next-leave-active),
+        .tab-content:has(> .slide-prev-leave-active) {
+            overflow: hidden;
         }
 
         .tabs {

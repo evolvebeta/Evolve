@@ -18,6 +18,15 @@ import { defineIndustry, addSmelter } from './industry.js';
 import { arpa } from './arpa.js';
 import { jobName } from './jobs.js';
 
+// Real-time throttle for the hell observation pie charts. bloodwar() drives these once per
+// in-game day, but many game days can elapse per real second (fast mode, time acceleration,
+// offline catch-up). Repainting the Chart.js canvases that often — each with its default
+// animation — pegs the main thread and is the dominant cause of the hell tab getting laggy
+// when left running. We cap actual canvas repaints to a few per real second; the data is
+// cumulative, so a skipped intermediate frame just corrects on the next repaint.
+let lastHellGraphUpdate = 0;
+const hellGraphUpdateInterval = 250;
+
 const fortressModules = {
     prtl_fortress: {
         info: {
@@ -4832,16 +4841,22 @@ export function bloodwar(){
     
     purgeReports();
     
-    Object.keys(global.portal.observe.graphs).forEach(function (id){
-        if (!!document.getElementById(global.portal.observe.graphs[id].chartID)){
-            let newData = [];
-            hell_graphs[id].data.forEach(function (dataPoint){
-                newData.push(dataPoint.length === 3 ? global.portal.observe.stats[dataPoint[0]][dataPoint[1]][dataPoint[2]] : global.portal.observe.stats[dataPoint[0]][dataPoint[1]]);
-            });
-            hell_graphs[id].graph.data.datasets[0].data = newData;
-            hell_graphs[id].graph.update();
-        }
-    });
+    let now = Date.now();
+    if (now - lastHellGraphUpdate >= hellGraphUpdateInterval){
+        lastHellGraphUpdate = now;
+        Object.keys(global.portal.observe.graphs).forEach(function (id){
+            if (!!document.getElementById(global.portal.observe.graphs[id].chartID)){
+                let newData = [];
+                hell_graphs[id].data.forEach(function (dataPoint){
+                    newData.push(dataPoint.length === 3 ? global.portal.observe.stats[dataPoint[0]][dataPoint[1]][dataPoint[2]] : global.portal.observe.stats[dataPoint[0]][dataPoint[1]]);
+                });
+                hell_graphs[id].graph.data.datasets[0].data = newData;
+                // 'none' skips Chart.js's per-update animation; the animation is what makes a
+                // once-per-game-day repaint expensive, and overlapping animations accumulate.
+                hell_graphs[id].graph.update('none');
+            }
+        });
+    }
 }
 
 export function hellguard(){
