@@ -3926,7 +3926,7 @@ export function buildFortress(parent,full){
     station.append(bunks);
     bunks.append($(`<span class="has-text-warning">${loc('civics_garrison')}: </span>`));
     let soldier_title = global.tech['world_control'] && !global.race['truepath'] ? loc('civics_garrison_peacekeepers') : loc('civics_garrison_soldiers');
-    bunks.append($(`<span><span class="soldier">${soldier_title}</span> <span v-html="stationed(g.workers)"></span> / <span>{{ s_max(g.max) }} | <span></span>`));
+    bunks.append($(`<span><span class="soldier">${soldier_title}</span> <span v-html="stationed(g.workers)"></span> / <span>{{ s_max(g.max) }} | </span></span>`));
     bunks.append($(`<span v-show="g.crew > 0"><span class="crew">${loc('civics_garrison_crew')}</span> <span>{{ g.crew }} | </span></span>`));
     bunks.append($(`<span><span class="wounded">${loc('civics_garrison_wounded')}</span> <span>{{ g.wounded }}</span></span>`));
 

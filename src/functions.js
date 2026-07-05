@@ -1076,32 +1076,32 @@ export function arpaTimeCheck(project, remain, track, detailed){
     return detailed ? { t: allRemainingSegmentsTime, r: bottleneck, s: shorted } : allRemainingSegmentsTime;
 }
 
+function unmountApp(el){
+    if (el && el.__vue_app__){
+        try {
+            el.__vue_app__.unmount();
+        }
+        catch(e){}
+        delete el.__vue_app__;
+        delete el.__vue_bind__;
+        delete el.__vue_proxy__;
+        $(el).removeClass('vb');
+    }
+}
+
 export function clearElement(elm,remove){
-    elm.find('.vb').each(function(){
-        try {
-            if ($(this)[0].__vue_app__) {
-                $(this)[0].__vue_app__.unmount();
-                delete $(this)[0].__vue_app__;
-                delete $(this)[0].__vue_bind__;
-            }
-        }
-        catch(e){}
-    });
-    // Unmount any Vue app mounted directly on the element(s) BEFORE its DOM is
-    // torn down. Emptying/removing the DOM first orphans the app's vnodes, so a
-    // later app.unmount() (e.g. when re-vBinding the same element) throws while
-    // walking the detached fragment ("Cannot read properties of null (reading
-    // 'nextSibling')"). This must run for the empty branch too, not just remove.
+    // Unmount nested Vue apps deepest-first. Document order (`.find` default) unmounts a parent
+    // app before its nested child app; the parent's unmount detaches the child's DOM, so the
+    // child's later unmount() throws ("nextSibling of null") and its reactive effect is orphaned
+    // (still subscribed to the global proxy → a per-rebuild heap/CPU leak). Reversing to
+    // deepest-first keeps each element's DOM attached when its own app is unmounted.
+    let vbs = elm.find('.vb').get();
+    for (let i = vbs.length - 1; i >= 0; i--){
+        unmountApp(vbs[i]);
+    }
+    // Also unmount any Vue app mounted directly on the element(s) itself, after its descendants.
     elm.each(function(){
-        try {
-            if (this.__vue_app__) {
-                this.__vue_app__.unmount();
-                delete this.__vue_app__;
-                delete this.__vue_bind__;
-                $(this).removeClass('vb');
-            }
-        }
-        catch(e){}
+        unmountApp(this);
     });
     if (remove){
         elm.remove();
@@ -1127,20 +1127,34 @@ export function vBind(bind,action){
         // the render function, so method-based interpolations (e.g. the fortress
         // {{ filter(on,'army') }} panels, which read non-reactive values like p_on)
         // are re-evaluated even when the bound data object itself didn't change.
-        if (app && app._instance && app._instance.proxy){
+        //
+        // The component proxy is preferred from app._instance, but Vue 3.5 does NOT populate
+        // app._instance for a multi-root (fragment) root component — app.mount() still returns a
+        // valid proxy though, which we stash as __vue_proxy__ at create time. Without this
+        // fallback, a fragment-root panel (e.g. #fort, updated every game tick) fails the
+        // liveness test every tick and gets needlessly re-created, orphaning the live app each
+        // time — a fast heap leak that froze the Hell Dimension tab.
+        let proxy = (app && app._instance && app._instance.proxy) ? app._instance.proxy : (app ? el.__vue_proxy__ : null);
+        if (proxy){
             try {
-                app._instance.proxy.$forceUpdate();
+                proxy.$forceUpdate();
             }
             catch(e){
                 console.warn('Error during vBind update:', e);
             }
             return;
         }
+        // The app is still mounted (Vue keeps _container set until unmount) but we couldn't get a
+        // proxy to force-update. It's live and its reactive bindings update on their own — do NOT
+        // re-create it, which would orphan the live app and leak. Skip instead.
+        if (app && app._container){
+            return;
+        }
         // No live app. It was torn down (unmounted -> _instance null / detached) but the
         // element still stands, so the update would otherwise silently no-op and the panel
         // would go stale forever. If the original create config was stashed on the element,
         // re-mount from it so it starts rendering again; otherwise there's nothing to do.
-        if (typeof app !== "undefined"){ delete el.__vue_app__; }
+        if (typeof app !== "undefined"){ delete el.__vue_app__; delete el.__vue_proxy__; }
         $(el).removeClass('vb');
         if (el.__vue_bind__){
             // Unmount clears the element's innerHTML (its template); restore it so create
@@ -1163,15 +1177,7 @@ export function vBind(bind,action){
     }
     // create / destroy: tear down any existing app on the element first.
     if ($(bind.el).length > 0 && typeof $(bind.el)[0].__vue_app__ !== "undefined"){
-        try {
-            $(bind.el)[0].__vue_app__.unmount();
-            delete $(bind.el)[0].__vue_app__;
-            delete $(bind.el)[0].__vue_bind__;
-            $(bind.el).removeClass('vb');
-        }
-        catch(e){
-            console.warn('Error during vBind cleanup:', e);
-        }
+        unmountApp($(bind.el)[0]);
     }
     if (action === 'create'){
         if ($(bind.el).length > 0) {
@@ -1216,7 +1222,9 @@ export function vBind(bind,action){
             // pointer can be left on the element; the fresh mount would then diff against
             // that stale, detached tree and crash. Clear it to enforce the clean-mount path.
             el._vnode = null;
-            app.mount(bind.el);
+            // Stash the proxy app.mount() returns — it exposes $forceUpdate and is valid even when
+            // Vue 3.5 leaves app._instance unset (fragment-root components). vBind('update') uses it.
+            el.__vue_proxy__ = app.mount(bind.el);
             el.__vue_app__ = app;
             // Stash the original (unmutated) bind config and template so a later
             // vBind('update') can self-heal — re-mounting the panel from these if its
@@ -1316,7 +1324,7 @@ function vBindNative(bind, action) {
                 app.use(Buefy.default);
             }
             
-            app.mount(bind.el);
+            $(bind.el)[0].__vue_proxy__ = app.mount(bind.el);
             $(bind.el)[0].__vue_app__ = app;
             $(bind.el).addClass('vb');
 
