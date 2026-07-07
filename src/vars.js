@@ -116,6 +116,19 @@ export function setGlobal(gameState) {
     global = makeReactive(gameState);
 }
 
+// Temporarily drop the Vue reactive wrapper so a bulk operation (offline catch-up) can mutate
+// game state thousands of times without firing a reactivity trigger on every change.
+// restoreReactivity() re-wraps the same underlying object; Vue returns the cached proxy for that
+// target, so every already-mounted component keeps its binding and simply needs one refresh.
+export function suppressReactivity(){
+    if (typeof Vue !== 'undefined' && Vue && typeof Vue.toRaw === 'function'){
+        global = Vue.toRaw(global);
+    }
+}
+export function restoreReactivity(){
+    global = makeReactive(global);
+}
+
 if (!global['version']){
     global['version'] = '0.2.0';
 }
@@ -1298,7 +1311,7 @@ if (convertVersion(global['version']) < 104009){
 
 global['version'] = '1.5.0';
 delete global['revision'];
-global['beta'] = 4;
+global['beta'] = 5;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};

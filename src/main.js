@@ -1,4 +1,4 @@
-import { global, save, seededRandom, webWorker, intervals, keyMap, atrack, resizeGame, breakdown, sizeApproximation, keyMultiplier, power_generated, p_on, support_on, int_on, gal_on, spire_on, set_qlevel, quantum_level, callback_queue, active_rituals } from './vars.js';
+import { global, save, seededRandom, webWorker, intervals, keyMap, atrack, resizeGame, breakdown, sizeApproximation, keyMultiplier, power_generated, p_on, support_on, int_on, gal_on, spire_on, set_qlevel, quantum_level, callback_queue, active_rituals, suppressReactivity, restoreReactivity } from './vars.js';
 import { loc } from './locale.js';
 import { unlockAchieve, checkAchievements, drawAchieve, alevel, universeAffix, challengeIcon, unlockFeat, checkAdept } from './achieve.js';
 import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, resetResBuffer, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, deepClone, exceededATimeThreshold, loopTimers, calcQuantumLevel, drawPet } from './functions.js';
@@ -922,6 +922,9 @@ function processOfflineTime(){
 function runOfflineCatchup(totalSteps, daysPerStep, creditedMinutes){
     webWorker.offline = true;
     webWorker.offlineScale = daysPerStep;
+    // Drop Vue reactivity for the whole simulation so the thousands of state mutations don't each
+    // fire a reactivity trigger; restored in finalize() and the UI refreshes once afterward.
+    suppressReactivity();
     let cancelled = false;
     let overlay = drawOfflineModal(function(){ cancelled = true; });
 
@@ -932,6 +935,7 @@ function runOfflineCatchup(totalSteps, daysPerStep, creditedMinutes){
     // credited-time summary or, when cancelled, just close the popup.
     const finalize = function(cancelledEarly){
         clearPopper();      // remove the cancel-button tooltip before tearing down the modal
+        restoreReactivity();  // re-wrap global before live play resumes; the UI refreshes next tick
         webWorker.offline = false;
         webWorker.offlineScale = 1;
         if (!global.race.hasOwnProperty('geck')){
@@ -950,7 +954,15 @@ function runOfflineCatchup(totalSteps, daysPerStep, creditedMinutes){
         if (cancelled){ finalize(true); return; }
 
         const batch = Math.min(chunk, totalSteps - done);
-        execGameLoops(batch, true);
+        try {
+            execGameLoops(batch, true);
+        }
+        catch (e){
+            // Never leave reactivity suppressed if a simulated tick throws.
+            console.error('Offline catch-up error:', e);
+            finalize(true);
+            return;
+        }
         done += batch;
 
         const pct = Math.floor(done / totalSteps * 100);
@@ -1039,9 +1051,14 @@ var firstRun = true;
 var gene_sequence = global.arpa['sequence'] && global.arpa['sequence']['on'] ? global.arpa.sequence.on : 0;
 function fastLoop(){
     if (!global.race['no_craft']){
-        $('.craft').each(function(e){
-            if (typeof $(this).data('val') === 'number'){
-                $(this).html(sizeApproximation($(this).data('val') * keyMultiplier(),1));
+        // keyMultiplier() is the same for every button this tick, so compute it once instead
+        // of per element, and wrap each element in a single jQuery object rather than three.
+        const km = keyMultiplier();
+        $('.craft').each(function(){
+            const el = $(this);
+            const val = el.data('val');
+            if (typeof val === 'number'){
+                el.html(sizeApproximation(val * km, 1));
             }
         });
     }
@@ -2062,20 +2079,22 @@ function fastLoop(){
                 power_grid -= power;
                 power_generated[title] = -(power);
 
+                let genOnEl = $(`#${region}-${generator.s} .on`);
                 if (p_on[generator.s] !== global[region][generator.s].on){
-                    $(`#${region}-${generator.s} .on`).addClass('warn');
-                    $(`#${region}-${generator.s} .on`).prop('title',`ON ${p_on[generator.s]}/${global[region][generator.s].on}`);
+                    genOnEl.addClass('warn');
+                    genOnEl.prop('title',`ON ${p_on[generator.s]}/${global[region][generator.s].on}`);
                 }
                 else {
-                    $(`#${region}-${generator.s} .on`).removeClass('warn');
-                    $(`#${region}-${generator.s} .on`).prop('title',`ON`);
+                    genOnEl.removeClass('warn');
+                    genOnEl.prop('title',`ON`);
                 }
             }
             else {
                 power_generated[title] = 0;
                 p_on[generator.s] = 0;
-                $(`#${region}-${generator.s} .on`).removeClass('warn');
-                $(`#${region}-${generator.s} .on`).prop('title',`ON`);
+                let genOnEl = $(`#${region}-${generator.s} .on`);
+                genOnEl.removeClass('warn');
+                genOnEl.prop('title',`ON`);
             }
         });
 
@@ -2309,23 +2328,25 @@ function fastLoop(){
                 }
                 power_grid_temp -= power;
 
+                let structOnEl = $(`#${region}-${struct} .on`);
                 if (p_on[struct] !== global[region][struct].on){
-                    $(`#${region}-${struct} .on`).addClass('warn');
-                    $(`#${region}-${struct} .on`).prop('title',`ON ${p_on[struct]}/${global[region][struct].on}`);
+                    structOnEl.addClass('warn');
+                    structOnEl.prop('title',`ON ${p_on[struct]}/${global[region][struct].on}`);
                     // Remove the reset actions for reset structures that lose power
                     if (['matrix', 'atmo_terraformer', 'ascension_trigger'].includes(struct)){
                         callback_queue.set([c_action, 'postPower'], [true]);
                     }
                 }
                 else {
-                    $(`#${region}-${struct} .on`).removeClass('warn');
-                    $(`#${region}-${struct} .on`).prop('title',`ON`);
+                    structOnEl.removeClass('warn');
+                    structOnEl.prop('title',`ON`);
                 }
             }
             else {
                 p_on[struct] = 0;
-                $(`#${region}-${struct} .on`).removeClass('warn');
-                $(`#${region}-${struct} .on`).prop('title',`ON`);
+                let structOnEl = $(`#${region}-${struct} .on`);
+                structOnEl.removeClass('warn');
+                structOnEl.prop('title',`ON`);
             }
         }
         power_grid -= totalPowerDemand;
@@ -2369,19 +2390,21 @@ function fastLoop(){
                     }
                 }
 
+                let landerOnEl = $(`#space-lander .on`);
                 if (support_on['lander'] !== global.space.lander.on){
-                    $(`#space-lander .on`).addClass('warn');
-                    $(`#space-lander .on`).prop('title',`ON ${support_on['lander']}/${global.space.lander.on}`);
+                    landerOnEl.addClass('warn');
+                    landerOnEl.prop('title',`ON ${support_on['lander']}/${global.space.lander.on}`);
                 }
                 else {
-                    $(`#space-lander .on`).removeClass('warn');
-                    $(`#space-lander .on`).prop('title',`ON`);
+                    landerOnEl.removeClass('warn');
+                    landerOnEl.prop('title',`ON`);
                 }
             }
             else {
                 global.space.fob.troops = 0;
-                $(`#space-lander .on`).addClass('warn');
-                $(`#space-lander .on`).prop('title',`ON 0/${global.space.lander.on}`);
+                let landerOnEl = $(`#space-lander .on`);
+                landerOnEl.addClass('warn');
+                landerOnEl.prop('title',`ON 0/${global.space.lander.on}`);
             }
         }
 
@@ -2405,15 +2428,16 @@ function fastLoop(){
                 let parts = foodBuildings[i].split(":");
                 let space = convertSpaceSector(parts[0]);
                 let region = parts[0] === 'city' ? parts[0] : space;
+                let mediOnEl = $(`#${region}-${parts[1]} .on`);
                 if (global[region][parts[1]] && global[region][parts[1]]['on']){
                     if(p_on[parts[1]]){
                         p_on[parts[1]] = 0;
                     }
-                    $(`#${region}-${parts[1]} .on`).addClass('warn');
-                    $(`#${region}-${parts[1]} .on`).prop('title',`ON 0`);
+                    mediOnEl.addClass('warn');
+                    mediOnEl.prop('title',`ON 0`);
                 }else {
-                    $(`#${region}-${parts[1]} .on`).removeClass('warn');
-                    $(`#${region}-${parts[1]} .on`).prop('title',`ON`);
+                    mediOnEl.removeClass('warn');
+                    mediOnEl.prop('title',`ON`);
                 }
             }
             global.civic.meditator.display = true;
@@ -2454,13 +2478,14 @@ function fastLoop(){
                                 break;
                             }
                         }
+                        let supOnEl = $(`#space-${sup.s} .on`);
                         if (p_on[sup.s] < global[sup.a][sup.s].on){
-                            $(`#space-${sup.s} .on`).addClass('warn');
-                            $(`#space-${sup.s} .on`).prop('title',`ON ${p_on[sup.s]}/${global[sup.a][sup.s].on}`);
+                            supOnEl.addClass('warn');
+                            supOnEl.prop('title',`ON ${p_on[sup.s]}/${global[sup.a][sup.s].on}`);
                         }
                         else {
-                            $(`#space-${sup.s} .on`).removeClass('warn');
-                            $(`#space-${sup.s} .on`).prop('title',`ON`);
+                            supOnEl.removeClass('warn');
+                            supOnEl.prop('title',`ON`);
                         }
                     }
                 }
@@ -2506,14 +2531,15 @@ function fastLoop(){
                         let operating = global[sup.a][area_structs[i]].on;
                         let remaining_support = global[sup.a][sup.s].s_max - used_support;
 
+                        let areaOnEl = $(`#${id} .on`);
                         if ((operating * supportSize > remaining_support) && !sup.oc){
                             operating = Math.floor(remaining_support / supportSize);
-                            $(`#${id} .on`).addClass('warn');
-                            $(`#${id} .on`).prop('title',`ON ${operating}/${global[sup.a][area_structs[i]].on}`);
+                            areaOnEl.addClass('warn');
+                            areaOnEl.prop('title',`ON ${operating}/${global[sup.a][area_structs[i]].on}`);
                         }
                         else {
-                            $(`#${id} .on`).removeClass('warn');
-                            $(`#${id} .on`).prop('title',`ON`);
+                            areaOnEl.removeClass('warn');
+                            areaOnEl.prop('title',`ON`);
                         }
 
                         if (actions[sup.a][sup.r2][area_structs[i]].hasOwnProperty('support_fuel')){
@@ -2626,14 +2652,15 @@ function fastLoop(){
                 if (global.interstellar[structs[i]]){
                     let operating = global.interstellar[structs[i]].on;
                     let id = actions.interstellar.int_alpha[structs[i]].id;
+                    let alphaOnEl = $(`#${id} .on`);
                     if (used_support + operating > global.interstellar.starport.s_max){
                         operating -=  (used_support + operating) - global.interstellar.starport.s_max;
-                        $(`#${id} .on`).addClass('warn');
-                        $(`#${id} .on`).prop('title',`ON ${operating}/${global.interstellar[structs[i]].on}`);
+                        alphaOnEl.addClass('warn');
+                        alphaOnEl.prop('title',`ON ${operating}/${global.interstellar[structs[i]].on}`);
                     }
                     else {
-                        $(`#${id} .on`).removeClass('warn');
-                        $(`#${id} .on`).prop('title',`ON`);
+                        alphaOnEl.removeClass('warn');
+                        alphaOnEl.prop('title',`ON`);
                     }
                     used_support += operating;
                     int_on[structs[i]] = operating;
@@ -2699,14 +2726,15 @@ function fastLoop(){
                     let id = actions.galaxy.gxy_gateway[gateway_structs[i]].id;
                     let operating_cost = -(actions.galaxy.gxy_gateway[gateway_structs[i]].support());
                     let max_operating = Math.floor((global.galaxy.starbase.s_max - used_support) / operating_cost);
+                    let gxyOnEl = $(`#${id} .on`);
                     if (operating > max_operating){
                         operating = max_operating;
-                        $(`#${id} .on`).addClass('warn');
-                        $(`#${id} .on`).prop('title',`ON ${operating}/${global.galaxy[gateway_structs[i]].on}`);
+                        gxyOnEl.addClass('warn');
+                        gxyOnEl.prop('title',`ON ${operating}/${global.galaxy[gateway_structs[i]].on}`);
                     }
                     else {
-                        $(`#${id} .on`).removeClass('warn');
-                        $(`#${id} .on`).prop('title',`ON`);
+                        gxyOnEl.removeClass('warn');
+                        gxyOnEl.prop('title',`ON`);
                     }
                     used_support += operating * operating_cost;
                     gal_on[gateway_structs[i]] = operating;
@@ -2759,14 +2787,15 @@ function fastLoop(){
                 if (global.portal[purifier_structs[i]]){
                     let operating = global.portal[purifier_structs[i]].on;
                     let id = actions.portal.prtl_spire[purifier_structs[i]].id;
+                    let prtlOnEl = $(`#${id} .on`);
                     if (used_support + operating > global.portal.purifier.s_max){
                         operating -= (used_support + operating) - global.portal.purifier.s_max;
-                        $(`#${id} .on`).addClass('warn');
-                        $(`#${id} .on`).prop('title',`ON ${operating}/${global.portal[purifier_structs[i]].on}`);
+                        prtlOnEl.addClass('warn');
+                        prtlOnEl.prop('title',`ON ${operating}/${global.portal[purifier_structs[i]].on}`);
                     }
                     else {
-                        $(`#${id} .on`).removeClass('warn');
-                        $(`#${id} .on`).prop('title',`ON`);
+                        prtlOnEl.removeClass('warn');
+                        prtlOnEl.prop('title',`ON`);
                     }
                     used_support += operating * -(actions.portal.prtl_spire[purifier_structs[i]].support());
                     spire_on[purifier_structs[i]] = operating;
@@ -2799,15 +2828,16 @@ function fastLoop(){
                 if (global.space[belt_structs[i]]){
                     let operating = global.space[belt_structs[i]].on;
                     let id = actions.space.spc_belt[belt_structs[i]].id;
+                    let beltOnEl = $(`#${id} .on`);
                     if (used_support + (operating * -(actions.space.spc_belt[belt_structs[i]].support())) > global.space.space_station.s_max){
                         let excess = used_support + (operating * -(actions.space.spc_belt[belt_structs[i]].support())) - global.space.space_station.s_max;
                         operating -= Math.ceil(excess / -(actions.space.spc_belt[belt_structs[i]].support()));
-                        $(`#${id} .on`).addClass('warn');
-                        $(`#${id} .on`).prop('title',`ON ${operating}/${global.space[belt_structs[i]].on}`);
+                        beltOnEl.addClass('warn');
+                        beltOnEl.prop('title',`ON ${operating}/${global.space[belt_structs[i]].on}`);
                     }
                     else {
-                        $(`#${id} .on`).removeClass('warn');
-                        $(`#${id} .on`).prop('title',`ON`);
+                        beltOnEl.removeClass('warn');
+                        beltOnEl.prop('title',`ON`);
                     }
                     used_support += (operating * -(actions.space.spc_belt[belt_structs[i]].support()));
                     support_on[belt_structs[i]] = operating;
@@ -2840,14 +2870,15 @@ function fastLoop(){
                 if (global.interstellar[structs[i]]){
                     let operating = global.interstellar[structs[i]].on;
                     let id = actions.interstellar.int_nebula[structs[i]].id;
+                    let nebOnEl = $(`#${id} .on`);
                     if (used_support + operating > global.interstellar.nexus.s_max){
                         operating -=  (used_support + operating) - global.interstellar.nexus.s_max;
-                        $(`#${id} .on`).addClass('warn');
-                        $(`#${id} .on`).prop('title',`ON ${operating}/${global.interstellar[structs[i]].on}`);
+                        nebOnEl.addClass('warn');
+                        nebOnEl.prop('title',`ON ${operating}/${global.interstellar[structs[i]].on}`);
                     }
                     else {
-                        $(`#${id} .on`).removeClass('warn');
-                        $(`#${id} .on`).prop('title',`ON`);
+                        nebOnEl.removeClass('warn');
+                        nebOnEl.prop('title',`ON`);
                     }
                     used_support += operating;
                     int_on[structs[i]] = operating;
@@ -2946,11 +2977,12 @@ function fastLoop(){
                 global.eden.pillbox.staffed = 0;
             }
 
+            let pillOnEl = $(`#eden-pillbox .on`);
             if (global.eden.pillbox.staffed < p_on['pillbox'] * pillsize){
-                $(`#eden-pillbox .on`).addClass('warn');
+                pillOnEl.addClass('warn');
             }
             else {
-                $(`#eden-pillbox .on`).removeClass('warn')
+                pillOnEl.removeClass('warn')
             }
         }
 
@@ -3096,13 +3128,14 @@ function fastLoop(){
                             }
                         }
 
+                        let andrOnEl = $(`#${id} .on`);
                         if (operating < num_on){
-                            $(`#${id} .on`).addClass('warn');
-                            $(`#${id} .on`).prop('title',`ON ${operating}/${num_on}`);
+                            andrOnEl.addClass('warn');
+                            andrOnEl.prop('title',`ON ${operating}/${num_on}`);
                         }
                         else {
-                            $(`#${id} .on`).removeClass('warn');
-                            $(`#${id} .on`).prop('title',`ON`);
+                            andrOnEl.removeClass('warn');
+                            andrOnEl.prop('title',`ON`);
                         }
 
                         used_support += operating * operating_cost;

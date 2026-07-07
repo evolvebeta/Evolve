@@ -1117,6 +1117,9 @@ export function vBind(bind,action){
         return vBindNative(bind,'create');
     }
     if (action === 'update'){
+        // During offline catch-up the whole UI sits behind the progress modal and reactivity is
+        // suppressed; skip the ~70 forced re-renders per simulated tick and refresh once at the end.
+        if (webWorker.offline){ return; }
         // An 'update' call carries only { el } — no data/methods/template — so it can
         // only refresh a binding that already exists. Refresh a live one; otherwise
         // rebuild it from the config stashed at create time (see __vue_bind__ below).
