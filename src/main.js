@@ -1,4 +1,4 @@
-import { global, save, seededRandom, webWorker, intervals, keyMap, atrack, resizeGame, breakdown, sizeApproximation, keyMultiplier, power_generated, p_on, support_on, int_on, gal_on, spire_on, set_qlevel, quantum_level, callback_queue, active_rituals } from './vars.js';
+import { global, save, seededRandom, webWorker, intervals, keyMap, atrack, resizeGame, breakdown, sizeApproximation, keyMultiplier, power_generated, p_on, support_on, int_on, gal_on, spire_on, set_qlevel, quantum_level, callback_queue, active_rituals, suppressReactivity, restoreReactivity } from './vars.js';
 import { loc } from './locale.js';
 import { unlockAchieve, checkAchievements, drawAchieve, alevel, universeAffix, challengeIcon, unlockFeat, checkAdept } from './achieve.js';
 import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, resetResBuffer, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, deepClone, exceededATimeThreshold, loopTimers, calcQuantumLevel, drawPet } from './functions.js';
@@ -922,6 +922,9 @@ function processOfflineTime(){
 function runOfflineCatchup(totalSteps, daysPerStep, creditedMinutes){
     webWorker.offline = true;
     webWorker.offlineScale = daysPerStep;
+    // Drop Vue reactivity for the whole simulation so the thousands of state mutations don't each
+    // fire a reactivity trigger; restored in finalize() and the UI refreshes once afterward.
+    suppressReactivity();
     let cancelled = false;
     let overlay = drawOfflineModal(function(){ cancelled = true; });
 
@@ -932,6 +935,7 @@ function runOfflineCatchup(totalSteps, daysPerStep, creditedMinutes){
     // credited-time summary or, when cancelled, just close the popup.
     const finalize = function(cancelledEarly){
         clearPopper();      // remove the cancel-button tooltip before tearing down the modal
+        restoreReactivity();  // re-wrap global before live play resumes; the UI refreshes next tick
         webWorker.offline = false;
         webWorker.offlineScale = 1;
         if (!global.race.hasOwnProperty('geck')){
@@ -950,7 +954,15 @@ function runOfflineCatchup(totalSteps, daysPerStep, creditedMinutes){
         if (cancelled){ finalize(true); return; }
 
         const batch = Math.min(chunk, totalSteps - done);
-        execGameLoops(batch, true);
+        try {
+            execGameLoops(batch, true);
+        }
+        catch (e){
+            // Never leave reactivity suppressed if a simulated tick throws.
+            console.error('Offline catch-up error:', e);
+            finalize(true);
+            return;
+        }
         done += batch;
 
         const pct = Math.floor(done / totalSteps * 100);
