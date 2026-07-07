@@ -7559,10 +7559,10 @@ export function ascendLab(hybrid,wiki){
     let unlockedTraits = {};
     let lab = $(`<div id="celestialLab" class="celestialLab"></div>`);
 
-    let wikiVars = {
+    let wikiVars = Vue.reactive({
         ascended: {},
         technophobe: global.stats.achieve['technophobe'] && global.stats.achieve.technophobe.l ? global.stats.achieve.technophobe.l : 0
-    };
+    });
 
     if (isWiki){
         wiki.append(lab);
@@ -7687,6 +7687,12 @@ export function ascendLab(hybrid,wiki){
         }
     }
 
+    // Wrap the closure data object in a reactive proxy at its source so programmatic
+    // mutations (e.g. geneEdit's genome.genes = ...) are tracked. Without this, direct
+    // writes to the raw object update the value but never re-render (the wiki has no
+    // per-tick $forceUpdate loop to mask it), so the genes-remaining count went stale.
+    genome = Vue.reactive(genome);
+
     let taxomized = { utility: {}, resource: {}, production: {}, combat: {}, all: {} };;
     Object.keys(races).forEach(function (race){
         let type = races[race].type;
@@ -7714,22 +7720,22 @@ export function ascendLab(hybrid,wiki){
         }
     }
 
-    let trait_listing = $(`<b-tabs v-model="tt.t" @input="swapTab"></b-tabs>`);
+    let trait_listing = $(`<b-tabs v-model="tt.t" @update:model-value="swapTab"></b-tabs>`);
     let all_listing = ``;
     Object.keys(taxomized).sort().forEach(function (tax){
         if (tax === 'all'){
             return;
         }
         let negative = '';
-        let trait_list_header = `<b-tab-item><template slot="header"><h2 class="is-sr-only">${loc(`genelab_traits_${tax}`)}}</h2><span aria-hidden="true">${loc(`genelab_traits_${tax}`)}</span></template>`;
+        let trait_list_header = `<b-tab-item><template #header><h2 class="is-sr-only">${loc(`genelab_traits_${tax}`)}}</h2><span aria-hidden="true">${loc(`genelab_traits_${tax}`)}</span></template>`;
         let trait_list = ``;
         Object.keys(taxomized[tax]).sort().forEach(function (trait){
             if (traits.hasOwnProperty(trait) && traits[trait].type === 'major'){
                 if (traits[trait].val >= 0){
-                    trait_list += `<div class="field t${trait}"><b-checkbox :disabled="allowed('${trait}')" @input="geneEdit()" v-model="g.traitlist" native-value="${trait}"><span class="has-text-success">${loc(`trait_${trait}_name`)}</span> (<span class="has-text-advanced">{{ cost('${trait}') }}</span><span v-html="empower(g.traitlist,'${trait}')"></span>)</b-checkbox></div>`;
+                    trait_list += `<div class="field t${trait}"><b-checkbox :disabled="allowed('${trait}')" @update:model-value="geneEdit()" v-model="g.traitlist" native-value="${trait}"><span class="has-text-success">${loc(`trait_${trait}_name`)}</span> (<span class="has-text-advanced">{{ cost('${trait}') }}</span><span v-html="empower(g.traitlist,'${trait}')"></span>)</b-checkbox></div>`;
                 }
                 else {
-                    negative += `<div class="field t${trait}"><b-checkbox :disabled="allowed('${trait}')" @input="geneEdit()" v-model="g.traitlist" native-value="${trait}"><span class="has-text-danger">${loc(`trait_${trait}_name`)}</span> (<span class="has-text-caution">{{ cost('${trait}') }}</span><span v-html="empower(g.traitlist,'${trait}')"></span>)</b-checkbox></div>`;
+                    negative += `<div class="field t${trait}"><b-checkbox :disabled="allowed('${trait}')" @update:model-value="geneEdit()" v-model="g.traitlist" native-value="${trait}"><span class="has-text-danger">${loc(`trait_${trait}_name`)}</span> (<span class="has-text-caution">{{ cost('${trait}') }}</span><span v-html="empower(g.traitlist,'${trait}')"></span>)</b-checkbox></div>`;
                 }
             }
         });
@@ -7739,10 +7745,10 @@ export function ascendLab(hybrid,wiki){
         all_listing += `<h3>${loc(`genelab_traits_${tax}`)}</h3>` + `<div class="lame trait_selection">` + trait_list + negative + `</div>`;
     });
 
-    let summary = `<b-tab-item id="traitSummary"><template slot="header"><h2 class="is-sr-only">${loc(`genelab_traits_summary`)}}</h2><span aria-hidden="true">${loc(`genelab_traits_summary`)}</span></template></b-tab-item>`;
+    let summary = `<b-tab-item id="traitSummary"><template #header><h2 class="is-sr-only">${loc(`genelab_traits_summary`)}}</h2><span aria-hidden="true">${loc(`genelab_traits_summary`)}</span></template></b-tab-item>`;
     trait_listing.append(summary);
 
-    let allListing = `<b-tab-item id="traitAll"><template slot="header"><h2 class="is-sr-only">${loc(`genelab_traits_all`)}}</h2><span aria-hidden="true">${loc(`genelab_traits_all`)}</span></template>${all_listing}<h3>${loc(`genelab_traits_summary`)}</h3><div id="allSum"></div></b-tab-item>`;
+    let allListing = `<b-tab-item id="traitAll"><template #header><h2 class="is-sr-only">${loc(`genelab_traits_all`)}}</h2><span aria-hidden="true">${loc(`genelab_traits_all`)}</span></template>${all_listing}<h3>${loc(`genelab_traits_summary`)}</h3><div id="allSum"></div></b-tab-item>`;
     trait_listing.append(allListing);
 
     genes.append(trait_listing);
@@ -7769,10 +7775,10 @@ export function ascendLab(hybrid,wiki){
     lab.append(buttons);
 
     genome.genes = calcGenomeScore(genome,(isWiki ? wikiVars : false));
-    let error = { msg: "" };
+    let error = Vue.reactive({ msg: "" });
 
     let tRanks = genome.ranks;
-    let activeTab = { t: 0 };
+    let activeTab = Vue.reactive({ t: 0 });
     vBind({
         el: '#celestialLab',
         data: {
@@ -7801,14 +7807,20 @@ export function ascendLab(hybrid,wiki){
                 }
             },
             geneEdit(){
-                let newRanks = genome.traitlist.map(x => tRanks[x] ? { [x]: tRanks[x] } : { [x]: 1 });
-                let ranks = {};
-                newRanks.forEach(function(k){ Object.keys(k).forEach(function(t){ ranks[t] = k[t] }) });
-                tRanks = ranks;
-                genome.genes = calcGenomeScore(genome,(isWiki ? wikiVars : false),tRanks);
-                if (activeTab.t === 5){
-                    summaryTab(5);
-                }
+                // Defer to the next tick: on this same update:model-value event, v-model
+                // also updates g.traitlist, and that assignment can run after this handler.
+                // Recomputing now would read the pre-toggle trait list, leaving the genes
+                // count one interaction behind. nextTick runs after the model settles.
+                Vue.nextTick(() => {
+                    let newRanks = genome.traitlist.map(x => tRanks[x] ? { [x]: tRanks[x] } : { [x]: 1 });
+                    let ranks = {};
+                    newRanks.forEach(function(k){ Object.keys(k).forEach(function(t){ ranks[t] = k[t] }) });
+                    tRanks = ranks;
+                    genome.genes = calcGenomeScore(genome,(isWiki ? wikiVars : false),tRanks);
+                    if (activeTab.t === 5){
+                        summaryTab(5);
+                    }
+                });
             },
             setRace(){
                 if (genome.fanaticism && !genome.traitlist.includes(genome.fanaticism)){ return false; }

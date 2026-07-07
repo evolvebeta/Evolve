@@ -6519,7 +6519,7 @@ export function drawMechLab(){
 
         assemble.append(options);
 
-        assemble.append(`<div class="mechAssemble"><button class="button is-info" slot="trigger" v-on:click="build()"><span>${global.race['warlord'] ? loc('portal_mech_summon') : loc('portal_mech_construct')}</span></button></div>`);
+        assemble.append(`<div class="mechAssemble"><button class="button is-info" v-on:click="build()"><span>${global.race['warlord'] ? loc('portal_mech_summon') : loc('portal_mech_construct')}</span></button></div>`);
 
         vBind({
             el: '#mechAssembly',

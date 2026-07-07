@@ -867,10 +867,10 @@ function decayCalc(info){
     
     let dropdown = `
         <div class="calcInput"><span>${loc('wiki_calc_decay_resource')}</span> <b-dropdown hoverable scrollable>
-            <button class="button is-primary" slot="trigger">
+            <template #trigger><button class="button is-primary">
                 <span>{{ resLabel(i.resource.val) }}</span>
                 <i class="fas fa-sort-down"></i>
-            </button>
+            </button></template>
     `;
     Object.keys(tradeRatio).forEach(function (res){
         dropdown += `

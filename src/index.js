@@ -1274,14 +1274,14 @@ export function index(){
             </b-dropdown>
         </div>
 
-        <b-switch class="setting" v-model="s.pause" @input="unpause"><span class="settings12" aria-label="${loc('settings12')}">{{ label('pause') }}</span></b-switch>
+        <b-switch class="setting" v-model="s.pause" @update:model-value="unpause"><span class="settings12" aria-label="${loc('settings12')}">{{ label('pause') }}</span></b-switch>
         <b-switch class="setting" v-model="s.mKeys"><span class="settings1" aria-label="${loc('settings1')}">{{ label('m_keys') }}</span></b-switch>
         <b-switch class="setting" v-model="s.cLabels"><span class="settings5" aria-label="${loc('settings5')}">{{ label('c_cat') }}</span></b-switch>
         <b-switch class="setting" v-model="s.alwaysPower"><span class="settings17" aria-label="${loc('settings17')}">{{ label('always_power') }}</span></b-switch>
         <b-switch class="setting" v-model="s.qKey"><span class="settings6" aria-label="${loc('settings6')}">{{ label('q_key') }}</span></b-switch>
         <b-switch class="setting" v-model="s.qAny"><span class="settings7" aria-label="${loc('settings7')}">{{ label('q_any') }}</span></b-switch>
         <b-switch class="setting" v-model="s.qAny_res"><span class="settings14" aria-label="${loc('settings14')}">{{ label('q_any_res') }}</span></b-switch>
-        <b-switch class="setting" v-model="s.sPackOn" @input="stringPackOn"><span class="settings13" aria-label="${loc('settings13')}">{{ label('s_pack_on') }}</span></b-switch>
+        <b-switch class="setting" v-model="s.sPackOn" @update:model-value="stringPackOn"><span class="settings13" aria-label="${loc('settings13')}">{{ label('s_pack_on') }}</span></b-switch>
         <b-switch class="setting" v-model="s.expose"><span class="settings8" aria-label="${loc('settings8')}">{{ label('expose') }}</span></b-switch>
         <b-switch class="setting" v-model="s.tabLoad" @update:model-value="toggleTabLoad"><span class="settings11" aria-label="${loc('settings11')}">{{ label('tabLoad') }}</span></b-switch>
         <b-switch class="setting" v-model="s.boring"><span class="settings10" aria-label="${loc('settings10')}">{{ label('boring') }}</span></b-switch>
@@ -1327,20 +1327,18 @@ export function index(){
             <span class="drive-note" v-show="!driveOn()">${loc('drive_setup_hint')}</span>
         </div>
         <div class="reset">
-            <b-collapse :open="false">
-                <b-switch v-model="s.disableReset" slot="trigger">{{ label('enable_reset') }}</b-switch>
-                <div class="notification">
-                    <div class="content">
-                        <h4 class="has-text-danger">
-                            {{ label('reset_warn') }}
-                        </h4>
-                        <p>
-                            <button class="button" :disabled="!s.disableReset" @click="softResetGame()"><span class="settings4" aria-label="${loc('settings4')}">{{ label('reset_soft') }}</span></button>
-                            <button class="button right" :disabled="!s.disableReset" @click="resetGame()"><span class="settings3" aria-label="${loc('settings3')}">{{ label('reset_hard') }}</span></button>
-                        </p>
-                    </div>
+            <b-switch v-model="s.disableReset">{{ label('enable_reset') }}</b-switch>
+            <div class="notification" v-show="s.disableReset">
+                <div class="content">
+                    <h4 class="has-text-danger">
+                        {{ label('reset_warn') }}
+                    </h4>
+                    <p>
+                        <button class="button" :disabled="!s.disableReset" @click="softResetGame()"><span class="settings4" aria-label="${loc('settings4')}">{{ label('reset_soft') }}</span></button>
+                        <button class="button right" :disabled="!s.disableReset" @click="resetGame()"><span class="settings3" aria-label="${loc('settings3')}">{{ label('reset_hard') }}</span></button>
+                    </p>
                 </div>
-            </b-collapse>
+            </div>
         </div>
     </b-tab-item>`);
 
@@ -1348,7 +1346,7 @@ export function index(){
 
     // (Hidden Last Tab) Hell Observation Tab
     let observe = $(`<b-tab-item disabled>
-        <template slot="header"></template>
+        <template #header></template>
         <div id="mTabObserve"></div>
     </b-tab-item>`);
     tabs.append(observe);
