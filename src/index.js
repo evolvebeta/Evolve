@@ -245,7 +245,7 @@ export function mainVue(){
         }
     });
 
-    ['1','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17'].forEach(function(k){
+    ['1','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18'].forEach(function(k){
         popover(`settings${k}`, function(){
                 return loc(`settings${k}`);
             },
@@ -1275,6 +1275,7 @@ export function index(){
         </div>
 
         <b-switch class="setting" v-model="s.pause" @update:model-value="unpause"><span class="settings12" aria-label="${loc('settings12')}">{{ label('pause') }}</span></b-switch>
+        <b-switch class="setting" v-model="s.pauseOnLoad"><span class="settings18" aria-label="${loc('settings18')}">{{ label('pause_load') }}</span></b-switch>
         <b-switch class="setting" v-model="s.mKeys"><span class="settings1" aria-label="${loc('settings1')}">{{ label('m_keys') }}</span></b-switch>
         <b-switch class="setting" v-model="s.cLabels"><span class="settings5" aria-label="${loc('settings5')}">{{ label('c_cat') }}</span></b-switch>
         <b-switch class="setting" v-model="s.alwaysPower"><span class="settings17" aria-label="${loc('settings17')}">{{ label('always_power') }}</span></b-switch>
