@@ -129,10 +129,10 @@ function addCosts(parent,key){
     if (key === 'monument'){
         calcInputs += `
                 <div class="calcInput"><span>${loc('wiki_calc_m_type')}</span> <b-dropdown hoverable>
-                    <button class="button is-primary" slot="trigger">
+                    <template #trigger><button class="button is-primary">
                         <span>{{ monumentLabel(i.extra.m_type) }}</span>
                         <i class="fas fa-sort-down"></i>
-                    </button>
+                    </button></template>
                     <b-dropdown-item v-on:click="pickMonument('Obelisk')">{{ monumentLabel('Obelisk') }}</b-dropdown-item>
                     <b-dropdown-item v-on:click="pickMonument('Statue')">{{ monumentLabel('Statue') }}</b-dropdown-item>
                     <b-dropdown-item v-on:click="pickMonument('Sculpture')">{{ monumentLabel('Sculpture') }}</b-dropdown-item>

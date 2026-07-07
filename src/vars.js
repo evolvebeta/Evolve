@@ -1298,7 +1298,7 @@ if (convertVersion(global['version']) < 104009){
 
 global['version'] = '1.5.0';
 delete global['revision'];
-global['beta'] = 3;
+global['beta'] = 4;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -1564,6 +1564,9 @@ if (typeof global.settings.tabLoad === 'undefined'){
 }
 if (typeof global.settings.boring === 'undefined'){
     global.settings['boring'] = false;
+}
+if (typeof global.settings.pauseOnLoad === 'undefined'){
+    global.settings['pauseOnLoad'] = false;
 }
 if (!global.settings.hasOwnProperty('mtorder')){
     global.settings['mtorder'] = [];

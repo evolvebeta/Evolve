@@ -525,6 +525,12 @@ popover('powerStatus',function(obj){
     }
 );
 
+// "Pause on load" setting: always start paused when the game is opened, regardless of the
+// saved pause state, so offline time is not credited until the player unpauses.
+if (global.settings.pauseOnLoad){
+    global.settings.pause = true;
+}
+
 if (global.settings.pause){
     $(`#pausegame`).addClass('pause');
 }
@@ -892,6 +898,9 @@ function processOfflineTime(){
     const weekCap = 604800000;      // cap credited offline time at 1 week of real time
     if (elapsed < minThreshold){ return; }
     if (elapsed > weekCap){ elapsed = weekCap; }
+    // During the evolution stage, cap credited offline time at 12 hours.
+    const evoCap = 43200000;        // 12 hours
+    if (global.race.species === 'protoplasm' && elapsed > evoCap){ elapsed = evoCap; }
 
     const longMs = loopTimers().baseLongTimer;      // real ms per long loop (one game day)
     const missedLong = Math.floor(elapsed / longMs);
@@ -913,12 +922,33 @@ function processOfflineTime(){
 function runOfflineCatchup(totalSteps, daysPerStep, creditedMinutes){
     webWorker.offline = true;
     webWorker.offlineScale = daysPerStep;
-    let overlay = drawOfflineModal();
+    let cancelled = false;
+    let overlay = drawOfflineModal(function(){ cancelled = true; });
 
     const chunk = 100;    // steps simulated per animation frame
     let done = 0;
 
+    // Restore live-play state, persist the (possibly partial) result, and either show the
+    // credited-time summary or, when cancelled, just close the popup.
+    const finalize = function(cancelledEarly){
+        clearPopper();      // remove the cancel-button tooltip before tearing down the modal
+        webWorker.offline = false;
+        webWorker.offlineScale = 1;
+        if (!global.race.hasOwnProperty('geck')){
+            save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
+        }
+        if (cancelledEarly){
+            // global.stats.current was already advanced to now, so uncalculated time is forfeit.
+            overlay.remove();
+        }
+        else {
+            finishOfflineModal(overlay, creditedMinutes);
+        }
+    };
+
     const step = function(){
+        if (cancelled){ finalize(true); return; }
+
         const batch = Math.min(chunk, totalSteps - done);
         execGameLoops(batch, true);
         done += batch;
@@ -931,26 +961,30 @@ function runOfflineCatchup(totalSteps, daysPerStep, creditedMinutes){
             setTimeout(step, 0);
         }
         else {
-            webWorker.offline = false;
-            webWorker.offlineScale = 1;
-            if (!global.race.hasOwnProperty('geck')){
-                save.setItem('evolved',LZString.compressToUTF16(JSON.stringify(global)));
-            }
-            finishOfflineModal(overlay, creditedMinutes);
+            finalize(false);
         }
     };
     setTimeout(step, 0);
 }
 
-function drawOfflineModal(){
+function drawOfflineModal(onCancel){
     $('#offlineModal').remove();
     let overlay = $(`<div id="offlineModal"><div class="offlineBox">`
         + `<p class="offlineTitle has-text-warning">${loc('offline_time_title')}</p>`
         + `<p class="offlineMsg">${loc('offline_time_progress')}</p>`
         + `<div class="offlineBar"><div id="offlineProg" class="offlineProg"></div></div>`
         + `<p id="offlineProgTxt" class="offlineMsg">0%</p>`
+        + `<button id="offlineCancel" class="button">${loc('offline_time_cancel')}</button>`
         + `</div></div>`);
     $('body').append(overlay);
+    if (onCancel){ overlay.find('#offlineCancel').on('click', onCancel); }
+    // Styled tooltip warning that cancelling forfeits uncalculated gains. Attach the popper
+    // inside the modal so it renders above the overlay, which sits above #main's z-index.
+    popover('offlineCancel', function(){ return loc('offline_time_cancel_desc'); }, {
+        elm: '#offlineCancel',
+        attach: '#offlineModal',
+        placement: 'top'
+    });
     return overlay;
 }
 
@@ -989,7 +1023,12 @@ if (window.Worker){
         }
     }, false);
 }
-gameLoop('start');
+// Don't start the loop while paused: a running longLoop would advance global.stats.current
+// to now and erase the offline gap before the player unpauses. Unpausing starts the loop
+// (and runs offline catch-up) via the unpause handler.
+if (!global.settings.pause){
+    gameLoop('start');
+}
 // Let index.js's unpause handler trigger offline catch-up without importing main.js.
 registerOfflineHandler(processOfflineTime);
 processOfflineTime();

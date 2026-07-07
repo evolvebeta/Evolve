@@ -7671,9 +7671,11 @@ export function shapeShift(genus,setup,forceClean){
 
         $('#sshifter').append(
             `<span>${loc(`trait_shapeshifter_name`)}</span>: <b-dropdown hoverable scrollable>
-            <button class="button is-primary" slot="trigger">
+            <template #trigger>
+            <button class="button is-primary">
                 <span>{{ genus(ss_genus) }}</span>
             </button>
+            </template>
             <b-dropdown-item v-on:click="setShape('none')">{{ genus('none') }}</b-dropdown-item>${drop}
         </b-dropdown>`);
 
@@ -9044,12 +9046,12 @@ function ocularPower(parent){
     let powers = $(`<div class="flexWrap"></div>`);
     container.append(powers);
 
-    powers.append(`<div id="oculardisintegration" class="chk"><b-checkbox v-model="d" @input="pow('d')">${loc(`ocular_disintegration`)}</b-checkbox></div>`);
-    powers.append(`<div id="ocularpetrification" class="chk"><b-checkbox v-model="p" @input="pow('p')">${loc(`ocular_petrification`)}</b-checkbox></div>`);
-    powers.append(`<div id="ocularwound" class="chk"><b-checkbox v-model="w" @input="pow('w')">${loc(`ocular_wound`)}</b-checkbox></div>`);
-    powers.append(`<div id="oculartelekinesis" class="chk"><b-checkbox v-model="t" @input="pow('t')">${loc(`ocular_telekinesis`)}</b-checkbox></div>`);
-    powers.append(`<div id="ocularfear" class="chk"><b-checkbox v-model="f" @input="pow('f')">${loc(`ocular_fear`)}</b-checkbox></div>`);
-    powers.append(`<div id="ocularcharm" class="chk"><b-checkbox v-model="c" @input="pow('c')">${loc(`ocular_charm`)}</b-checkbox></div>`);
+    powers.append(`<div id="oculardisintegration" class="chk"><b-checkbox v-model="d" @update:model-value="pow('d')">${loc(`ocular_disintegration`)}</b-checkbox></div>`);
+    powers.append(`<div id="ocularpetrification" class="chk"><b-checkbox v-model="p" @update:model-value="pow('p')">${loc(`ocular_petrification`)}</b-checkbox></div>`);
+    powers.append(`<div id="ocularwound" class="chk"><b-checkbox v-model="w" @update:model-value="pow('w')">${loc(`ocular_wound`)}</b-checkbox></div>`);
+    powers.append(`<div id="oculartelekinesis" class="chk"><b-checkbox v-model="t" @update:model-value="pow('t')">${loc(`ocular_telekinesis`)}</b-checkbox></div>`);
+    powers.append(`<div id="ocularfear" class="chk"><b-checkbox v-model="f" @update:model-value="pow('f')">${loc(`ocular_fear`)}</b-checkbox></div>`);
+    powers.append(`<div id="ocularcharm" class="chk"><b-checkbox v-model="c" @update:model-value="pow('c')">${loc(`ocular_charm`)}</b-checkbox></div>`);
 
     vBind({
         el: `#ocularPower`,
@@ -9275,7 +9277,7 @@ function psychicAssault(parent){
     parent.append(container);
 
     container.append($(`<div class="header">${loc('psychic_assault_title')} <span v-html="boostTime()"></span></div>`));
-    container.append(`<div><b-button v-html="boost()" @click="boostVal()"></b-button></div>`);
+    container.append(`<div><b-button v-html="btnLabel()" @click="boostVal()"></b-button></div>`);
 
     if (global.tech.psychic >= 4){
         let channel = $(`<div class="gap">${loc('psychic_channel')}</div>`);
@@ -9322,7 +9324,7 @@ function psychicAssault(parent){
                     }
                 }
             },
-            boost(){
+            btnLabel(){
                 return loc(`psychic_boost_button`,[loc(`psychic_attack`),cost]);
             },
             boostTime(){
@@ -9345,7 +9347,7 @@ function psychicFinance(parent){
     parent.append(container);
 
     container.append($(`<div class="header">${loc('psychic_profit_title')} <span v-html="boostTime()"></span></div>`));
-    container.append(`<div><b-button v-html="boost()" @click="boostVal()"></b-button></div>`);
+    container.append(`<div><b-button v-html="btnLabel()" @click="boostVal()"></b-button></div>`);
 
     if (global.tech.psychic >= 4){
         let channel = $(`<div class="gap">${loc('psychic_channel')}</div>`);
@@ -9392,7 +9394,7 @@ function psychicFinance(parent){
                     }
                 }
             },
-            boost(){
+            btnLabel(){
                 return loc(`psychic_boost_button`,[loc(`psychic_profit`),cost]);
             },
             boostTime(){
@@ -9415,7 +9417,7 @@ function psychicMindBreak(parent){
     parent.append(container);
 
     container.append($(`<div class="header">${loc('psychic_mind_break_title')}</div>`));
-    container.append(`<div><b-button v-html="break()" @click="breakMind()"></b-button></div>`);
+    container.append(`<div><b-button v-html="btnLabel()" @click="breakMind()"></b-button></div>`);
 
     let cost = global.tech.psychic >= 5 ? 64 : 80;
     vBind({
@@ -9442,7 +9444,7 @@ function psychicMindBreak(parent){
                     }
                 }
             },
-            break(){
+            btnLabel(){
                 return loc(`psychic_mind_break_button`,[cost]);
             }
         }
@@ -9462,7 +9464,7 @@ function psychicCapture(parent){
     parent.append(container);
 
     container.append($(`<div class="header">${loc('psychic_stun_title')}</div>`));
-    container.append(`<div><b-button v-html="break()" @click="stun()"></b-button></div>`);
+    container.append(`<div><b-button v-html="btnLabel()" @click="stun()"></b-button></div>`);
 
     let cost = global.tech.psychic >= 5 ? 80 : 100;
     vBind({
@@ -9487,7 +9489,7 @@ function psychicCapture(parent){
                     }
                 }
             },
-            break(){
+            btnLabel(){
                 return loc(`psychic_stun_button`,[cost]);
             }
         }

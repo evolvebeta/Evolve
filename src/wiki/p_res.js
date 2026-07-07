@@ -421,10 +421,10 @@ export function prestigeCalc(info,resource,extraType,resetType){
             <div class="calcInput" v-show="i.floor.use"><span>${loc('wiki_calc_floor')}</span> <b-numberinput :input="val('floor')" min="0" v-model="i.floor.val" :controls="false"></b-numberinput></div>
             <div class="calcInput" v-show="i.genes.use"><span>${loc('wiki_calc_genes')}</span> <b-numberinput :input="val('genes')" min="0" max="4" v-model="i.genes.val" :controls="false"></b-numberinput></div>
             <div class="calcInput" v-show="i.reset.use"><span>${loc('wiki_calc_prestige')}</span> <b-dropdown hoverable>
-                <button class="button is-primary" slot="trigger">
+                <template #trigger><button class="button is-primary">
                     <span>{{ resetLabel(i.reset.val) }}</span>
                     <i class="fas fa-sort-down"></i>
-                </button>
+                </button></template>
                 <b-dropdown-item v-show="r.mad.use" v-on:click="pickReset('mad')">{{ resetLabel('mad') }}</b-dropdown-item>
                 <b-dropdown-item v-show="r.bioseed.use" v-on:click="pickReset('bioseed')">{{ resetLabel('bioseed') }}</b-dropdown-item>
                 <b-dropdown-item v-show="r.cataclysm.use" v-on:click="pickReset('cataclysm')">{{ resetLabel('cataclysm') }}</b-dropdown-item>
@@ -439,10 +439,10 @@ export function prestigeCalc(info,resource,extraType,resetType){
                 <b-dropdown-item v-show="r.eden.use" v-on:click="pickReset('eden')">{{ resetLabel('eden') }}</b-dropdown-item>
             </b-dropdown></div>
             <div class="calcInput" v-show="i.uni.use"><span>${loc('wiki_calc_universe')}</span> <b-dropdown hoverable>
-                <button class="button is-primary" slot="trigger">
+                <template #trigger><button class="button is-primary">
                     <span>{{ uniLabel(i.uni.val) }}</span>
                     <i class="fas fa-sort-down"></i>
-                </button>
+                </button></template>
                 <b-dropdown-item v-show="u.standard.use" v-on:click="pickUniverse('standard')">{{ uniLabel('standard') }}</b-dropdown-item>
                 <b-dropdown-item v-show="u.evil.use" v-on:click="pickUniverse('evil')">{{ uniLabel('evil') }}</b-dropdown-item>
                 <b-dropdown-item v-show="u.antimatter.use" v-on:click="pickUniverse('antimatter')">{{ uniLabel('antimatter') }}</b-dropdown-item>
@@ -451,10 +451,10 @@ export function prestigeCalc(info,resource,extraType,resetType){
                 <b-dropdown-item v-show="u.magic.use" v-on:click="pickUniverse('magic')">{{ uniLabel('magic') }}</b-dropdown-item>
             </b-dropdown></div>
             <div class="calcInput" v-show="i.high_pop.use"><span>${loc('trait_high_pop_name')}</span> <b-dropdown hoverable>
-                <button class="button is-primary" slot="trigger">
+                <template #trigger><button class="button is-primary">
                     <span>{{ highPopLabel(i.high_pop.val) }}</span>
                     <i class="fas fa-sort-down"></i>
-                </button>
+                </button></template>
                 <b-dropdown-item v-on:click="pickHighPop(0)">{{ highPopLabel(0) }}</b-dropdown-item>
                 <b-dropdown-item v-on:click="pickHighPop(0.25)">{{ highPopLabel(0.25) }}</b-dropdown-item>
                 <b-dropdown-item v-on:click="pickHighPop(0.5)">{{ highPopLabel(0.5) }}</b-dropdown-item>
@@ -990,10 +990,10 @@ function storeBonusCalc(info,type){
         <div>
             <div class="calcInput"><span>${titlePlural}</span> <b-numberinput :input="val()" min="0" v-model="i.res.val" :controls="false"></b-numberinput></div>
             <div class="calcInput"><span>${loc('wiki_tech_special_crispr',[loc('wiki_arpa_crispr_store')])}</span> <b-dropdown hoverable>
-                <button class="button is-primary" slot="trigger">
+                <template #trigger><button class="button is-primary">
                     <span>{{ storeLabel(i.store.val) }}</span>
                     <i class="fas fa-sort-down"></i>
-                </button>
+                </button></template>
                 <b-dropdown-item v-on:click="pickStore(0)">{{ storeLabel(0) }}</b-dropdown-item>
                 <b-dropdown-item v-on:click="pickStore(1)">{{ storeLabel(1) }}</b-dropdown-item>
                 <b-dropdown-item v-on:click="pickStore(2)">{{ storeLabel(2) }}</b-dropdown-item>
@@ -1157,10 +1157,10 @@ function darkBonusCalc(info){
 
     universe.append(`
             <div class="calcInput"><span>${loc('wiki_calc_universe')}</span> <b-dropdown hoverable>
-                <button class="button is-primary" slot="trigger">
+                <template #trigger><button class="button is-primary">
                     <span>{{ uniLabel(i.uni.val) }}</span>
                     <i class="fas fa-sort-down"></i>
-                </button>
+                </button></template>
                 <b-dropdown-item v-on:click="pickUniverse('standard')">{{ uniLabel('standard') }}</b-dropdown-item>
                 <b-dropdown-item v-on:click="pickUniverse('evil')">{{ uniLabel('evil') }}</b-dropdown-item>
                 <b-dropdown-item v-on:click="pickUniverse('antimatter')">{{ uniLabel('antimatter') }}</b-dropdown-item>
