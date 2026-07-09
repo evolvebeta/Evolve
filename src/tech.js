@@ -14326,6 +14326,70 @@ const techs = {
             return false;
         }
     },
+    plague_inoculation: {
+        id: 'tech-plague_inoculation',
+        title: loc('tech_plague_inoculation'),
+        desc: loc('tech_plague_inoculation'),
+        category: 'progress',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { tau_gas2: 8, m_ignite: 2 },
+        grant: ['resettle',1],
+        cost: {
+            Knowledge(){ return 17500000; }
+        },
+        effect(){ return loc('tech_plague_inoculation_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.tauceti.tau_gas2.adv_shipyard);
+                return true;
+            }
+            return false;
+        }
+    },
+    element_zero: {
+        id: 'tech-element_zero',
+        title: loc('tech_element_zero'),
+        desc: loc('tech_element_zero'),
+        category: 'progress',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { tau_gas2: 8, m_ignite: 2 },
+        grant: ['m_ignite',3],
+        cost: {
+            Knowledge(){ return 17500000; }
+        },
+        effect(){ return loc('tech_element_zero_effect',[global.resource.Positronium.name]); },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.tauceti.tau_gas2.mass_relay);
+                initStruct(actions.tauceti.tau_roid.synthesizer);
+                global.resource.Positronium.display = true;
+                return true;
+            }
+            return false;
+        }
+    },
+    patrol_routes: {
+        id: 'tech-patrol_routes',
+        title: loc('tech_patrol_routes'),
+        desc: loc('tech_patrol_routes'),
+        category: 'space_mining',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { m_ignite: 3 },
+        grant: ['m_ignite',4],
+        cost: {
+            Knowledge(){ return 18500000; }
+        },
+        effect(){ return loc('tech_patrol_routes_effect',[loc(`space_belt_info_name`)]); },
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
     replicator: {
         id: 'tech-replicator',
         title(){ return global.race.universe === 'antimatter' ? loc('tech_antireplicator') : loc('tech_replicator'); },

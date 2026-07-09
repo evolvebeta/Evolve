@@ -1373,7 +1373,7 @@ function fastLoop(){
         'Money','Knowledge','Omniscience','Food','Lumber','Stone','Chrysotile','Crystal','Furs','Copper','Iron',
         'Cement','Coal','Oil','Uranium','Aluminium','Steel','Titanium','Alloy','Polymer','Iridium','Helium_3',
         'Water','Deuterium','Neutronium','Adamantite','Infernite','Elerium','Nano_Tube','Graphene','Stanene',
-        'Bolognium','Vitreloy','Orichalcum','Asphodel_Powder','Elysanite','Unobtainium','Quantium',
+        'Bolognium','Vitreloy','Orichalcum','Asphodel_Powder','Elysanite','Unobtainium','Positronium','Quantium',
         'Plywood','Brick','Wrought_Iron','Sheet_Metal','Mythril','Aerogel','Nanoweave','Scarletite',
         'Cipher','Nanite','Mana','Authority'
     ];
@@ -2363,6 +2363,17 @@ function fastLoop(){
             }
         }
 
+        if (global.tauceti['tcm_relay']){
+            if (p_on['tcm_relay']){
+                if (global.tauceti.tcm_relay.charged < 10000){
+                    global.tauceti.tcm_relay.charged++;
+                }
+            }
+            else {
+                global.tauceti.tcm_relay.charged = 0;
+            }
+        }
+
         // Troop Lander
         if (global.space['fob'] && global.space['lander']){
             if (p_on['fob']){
@@ -3016,7 +3027,7 @@ function fastLoop(){
         }
 
         // Ship Yard
-        if (p_on['shipyard']){
+        if ((p_on['shipyard'] || p_on['adv_shipyard'])){
             global.settings.showShipYard = true;
         }
         else {
@@ -3155,7 +3166,7 @@ function fastLoop(){
         if (global.civic.garrison.hasOwnProperty('crew')){
             if (global.space.hasOwnProperty('shipyard') && global.space.shipyard.hasOwnProperty('ships')){
                 global.space.shipyard.ships.forEach(function(ship){
-                    if (ship.location !== 'spc_dwarf' || (ship.location === 'spc_dwarf' && ship.transit > 0)){
+                    if (ship.location !== 'spc_dwarf' && ship.location !== 'tau_ceti' || (ship.location === 'spc_dwarf' && ship.transit > 0) || (ship.location === 'tau_ceti' && ship.transit > 0)){
                         crew_mil += shipCrewSize(ship);
                     }
                 });
@@ -4181,7 +4192,7 @@ function fastLoop(){
                 Elerium: 0
             };
             global.space.shipyard.ships.forEach(function(ship){
-                if (ship.location !== 'spc_dwarf' || ship.transit !== 0){
+                if ((ship.location !== 'spc_dwarf' && ship.location !== 'tau_ceti') || ship.transit !== 0){
                     let fuel = shipFuelUse(ship);
                     if (fuel.res && fuel.burn > 0){
                         if (fuel.burn * time_multiplier < global.resource[fuel.res].amount + (global.resource[fuel.res].diff > 0 ? global.resource[fuel.res].diff * time_multiplier : 0)){
@@ -5643,6 +5654,14 @@ function fastLoop(){
             if (global.tauceti.ore_refinery.fill > global.tauceti.ore_refinery.max){
                 global.tauceti.ore_refinery.fill = global.tauceti.ore_refinery.max;
             }
+        }
+
+        // Synthesizer: each enabled Synthesizer produces Positronium from the enabled extractor ships.
+        if (global.tauceti['synthesizer'] && p_on['synthesizer'] && support_on['mining_ship']){
+            let base = production('synthesizer');
+            let positronium = p_on['synthesizer'] * base * support_on['mining_ship'];
+            breakdown.p['Positronium'][loc('tau_roid_synthesizer_title')] = positronium + 'v';
+            modRes('Positronium', positronium * global_multiplier * time_multiplier);
         }
 
         // Lumber
@@ -8430,6 +8449,7 @@ function midLoop(){
             Cipher: 0,
             Nanite: 0,
             Materials: 0,
+            Positronium: 0,
         };
         // labor caps
         var lCaps = {
@@ -10465,6 +10485,17 @@ function midLoop(){
                 global.civic.homeless += pop_loss;
             }
         }
+        if (p_on['alien_outpost']){
+            let iso = 0;
+            if (global.tech['isolation']){
+                iso = global.race['lone_survivor'] ? 3500000 : 6500000;
+                caps['Knowledge'] += iso;
+            }
+            let boost = 0.2;
+            let gain = Math.round(caps['Knowledge'] * boost);
+            caps['Knowledge'] += gain;
+            breakdown.c.Knowledge[loc('tech_alien_outpost')] = gain+iso+'v';
+        }
 
         if (p_on['world_controller']){
             let boost = 0.25;
@@ -10479,16 +10510,19 @@ function midLoop(){
             breakdown.c.Knowledge[loc('space_dwarf_collider_title')] = gain+'v';
         }
 
-        if (p_on['alien_outpost']){
-            let iso = 0;
-            if (global.tech['isolation']){
-                iso = global.race['lone_survivor'] ? 3500000 : 6500000;
-                caps['Knowledge'] += iso;
-            }
-            let boost = 0.2;
-            let gain = Math.round(caps['Knowledge'] * boost);
+        // Ignited Matrioshka Brain (True Path) boosts the Knowledge cap by 50%, like the World Collider.
+        if (global.tech['m_ignite'] && global.tech.m_ignite >= 2){
+            let gain = Math.round(caps['Knowledge'] * 0.5);
             caps['Knowledge'] += gain;
-            breakdown.c.Knowledge[loc('tech_alien_outpost')] = gain+iso+'v';
+            breakdown.c.Knowledge[loc('tech_matrioshka_brain')] = gain+'v';
+        }
+
+        // Once Positronium is unlocked (element_zero), the Matrioshka Brain provides 1 Positronium of
+        // storage per 1000 maximum Knowledge (rounded down). The Knowledge cap is finalized just above.
+        if (global.resource.Positronium.display){
+            let store = Math.floor(caps['Knowledge'] / 1000);
+            caps['Positronium'] += store;
+            breakdown.c.Positronium[loc('tech_matrioshka_brain')] = store+'v';
         }
 
         if (global.eden['fortress'] && global.tech.hasOwnProperty('celestial_warfare')){
@@ -12390,7 +12424,7 @@ function longLoop(){
                         ship.origin = deepClone(ship.xy);
                         ship.dist = 0;
                     }
-                    if (ship.damage > 0 && p_on['shipyard']){
+                    if (ship.damage > 0 && (p_on['shipyard'] || p_on['adv_shipyard'])){
                         ship.damage--;
                     }
                     if (ship.location !== 'spc_dwarf' && Math.rand(0, 10) === 0){

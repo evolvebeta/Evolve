@@ -3547,7 +3547,7 @@ const tauCetiModules = {
                 return desc;
             },
             support_fuel(){ return { r: 'Helium_3', a: global.tech['isolation'] ? 15 : 250 }; },
-            support(){ return 1; },
+            support(){ return global.tech['m_ignite'] && global.tech.m_ignite >= 4 ? 2 : 1; },
             powered(){ return 0; },
             refresh: true,
             action(){
@@ -3567,7 +3567,7 @@ const tauCetiModules = {
         },
         mining_ship: {
             id: 'tauceti-mining_ship',
-            title: loc('tau_roid_mining_ship'),
+            title(){ return loc('tau_roid_mining_ship'); },
             desc(){ return `<div>${loc('tau_roid_mining_ship')}</div>`; },
             reqs: { tau_roid: 4 },
             path: ['truepath'],
@@ -3642,6 +3642,43 @@ const tauCetiModules = {
                 return {
                     d: { count : 0, on: 0 },
                     p: ['whaling_ship','tauceti']
+                };
+            }
+        },
+        synthesizer: {
+            id: 'tauceti-synthesizer',
+            title: loc('tau_roid_synthesizer_title'),
+            desc(){
+                return `<div>${loc('tau_roid_synthesizer_title')}</div><div class="has-text-special">${loc('requires_power')}</div>`;
+            },
+            reqs: { tau_roid: 4, m_ignite: 3 },
+            path: ['truepath'],
+            cost: {
+                Money(offset){ return spaceCostMultiplier('synthesizer', offset, 90000000, 1.26, 'tauceti'); },
+                Adamantite(offset){ return spaceCostMultiplier('synthesizer', offset, 2500000, 1.26, 'tauceti'); },
+                Graphene(offset){ return spaceCostMultiplier('synthesizer', offset, 2000000, 1.26, 'tauceti'); },
+                Elerium(offset){ return spaceCostMultiplier('synthesizer', offset, 1250, 1.26, 'tauceti'); },
+                Unobtainium(offset){ return spaceCostMultiplier('synthesizer', offset, 72000, 1.26, 'tauceti'); },
+            },
+            powered(){ return powerCostMod(10); },
+            effect(){
+                let pos = production('synthesizer');
+                let desc = `<div>${loc('tau_roid_synthesizer_effect',[pos,global.resource.Positronium.name,tauCetiModules.tau_roid.mining_ship.title()])}</div>`;
+                desc = desc + `<div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
+                return desc;
+            },
+            action(){
+                if (payCosts($(this)[0])){
+                    incrementStruct('synthesizer','tauceti');
+                    powerOnNewStruct($(this)[0]);
+                    return true;
+                }
+                return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['synthesizer','tauceti']
                 };
             }
         },
@@ -3782,11 +3819,19 @@ const tauCetiModules = {
                     desc = desc + `<div>${loc('tau_gas2_alien_station_effect',[decrypted])}</div>`;
                 }
                 desc = desc + `<div class="has-text-caution">${loc('spend',[fuel,global.resource[$(this)[0].p_fuel().r].name])}</div>`;
+                if (global.tech['m_ignite'] && global.tech.m_ignite >= 2){
+                    desc = desc + `<div>${loc('tau_gas2_ignite_gas_giant_effect3')}</div>`;
+                    desc += retireProjection();
+                }
                 return desc;
             },
-            p_fuel(){ return { r: 'Elerium', a: (global.race['lone_survivor'] ? 1 : 10) }; },
+            p_fuel(){ return { r: 'Elerium', a: ( (global.tech['m_ignite'] && global.tech.m_ignite >= 2) || global.race['lone_survivor'] ? 1 : 10) }; },
             powered(){ return powerModifier(-75); },
             action(){
+                if (global.tech['m_ignite'] && global.tech.m_ignite >= 2){
+                    retirement();
+                    return true;
+                }
                 return false;
             }
         },
@@ -3822,8 +3867,17 @@ const tauCetiModules = {
                 if (count < 1000){
                     effectText += `<div class="has-text-special">${loc('tau_gas2_matrioshka_brain_seg',[1000 - count])}</div>`;
                 }
+                else if (global.tech['m_ignite'] && global.tech.m_ignite >= 2){
+                    let boost = 50;
+                    effectText += `<div>${loc('plus_max_resource',[boost+'%',global.resource.Knowledge.name])}</div>`;
+                    if (global.resource.Positronium.display){
+                        let store = Math.floor(global.resource.Knowledge.max / 1000);
+                        effectText += `<div>${loc('plus_max_resource',[store.toLocaleString(),global.resource.Positronium.name])}</div>`;
+                    }
+                }
                 return effectText;
             },
+            aura(){ return global.tech['m_ignite'] && global.tech.m_ignite >= 2 ? 'fire' : false; },
             action(){
                 if (payCosts($(this)[0])){
                     if (global.tauceti.matrioshka_brain.count < 1000){
@@ -3901,6 +3955,7 @@ const tauCetiModules = {
             desc(){return loc('tau_gas2_ignite_gas_giant',[tauCetiModules.tau_gas2.info.name()]); },
             reqs: { tau_gas2: 8, m_ignite: 1 },
             grant: ['m_ignite',2],
+            condition(){ return global.tech['m_ignite'] && global.tech.m_ignite >= 2 ? false : true; },
             queue_size: 1,
             queue_complete(){ return false; },
             path: ['truepath'],
@@ -3912,18 +3967,150 @@ const tauCetiModules = {
                 if (!global.tech['m_brain']){
                     desc = desc + `<div class="has-text-warning">${loc('tau_gas2_ignite_gas_giant_effect2',[loc('tech_matrioshka_brain')])}</div>`;
                 }
-                else {
-                    desc = desc + `<div>${loc('tau_gas2_ignite_gas_giant_effect3')}</div>`;
-                    desc += retireProjection();
-                }
                 return desc;
             },
             action(){
                 if (global.tech['m_brain'] && payCosts($(this)[0])){
-                    retirement();
                     return true;
                 }
                 return false;
+            }
+        },
+        adv_shipyard: {
+            id: 'tauceti-adv_shipyard',
+            title: loc('tau_shipyard_title'),
+            desc(){
+                return `<div>${loc('tau_shipyard_title')}</div><div class="has-text-special">${loc('requires_power')}</div>`;
+            },
+            reqs: { resettle: 1 },
+            path: ['truepath'],
+            cost: {
+                Money(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('adv_shipyard') ? global.tauceti.adv_shipyard.count : 0)) < 1 ? 1000000000 : 0; },
+                Aluminium(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('adv_shipyard') ? global.tauceti.adv_shipyard.count : 0)) < 1 ? 135000000 : 0; },
+                Titanium(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('adv_shipyard') ? global.tauceti.adv_shipyard.count : 0)) < 1 ? 85000000 : 0; },
+                Iridium(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('adv_shipyard') ? global.tauceti.adv_shipyard.count : 0)) < 1 ? 125000000 : 0; },
+                Neutronium(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('adv_shipyard') ? global.tauceti.adv_shipyard.count : 0)) < 1 ? 2500000 : 0; },
+                Unobtainium(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('adv_shipyard') ? global.tauceti.adv_shipyard.count : 0)) < 1 ? 5000000 : 0; },
+            },
+            queue_complete(){ return 1 - global.tauceti.adv_shipyard.count; },
+            effect(){
+                return `<div>${loc('outer_shipyard_effect')}</div><div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
+            },
+            powered(){ return powerCostMod(50); },
+            special: true,
+            sAction(){
+                if (p_on['adv_shipyard']){
+                    global.settings.civTabs = 2;
+                    global.settings.govTabs = 5;
+                    if (!global.settings.tabLoad){
+                        loadTab('mTabCivic');
+                        clearPopper(`tauceti-shipyard`);
+                    }
+                }
+            },
+            action(args){
+                if (global.tauceti.adv_shipyard.count < 1 && payCosts($(this)[0])){
+                    incrementStruct('adv_shipyard','tauceti');
+                    if (powerOnNewStruct($(this)[0])){
+                        global.settings.showShipYard = true;
+                    }
+                    drawShipYard();
+                    return true;
+                }
+                return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['adv_shipyard','tauceti']
+                };
+            }
+        },
+        mass_relay: {
+            id: 'tauceti-mass_relay',
+            title: loc('space_dwarf_mass_relay_title'),
+            desc(wiki){
+                if (!global.tauceti.hasOwnProperty('mass_relay') || global.tauceti.mass_relay.count < 100 || wiki){
+                    return `<div>${loc('space_dwarf_mass_relay_title')}</div><div class="has-text-special">${loc('requires_segments',[100])}</div>`;
+                }
+            },
+            reqs: { m_ignite: 3 },
+            path: ['truepath'],
+            condition(){
+                return global.tauceti.mass_relay.count < 100 ? true : false;
+            },
+            queue_size: 5,
+            queue_complete(){ return 100 - global.tauceti.mass_relay.count; },
+            cost: {
+                Money(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('mass_relay') ? global.tauceti.mass_relay.count : 0)) < 100 ? 85000000 : 0; },
+                Neutronium(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('mass_relay') ? global.tauceti.mass_relay.count : 0)) < 100 ? 75000 : 0; },
+                Adamantite(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('mass_relay') ? global.tauceti.mass_relay.count : 0)) < 100 ? 180000 : 0; },
+                Positronium(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('mass_relay') ? global.tauceti.mass_relay.count : 0)) < 100 ? 250 : 0; },
+                Stanene(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('mass_relay') ? global.tauceti.mass_relay.count : 0)) < 100 ? 1000000 : 0; },
+                Quantium(offset){ return ((offset || 0) + (global.tauceti.hasOwnProperty('mass_relay') ? global.tauceti.mass_relay.count : 0)) < 100 ? 250000 : 0; },
+            },
+            effect(wiki){
+                let count = ((wiki?.count ?? 0) + (global.tauceti.hasOwnProperty('mass_relay') ? global.tauceti.mass_relay.count : 0));
+                if (count < 100){
+                    let remain = 100 - count;
+                    return `<div>${loc('space_dwarf_mass_relay_effect')}</div><div class="has-text-special">${loc('space_dwarf_collider_effect2',[remain])}</div>`;
+                }
+                else {
+                    return tauCetiModules.tau_gas2.m_relay.effect();
+                }
+            },
+            action(args){
+                if (global.tauceti.mass_relay.count < 100 && payCosts($(this)[0])){
+                    global.tauceti.mass_relay.count++;
+                    if (global.tauceti.mass_relay.count >= 100){
+                        global.tech['m_ignite'] = 4;
+                        initStruct(tauCetiModules.tau_gas2.m_relay);
+                        incrementStruct('tcm_relay','tauceti');
+                        powerOnNewStruct(tauCetiModules.tau_gas2.m_relay);
+                        drawTech();
+                        renderTauCeti();
+                        clearPopper();
+                    }
+                    return true;
+                }
+                return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0 },
+                    p: ['mass_relay','tauceti']
+                };
+            }
+        },
+        tcm_relay: {
+            id: 'tauceti-tcm_relay',
+            title: loc('space_dwarf_mass_relay_title'),
+            desc(){
+                return `<div>${loc('space_dwarf_mass_relay_title')}</div><div class="has-text-special">${loc('requires_power')}</div>`;
+            },
+            reqs: { m_ignite: 4 },
+            path: ['truepath'],
+            condition(){
+                return global.tauceti.mass_relay.count >= 100 ? true : false;
+            },
+            wiki: false,
+            queue_complete(){ return 0; },
+            cost: {},
+            powered(){
+                return powerCostMod(50);
+            },
+            effect(){
+                let charge = Math.floor(global.tauceti.tcm_relay.charged / 10) / 10;
+                return `<div>${loc('space_dwarf_mass_relay_effect2',[loc('tab_tauceti')])}</div><div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div><div>${loc('space_dwarf_mass_relay_charged',[charge])}</div>`;
+            },
+            action(args){
+                return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, charged: 0 },
+                    p: ['tcm_relay','tauceti']
+                };
             }
         },
     },

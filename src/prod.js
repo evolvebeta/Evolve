@@ -549,6 +549,10 @@ export function production(id,val,wiki){
                 }
             }
         }
+        case `synthesizer`:
+        {
+            return 0.01;
+        }
     }
 }
 
