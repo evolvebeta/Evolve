@@ -1183,7 +1183,7 @@ export function buildGarrison(garrison,full){
     var bunks = $('<div class="bunks"></div>');
     barracks.append(bunks);
     let soldier_title = global.tech['world_control'] && !global.race['truepath'] ? loc('civics_garrison_peacekeepers') : loc('civics_garrison_soldiers');
-    if (!global.tech['isolation']){
+    if (!global.tech['isolation'] || global.tech['tau_soldiers']){
         bunks.append($(`<div class="barracks"><span class="soldier">${soldier_title}</span> <span v-html="stationed(g.workers)"></span> / <span>{{ s_max(g.max) }}<span></div>`));
         bunks.append($(`<div class="barracks" v-show="g.crew > 0"><span class="crew">${loc('civics_garrison_crew')}</span> <span>{{ g.crew }}</span></div>`));
         bunks.append($(`<div class="barracks"><span class="wounded">${loc('civics_garrison_wounded')}</span> <span v-html="wounded(g.wounded)"></span></div>`));

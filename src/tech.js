@@ -14347,6 +14347,48 @@ const techs = {
             return false;
         }
     },
+    colonial_marines: {
+        id: 'tech-colonial_marines',
+        title: loc('tech_colonial_marines'),
+        desc: loc('tech_colonial_marines'),
+        category: 'military',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { resettle: 1 },
+        grant: ['resettle',2],
+        cost: {
+            Knowledge(){ return 18000000; }
+        },
+        effect(){ return loc('tech_colonial_marines_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.tauceti.tau_home.marine_barracks);
+                return true;
+            }
+            return false;
+        }
+    },
+    womling_brigade: {
+        id: 'tech-womling_brigade',
+        title: loc('tech_womling_brigade'),
+        desc: loc('tech_womling_brigade'),
+        category: 'womling',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { womling_tech: 9, resettle: 2 },
+        grant: ['womling_military',1],
+        cost: {
+            Knowledge(){ return 18750000; }
+        },
+        effect(){ return `<div>${loc('tech_womling_brigade_effect')}</div>`; },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.tauceti.tau_red.womling_rangers);
+                return true;
+            }
+            return false;
+        }
+    },
     element_zero: {
         id: 'tech-element_zero',
         title: loc('tech_element_zero'),

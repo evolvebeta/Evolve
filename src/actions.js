@@ -6215,8 +6215,15 @@ export function setAction(c_action,action,type,old,prediction){
     if (c_action['region']){
         action = c_action.region;
     }
-    if (c_action['powered'] && !global[action][type]['on']){
-        global[action][type]['on'] = 0;
+    if (c_action['powered']){
+        // A structure added to a region in a newer build may not exist yet in an older save (its
+        // region-unlock initStruct already ran), so lazily create its state before reading it.
+        if (!global[action][type] && typeof c_action.struct === 'function'){
+            initStruct(c_action);
+        }
+        if (global[action][type] && !global[action][type]['on']){
+            global[action][type]['on'] = 0;
+        }
     }
     let id = c_action.id;
     removeAction(id);

@@ -2104,7 +2104,13 @@ const extraInformation = {
     ],
     patrol_routes: [
         loc(`wiki_tech_patrol_routes`)
-    ]
+    ],
+    colonial_marines: [
+        loc(`wiki_tech_building_unlock`,[loc('tau_home_marine_barracks')])
+    ],
+    womling_brigade: [
+        loc(`wiki_tech_building_unlock`,[loc('tau_red_womling_rangers')])
+    ],
 };
 
 const extraInformationTP = {

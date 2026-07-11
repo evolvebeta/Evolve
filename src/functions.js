@@ -280,13 +280,13 @@ export function powerGrid(type,reset){
             power_structs = ['spc_eris:shock_trooper','spc_eris:tank'];
             break;
         case 'tau_home':
-            power_structs = ['tau_home:colony','tau_home:tau_factory','tau_home:mining_pit','tau_home:infectious_disease_lab'];
+            power_structs = ['tau_home:colony','tau_home:tau_factory','tau_home:mining_pit','tau_home:infectious_disease_lab','tau_home:marine_barracks'];
             break;
         case 'tau_red':
-            power_structs = ['tau_red:womling_village','tau_red:womling_farm','tau_red:overseer','tau_red:womling_mine','tau_red:womling_fun','tau_red:womling_lab'];
+            power_structs = ['tau_red:womling_village','tau_red:womling_farm','tau_red:overseer','tau_red:womling_mine','tau_red:womling_fun','tau_red:womling_lab','tau_red:womling_rangers'];
             break;
         case 'tau_roid':
-            power_structs = ['tau_roid:mining_ship','tau_roid:whaling_ship'];
+            power_structs = ['tau_roid:mining_ship','tau_roid:whaling_ship','tau_roid:synthesizer'];
             break;
         case 'asphodel':
             power_structs = ['eden_asphodel:soul_engine','eden_asphodel:bunker','eden_asphodel:asphodel_harvester','eden_asphodel:ectoplasm_processor','eden_asphodel:research_station','eden_asphodel:bliss_den'];

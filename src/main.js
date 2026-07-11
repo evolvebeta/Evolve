@@ -8950,6 +8950,12 @@ function midLoop(){
             let soldiers = actions.space.spc_red.space_barracks.soldiers();
             lCaps['garrison'] += Math.round(global.space.space_barracks.on * soldiers);
         }
+        if (global.tauceti['marine_barracks']){
+            lCaps['garrison'] += support_on['marine_barracks'] * actions.tauceti.tau_home.marine_barracks.soldiers();
+        }
+        if (global.tauceti['womling_rangers']){
+            lCaps['garrison'] += support_on['womling_rangers'] * actions.tauceti.tau_red.womling_rangers.soldiers();
+        }
         if (global.interstellar['cruiser']){
             let soldiers = actions.interstellar.int_proxima.cruiser.soldiers();
             lCaps['garrison'] += int_on['cruiser'] * soldiers;
