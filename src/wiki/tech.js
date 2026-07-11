@@ -2093,7 +2093,24 @@ const extraInformation = {
     ],
     ultimate_corruption: [
         loc(`wiki_tech_ultimate_corruption`)
-    ]
+    ],
+    plague_inoculation: [
+        loc(`wiki_tech_building_unlock`,[loc('tau_shipyard_title')])
+    ],
+    element_zero: [
+        loc(`wiki_tech_building_unlock`,[loc('space_dwarf_mass_relay_title')]),
+        loc(`wiki_tech_building_unlock`,[loc('tau_roid_synthesizer_title')]),
+        loc(`wiki_tech_resource_unlock`,[loc(`resource_Positronium_name`)])
+    ],
+    patrol_routes: [
+        loc(`wiki_tech_patrol_routes`)
+    ],
+    colonial_marines: [
+        loc(`wiki_tech_building_unlock`,[loc('tau_home_marine_barracks')])
+    ],
+    womling_brigade: [
+        loc(`wiki_tech_building_unlock`,[loc('tau_red_womling_rangers')])
+    ],
 };
 
 const extraInformationTP = {

@@ -549,6 +549,17 @@ export function production(id,val,wiki){
                 }
             }
         }
+        case `synthesizer`:
+        {
+            if (global.tauceti['patrol_ship']){
+                let patrol = 1;
+                if (global.tauceti.patrol_ship.support > global.tauceti.patrol_ship.s_max){
+                    patrol = flib('curve',global.tauceti.patrol_ship.s_max / global.tauceti.patrol_ship.support,1.4);
+                }
+                return patrol * 0.01;
+            }
+            return 0;
+        }
     }
 }
 

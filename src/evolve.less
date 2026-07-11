@@ -1503,6 +1503,13 @@ Misc ---------> Main template
                     }
                 }
 
+                .fire {
+                    box-shadow: 0 0 6px @has-text-danger, 0 0 12px @has-text-caution;
+                    > span {
+                        text-shadow: 1px 1px @has-text-danger;
+                    }
+                }
+
                 .purple {
                     box-shadow: 0 0 6px @has-text-special;
                     > span {
@@ -4578,6 +4585,37 @@ span.inline {
     .trade-header {
         border-top: 0;
         padding-top: 0;
+    }
+
+    .shipDispatchStats {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: .35rem 1rem;
+        padding: .5rem;
+
+        .pad {
+            margin-left: .25rem;
+        }
+    }
+
+    .shipDispatch {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: .5rem;
+        padding: .5rem;
+
+        .button {
+            margin: 0;
+            height: auto;
+            flex-direction: column;
+            padding: .4rem .75rem;
+
+            .dispatchDays {
+                font-size: .8rem;
+            }
+        }
     }
 }
 
