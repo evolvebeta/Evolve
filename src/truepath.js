@@ -32,7 +32,8 @@ const outerTruth = {
                     return global.tech.outer >= 4 ? 2000 : 1000;
                 }
                 return 600;
-            }
+            },
+            nav(){ return true; }
         },
         titan_mission: {
             id: 'space-titan_mission',
@@ -730,7 +731,8 @@ const outerTruth = {
                     return global.tech.outer >= 4 ? 1500 : 1000;
                 }
                 return 600;
-            }
+            },
+            nav(){ return true; }
         },
         enceladus_mission: {
             id: 'space-enceladus_mission',
@@ -947,6 +949,7 @@ const outerTruth = {
             zone: 'outer',
             syndicate(){ return global.tech['triton'] && global.tech.triton >= 2 ? true : false; },
             syndicate_cap(){ return global.tech['outer'] && global.tech.outer >= 4 ? 5000 : 3000; },
+            nav(){ return true; },
             extra(region){
                 if (global.tech['triton'] && global.tech.triton >= 3){
                     $(`#${region}`).append(`<div id="${region}resist" v-show="${region}" class="syndThreat has-text-caution">${loc('space_ground_resist')} <span class="has-text-danger" v-html="threat(enemy,troops)"></span></div>`);
@@ -1125,6 +1128,7 @@ const outerTruth = {
             zone: 'outer',
             syndicate(){ return global.tech['kuiper'] ? true : false; },
             syndicate_cap(){ return 2500; },
+            nav(){ return true; }
         },
         kuiper_mission: {
             id: 'space-kuiper_mission',
@@ -1318,6 +1322,7 @@ const outerTruth = {
             zone: 'outer',
             syndicate(){ return global.tech['eris'] ? true : false; },
             syndicate_cap(){ return 7500; },
+            nav(){ return true; },
             extra(region){
                 if (global.tech['eris'] && global.tech['eris'] === 1){
                     $(`#${region}`).append(`<div id="${region}scanned" v-show="${region}" class="syndThreat has-text-caution">${loc('space_scanned')} <span class="has-text-info">{{ eris_scan }}%</span></div>`);
@@ -1510,7 +1515,8 @@ const tauCetiModules = {
             },
             desc(){
                 return loc('tau_star',[loc('tab_tauceti'),loc('space_sun_info_name')]);
-            }
+            },
+            nav(){ return false; }
         },
         ringworld: {
             id: 'tauceti-ringworld',
@@ -1711,6 +1717,7 @@ const tauCetiModules = {
             desc(){
                 return loc('tau_home',[races[global.race.species].home]);
             },
+            nav(){ return global.tech['resettle'] ? true : false; },
             support: 'orbital_station',
             extra(region){
                 if (global.tech['tau_home'] && global.tech.tau_home >= 2 && !tauEnabled()){
@@ -2735,6 +2742,7 @@ const tauCetiModules = {
             desc(){
                 return loc('tau_red',[planetName().red]);
             },
+            nav(){ return global.tech['resettle'] ? true : false; },
             support: 'orbital_platform',
             extra(region){
                 if (global.tech['tau_red'] && global.tech.tau_red >= 5){
@@ -3207,6 +3215,43 @@ const tauCetiModules = {
                 };
             },
         },
+        antimatter_reactor: {
+            id: 'tauceti-antimatter_reactor',
+            title: loc('tech_antimatter_reactor'),
+            desc(){
+                return `<div>${loc('tech_antimatter_reactor')}</div><div class="has-text-special">${loc('requires_res',[global.resource.Helium_3.name])}</div>`;
+            },
+            reqs: { womling_energy: 1 },
+            path: ['truepath'],
+            cost: {
+                Money(offset){ return spaceCostMultiplier('antimatter_reactor', offset, 1000000000, 1.3, 'tauceti'); },
+                Neutronium(offset){ return  spaceCostMultiplier('antimatter_reactor', offset, 3750000, 1.3, 'tauceti'); },
+                Orichalcum(offset){ return spaceCostMultiplier('antimatter_reactor', offset, 75000000, 1.3, 'tauceti'); },
+                Quantium(offset){ return spaceCostMultiplier('antimatter_reactor', offset, wom_recycle(420000), 1.3, 'tauceti'); },
+            },
+            effect(){
+                let fuel = +int_fuel_adjust($(this)[0].p_fuel().a).toFixed(2);
+                let desc = `<div>${loc('space_dwarf_reactor_effect1',[-($(this)[0].powered())])}</div>`;
+                desc = desc + `<div class="has-text-caution">${loc('spend',[fuel,global.resource[$(this)[0].p_fuel().r].name])}</div>`;
+                return desc;
+            },
+            p_fuel(){ return { r: 'Positronium', a: 0.12 }; },
+            powered(){ return powerModifier(-48); },
+            action(){
+                if (payCosts($(this)[0])){
+                    incrementStruct('antimatter_reactor','tauceti');
+                    global.tauceti.antimatter_reactor.on++;
+                    return true;
+                }
+                return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0 },
+                    p: ['antimatter_reactor','tauceti']
+                };
+            }
+        },
         womling_rangers: {
             id: 'tauceti-womling_rangers',
             title: loc('tau_red_womling_rangers'),
@@ -3341,7 +3386,8 @@ const tauCetiModules = {
             },
             desc(){
                 return loc('tau_gas_desc');
-            }
+            },
+            nav(){ return global.tech['resettle'] ? true : false; }
         },
         gas_contest: {
             id: 'tauceti-gas_contest',
@@ -3577,6 +3623,7 @@ const tauCetiModules = {
             desc(){
                 return loc('tau_roid_desc');
             },
+            nav(){ return global.tech['resettle'] ? true : false; },
             support: 'patrol_ship',
         },
         roid_mission: {
@@ -3770,7 +3817,8 @@ const tauCetiModules = {
             },
             desc(){
                 return loc('tau_gas2_desc',[tauCetiModules.tau_gas.info.name()]);
-            }
+            },
+            nav(){ return global.tech['resettle'] ? true : false; }
         },
         gas_contest2: {
             id: 'tauceti-gas_contest2',
@@ -4428,7 +4476,7 @@ export function drawShipYard(){
 
         let shipConfig = {
             class: ['corvette','frigate','destroyer','cruiser','battlecruiser','dreadnought','explorer'],
-            power: ['solar','diesel','fission','fusion','elerium'],
+            power: ['solar','diesel','fission','fusion','elerium','antimatter'],
             weapon: ['railgun','laser','p_laser','plasma','phaser','disruptor'],
             armor : ['steel','alloy','neutronium'],
             engine: ['ion','tie','pulse','photon','vacuum','emdrive'],
@@ -4456,7 +4504,7 @@ export function drawShipYard(){
         assemble.append(`<span><b-checkbox class="patrol" v-model="s.sort" @change="redraw()">${loc('outer_shipyard_fleet_sort')}</b-checkbox></span>`);
 
         plans.append(assemble);
-        assemble.append(`<div><span>${loc(`outer_shipyard_park`,[global.tech['resettle'] ? tauCetiModules.tau_home.info.name() : planetName().dwarf])}</span><a href="#" class="solarMap" @click="trigModal">${loc(`outer_shipyard_map`)}</span></a>`);
+        assemble.append(`<div><span>${loc(`outer_shipyard_park`,[global.tech['resettle'] ? tauCetiModules.tau_gas2.info.name() : planetName().dwarf])}</span><a href="#" class="solarMap" @click="trigModal">${loc(`outer_shipyard_map`)}</span></a>`);
 
         updateCosts();
 
@@ -4659,8 +4707,8 @@ export function TPShipDesc(parent,obj){
 }
 
 function buildTPShip(ship, queue){
-    ship['location'] = 'spc_dwarf';
-    ship['xy'] = genXYcoord('spc_dwarf');
+    ship['location'] = global.tech['resettle'] ? 'tau_gas2' : 'spc_dwarf';
+    ship['xy'] = genXYcoord(global.tech['resettle'] ? 'tau_gas2' : 'spc_dwarf');
     ship['origin'] = deepClone(ship['xy']);
     ship['destination'] = deepClone(ship['xy']);
     ship['transit'] = 0;
@@ -4806,6 +4854,9 @@ export function shipPower(ship, wiki){
         case 'elerium':
             watts = Math.round(200 * out_inflate);
             break;
+        case 'antimatter':
+            watts = Math.round(250 * out_inflate);
+            break;
     }
 
     watts = Math.round(Math.max(watts, powerModifier(watts)));
@@ -4833,19 +4884,19 @@ export function shipPower(ship, wiki){
 
     switch (ship.engine){
         case 'ion':
-            watts -= Math.round(25 * use_inflate);
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 18 : 25) * use_inflate);
             break;
         case 'tie':
-            watts -= Math.round(50 * use_inflate);
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 36 : 50) * use_inflate);
             break;
         case 'pulse':
-            watts -= Math.round(40 * use_inflate);
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 25 : 40) * use_inflate);
             break;
         case 'photon':
-            watts -= Math.round(75 * use_inflate);
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 55 : 75) * use_inflate);
             break;
         case 'vacuum':
-            watts -= Math.round(120 * use_inflate);
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 90 : 120) * use_inflate);
             break;
         case 'emdrive':
             watts -= Math.round((ship.class !== 'explorer' && !wiki ? 1024 : 515) * use_inflate);
@@ -4938,18 +4989,29 @@ export function shipSpeed(ship){
             break;
     }
 
-    let boost = ship.location === 'spc_dwarf' && p_on['m_relay'] && ship.transit === 0 && global.space['m_relay'] && global.space.m_relay.charged >= 10000 ? 3 : 1;
+    let boost = 1;
+    switch (ship.location){
+        case 'spc_dwarf':
+            boost = p_on['m_relay'] && ship.transit === 0 && global.space['m_relay'] && global.space.m_relay.charged >= 10000 ? 3 : 1;
+            break;
+        case 'tau_gas2':
+            boost = p_on['tcm_relay'] && ship.transit === 0 && global.tauceti['tcm_relay'] && global.tauceti.tcm_relay.charged >= 10000 ? 3 : 1;
+            break;
+        default:
+            boost = 1;
+            break;
+    }
     switch (ship.engine){
         case 'ion':
-            return 12 / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 18 : 12) / mass * boost;
         case 'tie':
-            return 22 / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 33 : 22) / mass * boost;
         case 'pulse':
-            return 18 / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 27 : 12) / mass * boost;
         case 'photon':
-            return 30 / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 45 : 30) / mass * boost;
         case 'vacuum':
-            return 42 / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 63 : 42) / mass * boost;
         case 'emdrive':
             return 37500 / mass * boost;
     }
@@ -4975,6 +5037,10 @@ export function shipFuelUse(ship){
         case 'elerium':
             res = 'Elerium';
             burn = 1;
+            break;
+        case 'antimatter':
+            res = 'Positronium';
+            burn = 0.05;
             break;
     }
 
@@ -5115,6 +5181,10 @@ export function shipCosts(bp){
         case 'elerium':
             costs[alt_mat ? 'Orichalcum' : 'Copper'] = Math.round(60000 ** h_inflate);
             costs['Iridium'] = Math.round(55000 ** p_inflate);
+            break;
+        case 'antimatter':
+            costs[alt_mat ? 'Orichalcum' : 'Copper'] = Math.round(60000 ** h_inflate);
+            costs['Iridium'] = Math.round(65000 ** p_inflate);
             break;
     }
 
@@ -5277,7 +5347,7 @@ function drawShips(){
     clearShipDrag();
     clearElement($('#shipList'));
 
-    if (global.tech['isolation']){
+    if (global.tech['isolation'] && !global.tech['resettle']){
         return;
     }
 
@@ -5287,7 +5357,23 @@ function drawShips(){
         global.space.shipyard.ships = global.space.shipyard.ships.sort(shipyardShipCompare);
     }
 
+
     const spaceRegions = spaceTech();
+    let regionNames = {};
+    Object.keys(spaceRegions).forEach(function(region){
+        if (spaceRegions[region].info.nav()){
+            let name = typeof spaceRegions[region].info.name === 'string' ? spaceRegions[region].info.name : spaceRegions[region].info.name();
+            regionNames[region] = name;
+        }
+    });
+    Object.keys(tauCetiModules).forEach(function(region){
+        if (tauCetiModules[region].info.nav()){
+            let name = typeof tauCetiModules[region].info.name === 'string' ? tauCetiModules[region].info.name : tauCetiModules[region].info.name();
+            regionNames[region] = name;
+        }
+    });
+    regionNames['tauceti'] = loc('tech_era_tauceti');
+
     for (let i=0; i<global.space.shipyard.ships.length; i++){
         let ship = global.space.shipyard.ships[i];
         if (!ship['xy']){ ship['xy'] = genXYcoord(ship.location); }
@@ -5295,10 +5381,8 @@ function drawShips(){
         if (!ship.hasOwnProperty('origin')){ ship['origin'] = ship['xy']; }
         if (!ship.hasOwnProperty('destination')){ ship['destination'] = genXYcoord(ship.location); }
 
-        let location = ship.location === 'tauceti' ? loc('tech_era_tauceti') : typeof spaceRegions[ship.location].info.name === 'string' ? spaceRegions[ship.location].info.name : spaceRegions[ship.location].info.name();
-
         let dispatch = `<button id="ship${i}loc" class="button is-info" @click="pickDest(${i})">
-            <span>${location}</span>
+            <span>${regionNames[ship.location]}</span>
         </button>`;
 
         if (global.space.shipyard.expand){
@@ -5350,14 +5434,14 @@ function drawShips(){
             data: global.space.shipyard.ships[i],
             methods: {
                 scrap(id){
-                    if (global.space.shipyard.ships[id] && global.space.shipyard.ships[id].location === 'spc_dwarf'){
+                    if (global.space.shipyard.ships[id] && ['spc_dwarf','tau_gas2'].includes(global.space.shipyard.ships[id].location)){
                         global.space.shipyard.ships.splice(id,1);
                         drawShips();
                         updateCosts();
                     }
                 },
                 scrapAllowed(id){
-                    if (global.space.shipyard.ships[id] && global.space.shipyard.ships[id].location === 'spc_dwarf'){
+                    if (global.space.shipyard.ships[id] && ['spc_dwarf','tau_gas2'].includes(global.space.shipyard.ships[id].location)){
                         return true;
                     }
                     return false;
@@ -5413,7 +5497,7 @@ function drawShips(){
                     return ``;
                 },
                 dest(id){
-                    let name = ship.class === 'explorer' ? loc('tech_era_tauceti') : typeof spaceRegions[global.space.shipyard.ships[id].location].info.name === 'string' ? spaceRegions[global.space.shipyard.ships[id].location].info.name : spaceRegions[global.space.shipyard.ships[id].location].info.name();
+                    let name = ship.class === 'explorer' ? loc('tech_era_tauceti') : regionNames[global.space.shipyard.ships[id].location];
                     return loc(`outer_shipyard_arrive`,[
                         name,
                         global.space.shipyard.ships[id].transit
@@ -5450,16 +5534,23 @@ function tauEnableSoldiers(){
 
 function calcLandingPoint(ship, planet) {
     if (spacePlanetStats[planet].orbit === -2 ) { return genXYcoord(planet); }
-    let ship_dist = Math.sqrt(((ship.xy.x - xShift(planet)) ** 2) + (ship.xy.y ** 2));
+    // Tau Ceti bodies orbit their star, which sits far from the home-system origin.
+    // Mirror genXYcoord so the orbit center and eccentricity match the body's actual
+    // rendered position; otherwise a ship already in Tau Ceti has its landing point
+    // computed back near the home sun, producing a bogus multi-star transit distance.
+    let star = spacePlanetStats[planet].star ? genXYcoord(spacePlanetStats[planet].star) : { x: 0, y: 0 };
+    let ecc = spacePlanetStats[planet].star ? 1.2 : xPosition(1, planet);
+    let center_x = star.x + xShift(planet);
+    let center_y = star.y;
+    let ship_dist = Math.sqrt(((ship.xy.x - center_x) ** 2) + ((ship.xy.y - center_y) ** 2));
     let ship_speed = shipSpeed(ship) / 225;
-    let width = xPosition(1, planet);
     let cross1_dist = Math.abs(ship_dist - spacePlanetStats[planet].dist);
     let cross2_dist = Math.abs(ship_dist + spacePlanetStats[planet].dist);
-    let cross1w_dist = Math.abs(ship_dist - spacePlanetStats[planet].dist * width);
-    let cross2w_dist = Math.abs(ship_dist + spacePlanetStats[planet].dist * width);
+    let cross1w_dist = Math.abs(ship_dist - spacePlanetStats[planet].dist * ecc);
+    let cross2w_dist = Math.abs(ship_dist + spacePlanetStats[planet].dist * ecc);
     let cross1_days = Math.floor(Math.min(cross1_dist, cross1w_dist, cross2_dist, cross2w_dist) / ship_speed);
     let cross2_days = Math.ceil(Math.max(cross1_dist, cross1w_dist, cross2_dist, cross2w_dist) / ship_speed);
-    if (ship_dist >= spacePlanetStats[planet].dist && ship_dist <= spacePlanetStats[planet].dist * width) {
+    if (ship_dist >= spacePlanetStats[planet].dist && ship_dist <= spacePlanetStats[planet].dist * ecc) {
         cross1_days = 0;
     }
     let planet_orbit = spacePlanetStats[planet].orbit === -1
@@ -5469,9 +5560,8 @@ function calcLandingPoint(ship, planet) {
     let planet_degree = (global.space.position[planet] + (cross1_days * planet_speed)) % 360;
     let rads = (Math.PI / 180);
     for (let i = cross1_days; i <= cross2_days; i++) {
-        let planet_x = xPosition(Math.cos(planet_degree * rads) * spacePlanetStats[planet].dist, planet);
-        planet_x += xShift(planet);
-        let planet_y = Math.sin(planet_degree * rads) * spacePlanetStats[planet].dist;
+        let planet_x = Math.cos(planet_degree * rads) * spacePlanetStats[planet].dist * ecc + center_x;
+        let planet_y = Math.sin(planet_degree * rads) * spacePlanetStats[planet].dist + center_y;
         let time = Math.sqrt(((planet_x - ship.xy.x) ** 2) + ((planet_y - ship.xy.y) ** 2)) / ship_speed;
         if (time <= i) {
             return {x: planet_x, y: planet_y};
@@ -6526,7 +6616,7 @@ export function drawMap() {
             let shift = syndicate(id);
             color = ((Math.round(255*(1-shift)) << 16) + (Math.round(255*shift) << 8)).toString(16).padStart(6, 0);
         }
-        if (id === 'spc_dwarf'){
+        if (id === 'spc_dwarf' || id === 'tau_gas2'){
             color = '7132a8';
         }
         else if (id === 'spc_sun' || id === 'tauceti'){
@@ -6818,11 +6908,19 @@ function shipDispatchModal(id, modal){
     else {
         Object.keys(spaceRegions).forEach(function(region){
             if (ship.location !== region){
-                if (spaceRegions[region].info.syndicate() || region === 'spc_dwarf'){
+                if (spaceRegions[region].info.nav()){
                     if (!global.race['orbit_decayed'] || (global.race['orbit_decayed'] && region !== 'spc_moon')){
                         let name = typeof spaceRegions[region].info.name === 'string' ? spaceRegions[region].info.name : spaceRegions[region].info.name();
                         dests.push({ region: region, name: name });
                     }
+                }
+            }
+        });
+        Object.keys(tauCetiModules).forEach(function(region){
+            if (ship.location !== region){
+                if (tauCetiModules[region].info.nav()){
+                    let name = typeof tauCetiModules[region].info.name === 'string' ? tauCetiModules[region].info.name : tauCetiModules[region].info.name();
+                    dests.push({ region: region, name: name });
                 }
             }
         });
@@ -6849,7 +6947,7 @@ function sendShipTo(id, l){
     let ship = global.space.shipyard.ships[id];
     if (!ship || l === ship.location){ return; }
     let crew = shipCrewSize(ship);
-    let manned = ship.transit > 0 || ship.location !== 'spc_dwarf';
+    let manned = ship.transit > 0 || (ship.location !== 'spc_dwarf' && ship.location !== 'tau_gas2');
     if (manned || global.civic.garrison.workers - global.civic.garrison.crew >= crew){
         let dest = calcLandingPoint(ship, l);
         let distance = transferWindow(ship.xy,dest);

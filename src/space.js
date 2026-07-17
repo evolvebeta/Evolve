@@ -22,7 +22,8 @@ const spaceProjects = {
             },
             desc: loc('space_home_info_desc'),
             zone: 'inner',
-            syndicate(){ return false; }
+            syndicate(){ return false; },
+            nav(){ return false; }
         },
         test_launch: {
             id: 'space-test_launch',
@@ -224,7 +225,8 @@ const spaceProjects = {
             },
             support: 'moon_base',
             zone: 'inner',
-            syndicate(){ return true; }
+            syndicate(){ return true; },
+            nav(){ return true; }
         },
         moon_mission: {
             id: 'space-moon_mission',
@@ -456,7 +458,8 @@ const spaceProjects = {
             },
             support: 'spaceport',
             zone: 'inner',
-            syndicate(){ return true; }
+            syndicate(){ return true; },
+            nav(){ return true; }
         },
         red_mission: {
             id: 'space-red_mission',
@@ -1462,7 +1465,8 @@ const spaceProjects = {
                 return loc('space_hell_info_desc',[planetName().hell]);
             },
             zone: 'inner',
-            syndicate(){ return false; }
+            syndicate(){ return false; },
+            nav(){ return false; }
         },
         hell_mission: {
             id: 'space-hell_mission',
@@ -1671,7 +1675,8 @@ const spaceProjects = {
             },
             support: 'swarm_control',
             zone: 'inner',
-            syndicate(){ return false; }
+            syndicate(){ return false; },
+            nav(){ return false; }
         },
         sun_mission: {
             id: 'space-sun_mission',
@@ -1830,7 +1835,8 @@ const spaceProjects = {
                 return loc('space_gas_info_desc',[planetName().gas, races[global.race.species].home]);
             },
             zone: 'outer',
-            syndicate(){ return true; }
+            syndicate(){ return true; },
+            nav(){ return true; }
         },
         gas_mission: {
             id: 'space-gas_mission',
@@ -1975,7 +1981,8 @@ const spaceProjects = {
                 return loc('space_gas_moon_info_desc',[planetName().gas_moon,planetName().gas]);
             },
             zone: 'outer',
-            syndicate(){ return true; }
+            syndicate(){ return true; },
+            nav(){ return true; }
         },
         gas_moon_mission: {
             id: 'space-gas_moon_mission',
@@ -2134,7 +2141,8 @@ const spaceProjects = {
             },
             support: 'space_station',
             zone: 'inner',
-            syndicate(){ return true; }
+            syndicate(){ return true; },
+            nav(){ return true; }
         },
         belt_mission: {
             id: 'space-belt_mission',
@@ -2343,7 +2351,8 @@ const spaceProjects = {
                 return loc('space_dwarf_info_desc',[planetName().dwarf]);
             },
             zone: 'inner',
-            syndicate(){ return false; }
+            syndicate(){ return false; },
+            nav(){ return true; }
         },
         dwarf_mission: {
             id: 'space-dwarf_mission',

@@ -13127,6 +13127,27 @@ const techs = {
             return false;
         }
     },
+    drive_optimizations: {
+        id: 'tech-drive_optimizations',
+        title: loc('outer_shipyard_engine_optimizations'),
+        desc: loc('outer_shipyard_engine_optimizations'),
+        category: 'space_militarization',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { syard_engine: 5, m_ignite: 4, resettle: 2 },
+        grant: ['syard_engine',6],
+        cost: {
+            Knowledge(){ return 18950000; },
+            Cipher(){ return 50000; }
+        },
+        effect: loc('outer_shipyard_engine_optimizations_desc'),
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
     ship_fusion: {
         id: 'tech-ship_fusion',
         title: loc('tech_fusion_generator'),
@@ -13162,6 +13183,27 @@ const techs = {
             Cipher(){ return 18000; }
         },
         effect: loc('tech_elerium_generator_effect'),
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
+    ship_antimatter: {
+        id: 'tech-ship_antimatter',
+        title: loc('tech_antimatter_generator'),
+        desc: loc('tech_antimatter_generator'),
+        category: 'space_militarization',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { syard_power: 5, m_ignite: 4, resettle: 2, womling_energy: 1 },
+        grant: ['syard_power',6],
+        cost: {
+            Knowledge(){ return 19450000; },
+            Cipher(){ return 65000; }
+        },
+        effect: loc('tech_antimatter_generator_effect'),
         action(){
             if (payCosts($(this)[0])){
                 return true;
@@ -13611,6 +13653,49 @@ const techs = {
             }
             return false;
         }
+    },
+    womling_brigade: {
+        id: 'tech-womling_brigade',
+        title: loc('tech_womling_brigade'),
+        desc: loc('tech_womling_brigade'),
+        category: 'womling',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { womling_tech: 9, resettle: 2 },
+        grant: ['womling_military',1],
+        cost: {
+            Knowledge(){ return 18750000; }
+        },
+        effect(){ return `<div>${loc('tech_womling_brigade_effect')}</div>`; },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.tauceti.tau_red.womling_rangers);
+                return true;
+            }
+            return false;
+        }
+    },
+    womling_energy: {
+        id: 'tech-womling_energy',
+        title: loc('tech_antimatter_reactor'),
+        desc: loc('tech_antimatter_reactor'),
+        category: 'womling',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { womling_tech: 10, m_ignite: 3 },
+        grant: ['womling_energy',1],
+        cost: {
+            Knowledge(){ return 19500000; }
+        },
+        effect(){ return `<div>${loc('tech_antimatter_reactor_effect')}</div>`; },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.tauceti.tau_red.antimatter_reactor);
+                return true;
+            }
+            return false;
+        },
+        flair(){ return loc('tech_antimatter_reactor_flair'); }
     },
     asteroid_analysis: {
         id: 'tech-asteroid_analysis',
@@ -14363,27 +14448,6 @@ const techs = {
         action(){
             if (payCosts($(this)[0])){
                 initStruct(actions.tauceti.tau_home.marine_barracks);
-                return true;
-            }
-            return false;
-        }
-    },
-    womling_brigade: {
-        id: 'tech-womling_brigade',
-        title: loc('tech_womling_brigade'),
-        desc: loc('tech_womling_brigade'),
-        category: 'womling',
-        era: 'matrioshka',
-        path: ['truepath'],
-        reqs: { womling_tech: 9, resettle: 2 },
-        grant: ['womling_military',1],
-        cost: {
-            Knowledge(){ return 18750000; }
-        },
-        effect(){ return `<div>${loc('tech_womling_brigade_effect')}</div>`; },
-        action(){
-            if (payCosts($(this)[0])){
-                initStruct(actions.tauceti.tau_red.womling_rangers);
                 return true;
             }
             return false;
