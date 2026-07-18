@@ -26,7 +26,7 @@ const outerTruth = {
             },
             support: 'electrolysis',
             zone: 'outer',
-            syndicate(){ return global.tech['titan'] && global.tech.titan >= 3 && global.tech['enceladus'] && global.tech.enceladus >= 2 ? true : false; },
+            syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['titan'] && global.tech.titan >= 3 && global.tech['enceladus'] && global.tech.enceladus >= 2 ? true : false; },
             syndicate_cap(){
                 if (global.tech['triton']){
                     return global.tech.outer >= 4 ? 2000 : 1000;
@@ -725,7 +725,7 @@ const outerTruth = {
             },
             support: 'titan_spaceport',
             zone: 'outer',
-            syndicate(){ return global.tech['titan'] && global.tech.titan >= 3 && global.tech['enceladus'] && global.tech.enceladus >= 2 ? true : false; },
+            syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['titan'] && global.tech.titan >= 3 && global.tech['enceladus'] && global.tech.enceladus >= 2 ? true : false; },
             syndicate_cap(){
                 if (global.tech['triton']){
                     return global.tech.outer >= 4 ? 1500 : 1000;
@@ -947,7 +947,7 @@ const outerTruth = {
                 return loc('space_triton_info_desc',[planetName().triton, races[global.race.species].home]);
             },
             zone: 'outer',
-            syndicate(){ return global.tech['triton'] && global.tech.triton >= 2 ? true : false; },
+            syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['triton'] && global.tech.triton >= 2 ? true : false; },
             syndicate_cap(){ return global.tech['outer'] && global.tech.outer >= 4 ? 5000 : 3000; },
             nav(){ return true; },
             extra(region){
@@ -1126,7 +1126,7 @@ const outerTruth = {
                 return loc('space_kuiper_desc');
             },
             zone: 'outer',
-            syndicate(){ return global.tech['kuiper'] ? true : false; },
+            syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['kuiper'] ? true : false; },
             syndicate_cap(){ return 2500; },
             nav(){ return true; }
         },
@@ -1320,7 +1320,7 @@ const outerTruth = {
             },
             support: 'drone_control',
             zone: 'outer',
-            syndicate(){ return global.tech['eris'] ? true : false; },
+            syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['eris'] ? true : false; },
             syndicate_cap(){ return 7500; },
             nav(){ return true; },
             extra(region){
@@ -2252,7 +2252,7 @@ const tauCetiModules = {
         },
         jump_gate: {
             id: 'tauceti-jump_gate',
-            title: loc('tau_jump_gate'),
+            title(){ return global.tech['resettle'] ? loc('tau_jump_gate_target',[actions.space.spc_sun.info.name()]) : loc('tau_jump_gate'); },
             desc(wiki){
                 if (!global.tauceti.hasOwnProperty('jump_gate') || global.tauceti.jump_gate.count < 100 || wiki){
                     return `<div>${loc('tau_jump_gate')}</div><div class="has-text-special">${loc('requires_segments',[100])}</div>`;
@@ -2262,7 +2262,7 @@ const tauCetiModules = {
                 }
             },
             reqs: { tauceti: 3 },
-            condition(){ return global.tech['isolation'] ? 0 : 1; },
+            condition(){ return global.tech['isolation'] && !global.tech['resettle'] ? 0 : 1; },
             path: ['truepath'],
             queue_size: 10,
             queue_complete(){ return 100 - global.tauceti.jump_gate.count; },
@@ -2275,6 +2275,9 @@ const tauCetiModules = {
                 if (count < 100){
                     let remain = 100 - count;
                     return `<div>${loc('tau_jump_gate_effect')}</div><div class="has-text-special">${loc('space_dwarf_collider_effect2',[remain])}</div>`;
+                }
+                else if (global.tech['resettle']){
+                    return global.tech.resettle >= 3 ? loc('tau_jump_gate_effect2',[actions.space.spc_sun.info.name()]) : loc('tau_jump_gate_disabled');
                 }
                 else {
                     return loc('tau_jump_gate_effect');
@@ -4479,7 +4482,7 @@ export function drawShipYard(){
             power: ['solar','diesel','fission','fusion','elerium','antimatter'],
             weapon: ['railgun','laser','p_laser','plasma','phaser','disruptor'],
             armor : ['steel','alloy','neutronium'],
-            engine: ['ion','tie','pulse','photon','vacuum','emdrive'],
+            engine: ['ion','tie','pulse','photon','vacuum','emdrive','electrokinetic'],
             sensor: ['visual','radar','lidar','quantum'],
         };
 
@@ -4893,13 +4896,16 @@ export function shipPower(ship, wiki){
             watts -= Math.round((global.tech.syard_engine >= 6 ? 25 : 40) * use_inflate);
             break;
         case 'photon':
-            watts -= Math.round((global.tech.syard_engine >= 6 ? 55 : 75) * use_inflate);
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 50 : 75) * use_inflate);
             break;
         case 'vacuum':
-            watts -= Math.round((global.tech.syard_engine >= 6 ? 90 : 120) * use_inflate);
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 75 : 120) * use_inflate);
             break;
         case 'emdrive':
             watts -= Math.round((ship.class !== 'explorer' && !wiki ? 1024 : 515) * use_inflate);
+            break;
+        case 'electrokinetic':
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 100 : 140) * use_inflate);
             break;
     }
 
@@ -4967,22 +4973,22 @@ export function shipSpeed(ship){
     let mass = 1;
     switch (ship.class){
         case 'corvette':
-            mass = ship.armor === 'neutronium' ? 1.1 : 1;
+            mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 1 : 0.95) : ship.armor === 'neutronium' ? 1.1 : 1;
             break;
         case 'frigate':
-            mass = ship.armor === 'neutronium' ? 1.35 : 1.25;
+            mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 1.12 : 1.1) : ship.armor === 'neutronium' ? 1.35 : 1.25;
             break;
         case 'destroyer':
-            mass = ship.armor === 'neutronium' ? 1.95 : 1.8;
+            mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 1.25 : 1.2) : ship.armor === 'neutronium' ? 1.95 : 1.8;
             break;
         case 'cruiser':
-            mass = ship.armor === 'neutronium' ? 3.5 : 3;
+            mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 1.75 : 1.5) : ship.armor === 'neutronium' ? 3.5 : 3;
             break;
         case 'battlecruiser':
-            mass = ship.armor === 'neutronium' ? 4.8 : 4;
+            mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 2.4 : 2) : ship.armor === 'neutronium' ? 4.8 : 4;
             break;
         case 'dreadnought':
-            mass = ship.armor === 'neutronium' ? 7.5 : 6;
+            mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 3.5 : 3) : (ship.armor === 'neutronium' ? 7.5 : 6);
             break;
         case 'explorer':
             mass = 1;
@@ -5003,17 +5009,19 @@ export function shipSpeed(ship){
     }
     switch (ship.engine){
         case 'ion':
-            return (global.tech.syard_engine >= 6 ? 18 : 12) / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 30 : 12) / mass * boost;
         case 'tie':
-            return (global.tech.syard_engine >= 6 ? 33 : 22) / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 55 : 22) / mass * boost;
         case 'pulse':
-            return (global.tech.syard_engine >= 6 ? 27 : 12) / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 45 : 18) / mass * boost;
         case 'photon':
-            return (global.tech.syard_engine >= 6 ? 45 : 30) / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 75 : 30) / mass * boost;
         case 'vacuum':
-            return (global.tech.syard_engine >= 6 ? 63 : 42) / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 105 : 42) / mass * boost;
         case 'emdrive':
             return 37500 / mass * boost;
+        case 'electrokinetic':
+            return (global.tech.syard_engine >= 6 ? 140 : 56) / mass * boost;
     }
 }
 
@@ -5157,6 +5165,9 @@ export function shipCosts(bp){
             break;
         case 'emdrive':
             costs['Titanium'] = Math.round(1250000 ** p_inflate);
+            break;
+        case 'electrokinetic':
+            costs['Titanium'] = Math.round(1750000 ** p_inflate);
             break;
     }
 
@@ -5320,6 +5331,7 @@ const shipyardRanks = {
         photon: 4,
         vacuum: 5,
         emdrive: 6,
+        electrokinetic: 7
     },
     power: {
         solar: 1,
@@ -6024,6 +6036,35 @@ export function jumpGateShutdown(){
 
     clearElement($(`#infoTimer`));
     global.race['inactive'] = inactive;
+}
+
+export function jumpGateRestart(){
+    let regions = {
+        space: [
+            'home','moon','red','hell','gas','gas_moon','belt','dwarf',
+            'titan','enceladus','triton','eris','kuiper'
+        ]
+    };
+    Object.keys(regions).forEach(function(r){
+        regions[r].forEach(function(v){
+            if (global.settings[r].hasOwnProperty(v)){
+                global.settings[r][v] = false;
+            }
+        });
+    });
+
+    Object.keys(global.race.inactive.space).forEach(function (k){
+        if (global.space.hasOwnProperty(k) && global.space[k].hasOwnProperty('count')){
+            global.space[k]['damaged'] = global.race.inactive.space[k].c;
+        }
+    });
+
+    global.space.jump_gate.count = 100;
+    global.space.jump_gate.damaged = 0;
+    global.settings.showSpace = true;
+    //global.settings.civTabs = 1;
+    global.settings.spaceTabs = 1;
+    renderSpace();
 }
 
 export function loneSurvivor(){

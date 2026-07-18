@@ -6268,7 +6268,7 @@ export function setAction(c_action,action,type,old,prediction){
         if (prediction){ clss = ' precog'; }
         else if (c_action['aura'] && c_action.aura()){ clss = ` ${c_action.aura()}`; }
         let active = c_action['highlight'] ? (c_action.highlight() ? `<span class="is-sr-only">${loc('active')}</span>` : `<span class="is-sr-only">${loc('not_active')}</span>`) : '';
-        element = $(`<a class="button is-dark${cst}${clss}"${data} v-on:click="action" role="link"><span class="aTitle" v-html="title_l(title)"></span>${active}</a><a role="button" v-on:click="describe" class="is-sr-only">{{ title }} description</a>`);
+        element = $(`<a class="button is-dark${cst}${clss}"${data} v-bind:class="damaged()" v-on:click="action" role="link"><span class="aTitle" v-html="title_l(title)"></span>${active}</a><a role="button" v-on:click="describe" class="is-sr-only">{{ title }} description</a>`);
     }
     parent.append(element);
 
@@ -6413,6 +6413,17 @@ export function setAction(c_action,action,type,old,prediction){
             repairMax(){
                 return c_action.repair();
             },
+            // Structures accrue a 'damaged' count (e.g. global.space[x].damaged) when hit; the action
+            // button shows a cracked overlay. 'severe' (more cracks, full red) when more units are
+            // damaged than built; 'mild' (fewer cracks, muted red) while damage stays within count.
+            damaged(){
+                if (global[action] && global[action][type] && typeof global[action][type]['damaged'] !== 'undefined'){
+                    let d = global[action][type].damaged;
+                    if (d > global[action][type].count){ return 'damaged severe'; }
+                    else if (d > 0){ return 'damaged mild'; }
+                }
+                return '';
+            },
             val(v){
                 switch(v){
                     case 'on':
@@ -6466,6 +6477,10 @@ export function setAction(c_action,action,type,old,prediction){
             count(v,t){
                 if (['temple','ziggurat'].includes(t)){
                     return templeCount(t === 'temple' ? false : true);
+                }
+                // Show "built/total" when some units are damaged (e.g. 5/7 = 5 intact, 2 damaged).
+                if (global[action] && global[action][t] && global[action][t].damaged > 0){
+                    return `${v}/${v + global[action][t].damaged}`;
                 }
                 return v;
             }
@@ -7517,7 +7532,9 @@ export function updateDesc(c_action,category,action){
     var id = c_action.id;
     if (global[category] && global[category][action] && global[category][action]['count']){
         if(!c_action.hasOwnProperty('count')){
-            $(`#${id} .count`).html(global[category][action].count);
+            let cnt = global[category][action].count;
+            let dmg = global[category][action].damaged;
+            $(`#${id} .count`).html(dmg > 0 ? `${cnt}/${cnt + dmg}` : cnt);
         }
         if (global[category][action] && global[category][action].count > 0){
             $(`#${id} .count`).css('display','inline-block');

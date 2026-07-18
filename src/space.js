@@ -225,7 +225,7 @@ const spaceProjects = {
             },
             support: 'moon_base',
             zone: 'inner',
-            syndicate(){ return true; },
+            syndicate(){ return global.tech['resettle'] ? false : true; },
             nav(){ return true; }
         },
         moon_mission: {
@@ -458,7 +458,7 @@ const spaceProjects = {
             },
             support: 'spaceport',
             zone: 'inner',
-            syndicate(){ return true; },
+            syndicate(){ return global.tech['resettle'] ? false : true; },
             nav(){ return true; }
         },
         red_mission: {
@@ -1779,6 +1779,7 @@ const spaceProjects = {
         jump_gate: {
             id: 'space-jump_gate',
             title: loc('tau_jump_gate'),
+            title(){ return global.tech['resettle'] ? loc('tau_jump_gate_target',[actions.tauceti.tau_home.info.name()]) : loc('tau_jump_gate'); },
             desc(wiki){
                 if (!global.space.hasOwnProperty('jump_gate') || global.space.jump_gate.count < 100 || wiki){
                     return `<div>${loc('tau_jump_gate')}</div><div class="has-text-special">${loc('requires_segments',[100])}</div>`;
@@ -1804,6 +1805,9 @@ const spaceProjects = {
                 if (count < 100){
                     let remain = 100 - count;
                     return `<div>${loc('tau_jump_gate_effect')}</div><div class="has-text-special">${loc('space_dwarf_collider_effect2',[remain])}</div>`;
+                }
+                else if (global.tech['resettle']){
+                    return global.tech.resettle >= 3 ? loc('tau_jump_gate_effect2',[actions.tauceti.tau_home.info.name()]) : loc('tau_jump_gate_disabled');
                 }
                 else {
                     return loc('tau_jump_gate_effect');
@@ -1835,8 +1839,8 @@ const spaceProjects = {
                 return loc('space_gas_info_desc',[planetName().gas, races[global.race.species].home]);
             },
             zone: 'outer',
-            syndicate(){ return true; },
-            nav(){ return true; }
+            syndicate(){ return global.tech['resettle'] ? false : true; },
+            nav(){ return true; } 
         },
         gas_mission: {
             id: 'space-gas_mission',
@@ -1981,7 +1985,7 @@ const spaceProjects = {
                 return loc('space_gas_moon_info_desc',[planetName().gas_moon,planetName().gas]);
             },
             zone: 'outer',
-            syndicate(){ return true; },
+            syndicate(){ return global.tech['resettle'] ? false : true; },
             nav(){ return true; }
         },
         gas_moon_mission: {
@@ -2141,7 +2145,7 @@ const spaceProjects = {
             },
             support: 'space_station',
             zone: 'inner',
-            syndicate(){ return true; },
+            syndicate(){ return global.tech['resettle'] ? false : true; },
             nav(){ return true; }
         },
         belt_mission: {
@@ -6725,6 +6729,10 @@ export function incrementStruct(c_action,sector){
         global[sector][struct]['l_m'] = 0;
     }
     global[sector][struct].count++;
+    // Building a unit repairs a damaged one: decrement the damaged tally as count rises.
+    if (typeof global[sector][struct]['damaged'] !== 'undefined' && global[sector][struct].damaged > 0){
+        global[sector][struct].damaged--;
+    }
 }
 
 export function spaceTech(r,k){
@@ -6807,6 +6815,8 @@ function space(zone){
     if (!global.settings.showSpace){
         return false;
     }
+
+    console.log(global.settings.civTabs,global.settings.spaceTabs,zone);
 
     let regionOrder = [];
     Object.keys(spaceProjects).forEach(function (region){

@@ -2980,6 +2980,62 @@ a {
                 }
             }
 
+            // Damaged structures get a cracked-glass overlay and red tint so the button reads as
+            // broken. Severity is set via :class="damaged()" -> "damaged mild" or "damaged severe".
+            // Base (.damaged) = mild: fewer cracks and a muted red halfway to the normal button
+            // color. .severe (damaged count exceeds built count) = full red with denser cracks.
+            a.button.damaged {
+                position: relative;
+                overflow: hidden;
+
+                &::before {
+                    content: "";
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    z-index: 1;
+                    pointer-events: none;
+                    border-radius: inherit;
+                    background: rgba(150, 25, 20, 0.16);
+                    box-shadow: inset 0 0 0 .0625rem rgba(225, 65, 45, 0.42);
+                }
+
+                &::after {
+                    content: "";
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    z-index: 1;
+                    pointer-events: none;
+                    opacity: 0.85;
+                    background-repeat: no-repeat;
+                    background-size: 100% 100%;
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 64' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23000' stroke-opacity='.55' stroke-width='2.6' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M92 30 L58 6 M92 30 L128 4 M92 30 L164 22 M92 30 L178 52 M92 30 L112 62 M92 30 L58 58 M92 30 L12 34 M58 6 L66 22 M164 22 L150 32 M112 62 L104 46 M12 34 L34 40'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.9' stroke-width='1.1' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M92 30 L58 6 M92 30 L128 4 M92 30 L164 22 M92 30 L178 52 M92 30 L112 62 M92 30 L58 58 M92 30 L12 34 M58 6 L66 22 M164 22 L150 32 M112 62 L104 46 M12 34 L34 40'/%3E%3C/g%3E%3C/svg%3E");
+                }
+
+                &.severe::before {
+                    background: rgba(150, 25, 20, 0.32);
+                    box-shadow: inset 0 0 0 .0625rem rgba(225, 65, 45, 0.85);
+                }
+
+                &.severe::after {
+                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 64' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23000' stroke-opacity='.55' stroke-width='2.6' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M92 30 L58 6 M92 30 L128 4 M92 30 L164 22 M92 30 L178 52 M92 30 L112 62 M92 30 L58 58 M92 30 L12 34 M92 30 L30 20 M92 30 L150 58 M92 30 L120 40 M58 6 L66 22 M164 22 L150 32 M112 62 L104 46 M12 34 L34 40 M178 52 L160 44 M30 20 L44 30 M128 4 L120 20 M58 58 L70 48 M150 58 L140 46 M120 40 L108 34'/%3E%3C/g%3E%3Cg fill='none' stroke='%23fff' stroke-opacity='.9' stroke-width='1.1' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M92 30 L58 6 M92 30 L128 4 M92 30 L164 22 M92 30 L178 52 M92 30 L112 62 M92 30 L58 58 M92 30 L12 34 M92 30 L30 20 M92 30 L150 58 M92 30 L120 40 M58 6 L66 22 M164 22 L150 32 M112 62 L104 46 M12 34 L34 40 M178 52 L160 44 M30 20 L44 30 M128 4 L120 20 M58 58 L70 48 M150 58 L140 46 M120 40 L108 34'/%3E%3C/g%3E%3C/svg%3E");
+                }
+
+                .aTitle {
+                    position: relative;
+                    z-index: 2;
+                }
+
+                span.count {
+                    z-index: 2;
+                }
+            }
+
             span.oldTech {
                 cursor: default;
                 display: inline-flex;
