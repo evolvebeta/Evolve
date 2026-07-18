@@ -12423,15 +12423,32 @@ function longLoop(){
                     if (ship.transit > 0 && ship.fueled){
                         ship.transit--;
                         let trip = 1 - (ship.transit / ship.dist);
-                        let mx = Math.abs(ship.origin.x - ship.destination.x) * trip;
-                        let my = Math.abs(ship.origin.y - ship.destination.y) * trip;
-                        if (ship.origin.x <= ship.destination.x){ ship.xy.x = ship.origin.x + mx; } else { ship.xy.x = ship.origin.x - mx; }
-                        if (ship.origin.y <= ship.destination.y){ ship.xy.y = ship.origin.y + my; } else { ship.xy.y = ship.origin.y - my; }
+                        if (ship.path){
+                            // Multi-leg wormhole route: place the ship by elapsed-time fraction along
+                            // the path so the near-instant inter-gate leg is crossed in its allotted time.
+                            let path = ship.path;
+                            let seg = path.length - 2;
+                            for (let i=0; i<path.length-1; i++){
+                                if (trip <= path[i+1].tn){ seg = i; break; }
+                            }
+                            let a = path[seg], b = path[seg+1];
+                            let span = b.tn - a.tn;
+                            let sf = span > 0 ? (trip - a.tn) / span : 1;
+                            ship.xy.x = a.x + (b.x - a.x) * sf;
+                            ship.xy.y = a.y + (b.y - a.y) * sf;
+                        }
+                        else {
+                            let mx = Math.abs(ship.origin.x - ship.destination.x) * trip;
+                            let my = Math.abs(ship.origin.y - ship.destination.y) * trip;
+                            if (ship.origin.x <= ship.destination.x){ ship.xy.x = ship.origin.x + mx; } else { ship.xy.x = ship.origin.x - mx; }
+                            if (ship.origin.y <= ship.destination.y){ ship.xy.y = ship.origin.y + my; } else { ship.xy.y = ship.origin.y - my; }
+                        }
                     }
                     if (ship.transit === 0){
                         ship.xy = genXYcoord(ship.location);
                         ship.origin = deepClone(ship.xy);
                         ship.dist = 0;
+                        if (ship.path){ ship.path = false; }
                     }
                     if (ship.damage > 0 && (p_on['shipyard'] || p_on['adv_shipyard'])){
                         ship.damage--;

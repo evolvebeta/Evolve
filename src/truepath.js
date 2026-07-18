@@ -5313,7 +5313,8 @@ const shipyardRanks = {
         tau_red: 14,
         tau_gas: 15,
         tau_gas2: 16,
-        tau_roid: 17
+        tau_roid: 17,
+        spc_sun_gate: 18,
     },
     class: {
         corvette: 1,
@@ -5793,6 +5794,7 @@ export function erisWar(){
 
 export const spacePlanetStats = {
     spc_sun: { dist: 0, orbit: 0, size: 2 },
+    spc_sun_gate: { dist: 0.3, orbit: 53, size: 0.1, belt: true },
     spc_home: { dist: 1, orbit: -1, size: 0.6 },
     spc_moon: { dist: 1.01, orbit: -1, size: 0.1, moon: true },
     spc_red: { dist: 1.524, orbit: 687, size: 0.5 },
@@ -5853,6 +5855,89 @@ export function genXYcoord(planet){
 
 function transferWindow(p1,p2){
     return Math.ceil(Math.sqrt(((p2.x - p1.x) ** 2) + ((p2.y - p1.y) ** 2)) * 225);
+}
+
+// ---- Wormhole / jump gate network ----------------------------------------------------------
+// Extensible registry of jump gates and the directed wormhole links between them. A gate is a
+// physical location (a spacePlanetStats key) belonging to a star system. When a ship crosses
+// between two systems it is routed through a linked pair of active gates — an entry gate in its
+// own system and an exit gate in the destination's — and covers the inter-gate leg at
+// wormholeSpeedMult times its normal speed. To extend the network, add gates here and links
+// below; a link is one-way, so list both directions for a two-way wormhole or a single direction
+// for a one-way gate. New/not-yet-built gates can gate their availability via active().
+const wormholeSpeedMult = 25000;
+const jumpGates = {
+    spc_sun_gate: {
+        system: 'sun',
+        location: 'spc_sun_gate',
+        active(){ return global.tech['resettle'] && global.tech.resettle >= 3 ? true : false; }
+    },
+    tau_home_gate: {
+        system: 'tauceti',
+        location: 'tau_home',
+        active(){ return global.tech['resettle'] && global.tech.resettle >= 3 ? true : false; }
+    }
+};
+// Directed wormhole links. Two entries = a two-way wormhole; a single entry = a one-way gate.
+const jumpLinks = [
+    { from: 'spc_sun_gate', to: 'tau_home_gate' },
+    { from: 'tau_home_gate', to: 'spc_sun_gate' }
+];
+
+// Which star system a location belongs to. Tau Ceti bodies carry star:'tauceti'; everything else
+// (including the Tau Ceti star region itself) resolves explicitly, defaulting to the Sun system.
+function locSystem(loc){
+    if (loc === 'tauceti'){ return 'tauceti'; }
+    return spacePlanetStats[loc] && spacePlanetStats[loc].star ? spacePlanetStats[loc].star : 'sun';
+}
+
+// Find an active wormhole route (entry + exit gate) connecting fromLoc's system to toLoc's system,
+// or null when none applies (same system, no link, or either gate inactive).
+function findWormholeRoute(fromLoc, toLoc){
+    let fromSys = locSystem(fromLoc);
+    let toSys = locSystem(toLoc);
+    if (fromSys === toSys){ return null; }
+    for (let link of jumpLinks){
+        let entry = jumpGates[link.from];
+        let exit = jumpGates[link.to];
+        if (entry && exit && entry.system === fromSys && exit.system === toSys && entry.active() && exit.active()){
+            return { entry, exit };
+        }
+    }
+    return null;
+}
+
+// Plan a ship's trip to location l. Returns the total transit time (days, computed up front),
+// origin/destination coordinates, and — when an active wormhole route applies — a multi-leg path
+// of time-normalized waypoints: origin -> entry gate -> (wormhole, wormholeSpeedMult x speed) exit
+// gate -> final destination. Without a route it returns a plain single-leg trip (path: false).
+function planShipTrip(ship, l){
+    let speed = shipSpeed(ship);
+    let route = findWormholeRoute(ship.location, l);
+    if (!route){
+        let dest = calcLandingPoint(ship, l);
+        let days = Math.round(transferWindow(ship.xy, dest) / speed);
+        return { transit: days, dist: days, origin: deepClone(ship.xy), destination: { x: dest.x, y: dest.y }, path: false };
+    }
+    // Leg 1: current position -> entry gate (normal speed).
+    let entryPt = calcLandingPoint(ship, route.entry.location);
+    let d1 = transferWindow(ship.xy, entryPt) / speed;
+    // Leg 2: entry gate -> exit gate through the wormhole (accelerated).
+    let exitPt = genXYcoord(route.exit.location);
+    let d2 = transferWindow(entryPt, exitPt) / (speed * wormholeSpeedMult);
+    // Leg 3: exit gate -> final destination (normal speed). Compute the landing point in the exit
+    // gate's frame by treating the gate as the ship's position (final xy is snapped on arrival).
+    let destPt = calcLandingPoint(Object.assign({}, ship, { xy: exitPt }), l);
+    let d3 = transferWindow(exitPt, destPt) / speed;
+    let total = d1 + d2 + d3;
+    let days = Math.max(1, Math.round(total));
+    let path = [
+        { x: ship.xy.x, y: ship.xy.y, tn: 0 },
+        { x: entryPt.x, y: entryPt.y, tn: d1 / total },
+        { x: exitPt.x, y: exitPt.y, tn: (d1 + d2) / total },
+        { x: destPt.x, y: destPt.y, tn: 1 }
+    ];
+    return { transit: days, dist: days, origin: deepClone(ship.xy), destination: { x: destPt.x, y: destPt.y }, path };
 }
 
 export function tpStorageMultiplier(type,heavy,wiki){
@@ -6641,17 +6726,24 @@ export function drawMap() {
             ctx.beginPath();
             ctx.setLineDash([0.1, 0.4]);
             ctx.moveTo(ship.xy.x, ship.xy.y);
-            ctx.lineTo(ship.destination.x, ship.destination.y);
+            if (ship.path){
+                // Multi-leg wormhole route: draw the full remaining flight path through each
+                // waypoint still ahead of the ship (entry gate -> exit gate -> destination).
+                let trip = ship.dist > 0 ? 1 - (ship.transit / ship.dist) : 0;
+                for (let i=0; i<ship.path.length; i++){
+                    if (ship.path[i].tn > trip){
+                        ctx.lineTo(ship.path[i].x, ship.path[i].y);
+                    }
+                }
+            }
+            else {
+                ctx.lineTo(ship.destination.x, ship.destination.y);
+            }
             ctx.stroke();
         }
     }
 
-    // Planets and moons
-    for (let [id, planet] of Object.entries(spacePlanetStats)) {
-        if (planet.star || id === 'tauceti'){ continue; }   // Tau Ceti bodies drawn in a star-local frame
-        if (global.race['orbit_decayed'] && ['spc_home','spc_moon'].includes(id)){
-            continue;
-        }
+    let setColor = function(id){
         let color = '558888';
         if (actions.space[id] && actions.space[id].info.syndicate() && global.settings.space[id.substring(4)]){
             let shift = syndicate(id);
@@ -6663,6 +6755,19 @@ export function drawMap() {
         else if (id === 'spc_sun' || id === 'tauceti'){
             color = 'f8ff2b';
         }
+        else if (id === 'spc_sun_gate' || id === 'tau_home'){
+            color = '31a557';
+        }
+        return color;
+    }
+
+    // Planets and moons
+    for (let [id, planet] of Object.entries(spacePlanetStats)) {
+        if (planet.star || id === 'tauceti'){ continue; }   // Tau Ceti bodies drawn in a star-local frame
+        if (global.race['orbit_decayed'] && ['spc_home','spc_moon'].includes(id)){
+            continue;
+        }
+        let color = setColor(id);
         ctx.fillStyle = "#" + color;
         ctx.beginPath();
         let size = planet.size / 10;
@@ -6786,9 +6891,11 @@ export function drawMap() {
         ctx.setLineDash([]);
 
         // Planets
-        ctx.fillStyle = "#558888";
         for (let [id, planet] of Object.entries(spacePlanetStats)) {
             if (planet.star !== 'tauceti' || !global.tech[planet.unlock]){ continue; }
+            let color = setColor(id);
+            ctx.fillStyle = "#" + color;
+
             let pos = global.space.position.hasOwnProperty(id) ? global.space.position[id] : 0;
             let px = Math.cos(pos * (Math.PI / 180)) * planet.dist * e + planet.dist / 3;
             let py = Math.sin(pos * (Math.PI / 180)) * planet.dist;
@@ -6972,7 +7079,7 @@ function shipDispatchModal(id, modal){
     }
     else {
         dests.forEach(function(d){
-            let days = Math.round(transferWindow(ship.xy, calcLandingPoint(ship, d.region)) / shipSpeed(ship));
+            let days = planShipTrip(ship, d.region).transit;
             $(`<button class="button is-info ${d.region}"><span class="dispatchName">${d.name}</span><span class="dispatchDays has-text-caution">${loc('transit_time',[days])}</span></button>`)
                 .on('click', function(){
                     sendShipTo(id, d.region);
@@ -6983,21 +7090,20 @@ function shipDispatchModal(id, modal){
     }
 }
 
-// Send a ship to a destination region (extracted from the old dropdown selector).
+// Send a ship to a destination region.
 function sendShipTo(id, l){
     let ship = global.space.shipyard.ships[id];
     if (!ship || l === ship.location){ return; }
     let crew = shipCrewSize(ship);
     let manned = ship.transit > 0 || (ship.location !== 'spc_dwarf' && ship.location !== 'tau_gas2');
     if (manned || global.civic.garrison.workers - global.civic.garrison.crew >= crew){
-        let dest = calcLandingPoint(ship, l);
-        let distance = transferWindow(ship.xy,dest);
-        let speed = shipSpeed(ship);
+        let trip = planShipTrip(ship, l);
         ship.location = l;
-        ship.transit = Math.round(distance / speed);
-        ship.dist = Math.round(distance / speed);
-        ship.origin = deepClone(ship.xy);
-        ship.destination = {x: dest.x, y: dest.y};
+        ship.transit = trip.transit;
+        ship.dist = trip.dist;
+        ship.origin = trip.origin;
+        ship.destination = trip.destination;
+        ship.path = trip.path;
         if (!manned){
             global.civic.garrison.crew += crew;
         }

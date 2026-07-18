@@ -1778,7 +1778,6 @@ const spaceProjects = {
         },
         jump_gate: {
             id: 'space-jump_gate',
-            title: loc('tau_jump_gate'),
             title(){ return global.tech['resettle'] ? loc('tau_jump_gate_target',[actions.tauceti.tau_home.info.name()]) : loc('tau_jump_gate'); },
             desc(wiki){
                 if (!global.space.hasOwnProperty('jump_gate') || global.space.jump_gate.count < 100 || wiki){
