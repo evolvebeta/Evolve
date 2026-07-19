@@ -12501,12 +12501,10 @@ function longLoop(){
                 }
                 if (global.space.hasOwnProperty('position')){
                     Object.keys(spacePlanetStats).forEach(function(planet){
+                        if (spacePlanetStats[planet].startype){ return; }   // stars use fixed coordinates
                         if (global.space.position.hasOwnProperty(planet)){
                             let orbit = spacePlanetStats[planet].orbit === -1 ? orbitLength() : spacePlanetStats[planet].orbit;
-                            if (orbit === -2){
-                                return;
-                            }
-                            else if (orbit === 0){
+                            if (orbit === 0){
                                 global.space.position[planet] = 0;
                             }
                             else {

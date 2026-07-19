@@ -26,6 +26,10 @@ const outerTruth = {
             },
             support: 'electrolysis',
             zone: 'outer',
+            showDest(){
+                let show = global.settings.space.titan || global.tech?.resettle >= 3 ? true : false;
+                return {r: show, l: show};
+            },
             syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['titan'] && global.tech.titan >= 3 && global.tech['enceladus'] && global.tech.enceladus >= 2 ? true : false; },
             syndicate_cap(){
                 if (global.tech['triton']){
@@ -725,6 +729,10 @@ const outerTruth = {
             },
             support: 'titan_spaceport',
             zone: 'outer',
+            showDest(){
+                let show = global.settings.space.enceladus || global.tech?.resettle >= 3 ? true : false;
+                return {r: show, l: show};
+            },
             syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['titan'] && global.tech.titan >= 3 && global.tech['enceladus'] && global.tech.enceladus >= 2 ? true : false; },
             syndicate_cap(){
                 if (global.tech['triton']){
@@ -947,6 +955,10 @@ const outerTruth = {
                 return loc('space_triton_info_desc',[planetName().triton, races[global.race.species].home]);
             },
             zone: 'outer',
+            showDest(){
+                let show = global.settings.space.triton || global.tech?.resettle >= 3 ? true : false;
+                return {r: show, l: show};
+            },
             syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['triton'] && global.tech.triton >= 2 ? true : false; },
             syndicate_cap(){ return global.tech['outer'] && global.tech.outer >= 4 ? 5000 : 3000; },
             nav(){ return true; },
@@ -1126,6 +1138,9 @@ const outerTruth = {
                 return loc('space_kuiper_desc');
             },
             zone: 'outer',
+            showDest(){
+                return {r: global.settings.space.kuiper || global.tech?.resettle >= 3, l: global.settings.space.kuiper};
+            },
             syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['kuiper'] ? true : false; },
             syndicate_cap(){ return 2500; },
             nav(){ return true; }
@@ -1320,6 +1335,9 @@ const outerTruth = {
             },
             support: 'drone_control',
             zone: 'outer',
+            showDest(){
+                return {r: global.settings.space.eris || global.tech?.resettle >= 3, l: global.settings.space.eris};
+            },
             syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['eris'] ? true : false; },
             syndicate_cap(){ return 7500; },
             nav(){ return true; },
@@ -5546,7 +5564,7 @@ function tauEnableSoldiers(){
 }
 
 function calcLandingPoint(ship, planet) {
-    if (spacePlanetStats[planet].orbit === -2 ) { return genXYcoord(planet); }
+    if (spacePlanetStats[planet].startype) { return genXYcoord(planet); }
     // Tau Ceti bodies orbit their star, which sits far from the home-system origin.
     // Mirror genXYcoord so the orbit center and eccentricity match the body's actual
     // rendered position; otherwise a ship already in Tau Ceti has its landing point
@@ -5792,19 +5810,22 @@ export function erisWar(){
     }
 }
 
+// Stars (entries with a `startype`) are placed by fixed x,y coordinates — in AU, measured from the
+// Sun at the origin — rather than by a distance + orbital angle. They therefore need no
+// global.space.position entry and never move. `dist` is retained for reference/UI only.
 export const spacePlanetStats = {
-    spc_sun: { dist: 0, orbit: 0, size: 2 },
+    spc_sun: { x: 0, y: 0, dist: 0, orbit: 0, size: 2, startype: 'G', label: loc('star_sun') },
     spc_sun_gate: { dist: 0.3, orbit: 53, size: 0.1, belt: true },
     spc_home: { dist: 1, orbit: -1, size: 0.6 },
     spc_moon: { dist: 1.01, orbit: -1, size: 0.1, moon: true },
     spc_red: { dist: 1.524, orbit: 687, size: 0.5 },
     spc_hell: { dist: 0.4, orbit: 88, size: 0.4 },
     spc_venus: { dist: 0.7, orbit: 225, size: 0.5 },
-    spc_gas: { dist: 5.203, orbit: 4330, size: 1.25 },
+    spc_gas: { dist: 5.203, orbit: 4330, size: 1.3 },
     spc_gas_moon: { dist: 5.204, orbit: 4330, size: 0.2, moon: true },
     spc_belt: { dist: 2.7, orbit: 1642, size: 0.5, belt: true },
     spc_dwarf: { dist: 2.77, orbit: 1682, size: 0.5 },
-    spc_saturn: { dist: 9.539, orbit: 10751, size: 1.1 },
+    spc_saturn: { dist: 9.539, orbit: 10751, size: 1.15 },
     spc_titan: { dist: 9.536, orbit: 10751, size: 0.2, moon: true },
     spc_enceladus: { dist: 9.542, orbit: 10751, size: 0.1, moon: true },
     spc_uranus: { dist: 19.8, orbit: 30660, size: 1 },
@@ -5812,14 +5833,122 @@ export const spacePlanetStats = {
     spc_triton: { dist: 30.1, orbit: 60152, size: 0.1, moon: true },
     spc_kuiper: { dist: 39.5, orbit: 90498, size: 0.5, belt: true },
     spc_eris: { dist: 68, orbit: 204060, size: 0.5 },
-    tauceti: { dist: 752568.8, orbit: -2, size: 2 },
-    // Tau Ceti system bodies. They orbit the tauceti star (star: 'tauceti') rather than the Sun,
+    // Tau Ceti system. Planets orbit the tauceti star (star: 'tauceti') rather than the Sun,
     // with distances (AU) taken from the area descriptions and Kepler-derived orbital periods.
+    tauceti: { x: 603207.923, y: -450000, dist: 752568.8, orbit: -2, size: 2, startype: 'G', label: loc('star_tauceti') },
     tau_home: { dist: 0.5, orbit: 129, size: 0.6, star: 'tauceti', unlock: 'tau_home' },
     tau_red: { dist: 1.24, orbit: 504, size: 0.5, star: 'tauceti', unlock: 'tau_red' },
     tau_gas: { dist: 5.6, orbit: 4839, size: 1.25, star: 'tauceti', unlock: 'tau_gas' },
     tau_gas2: { dist: 8.2, orbit: 8576, size: 1.1, star: 'tauceti', unlock: 'tau_gas2' },
     tau_roid: { dist: 15, orbit: 21217, size: 0.5, star: 'tauceti', belt: true, unlock: 'tau_roid' },
+    // Epsilon Eridani: 657707.2 AU from the Sun and 344663.9 AU from Tau Ceti triangulated fixed coordinates).
+    eridani: { x: 648720.37, y: -108354.246, dist: 657707.2, orbit: -2, size: 1.9, startype: 'K', label: loc('star_eridani') },
+    // Gliese 65 (M-type): 554624.2 AU from the Sun and 322529 AU from Eridani, sitting roughly
+    // between the Sun and Tau Ceti (triangulated fixed coordinates).
+    gliese65: { x: 432282.302, y: -347476.639, dist: 554624.2, orbit: -2, size: 1.5, startype: 'M', label: loc('star_gliese65') },
+    // YZ Ceti (M-type): 766481.85 AU from the Sun, ~101186 AU from Tau Ceti and ~442688 AU from
+    // Eridani (triangulated fixed coordinates).
+    yzceti: { x: 548661.064, y: -535224.684, dist: 766481.85, orbit: -2, size: 1.5, startype: 'M', label: loc('star_yzceti') },
+    // Alpha Centauri: 276363.5 AU from the Sun, placed directly opposite Tau Ceti (negative X,
+    // positive Y); its distance from Tau Ceti is therefore its maximum, ~1028932 AU.
+    alphacentauri: { x: -221514.17, y: 165252.101, dist: 276363.5, orbit: -2, size: 2, startype: 'G', label: loc('star_alpha_centauri') },
+    // Alpha Centauri B (K-type): binary companion, 17.5 AU from Alpha Centauri. No `label`, so it
+    // renders as a star dot with no name on the map.
+    alphacentaurib: { x: -221509.369, y: 165235.272, dist: 276349.590, orbit: -2, size: 1.5, startype: 'K' },
+    // Proxima Centauri (M-type): 12950 AU from Alpha Centauri, toward the Sun but offset ~10 deg to
+    // one side. No `label`, so it renders as a star dot with no name on the map.
+    proximacentauri: { x: -209947.384, y: 159428.704, dist: 263619.831, orbit: -2, size: 1, startype: 'M' },
+    // Barnard's Star (M-type): 359841.7 AU from the Sun, on the negative X side with a near-zero
+    // (but non-zero) Y value.
+    barnardsstar: { x: -359713.935, y: 9588.242, dist: 359841.7, orbit: -2, size: 1.5, startype: 'M', label: loc('star_barnards_star') },
+    // Sirius (A-type): 544505.7 AU from the Sun and ~499605 AU from Eridani, on the positive X side
+    // with positive Y (triangulated fixed coordinates).
+    sirius: { x: 426154.845, y: 338937.318, dist: 544505.7, orbit: -2, size: 3, startype: 'A', label: loc('star_sirius') },
+    // Sirius B (D-type white dwarf): binary companion, 20 AU from Sirius. No `label`, so it renders
+    // as a star dot with no name on the map.
+    siriusb: { x: 426171.044, y: 338949.048, dist: 544525.680, orbit: -2, size: 1.2, startype: 'D' },
+    // Procyon (F-type): 724742.74 AU from the Sun and ~331383.2 AU from Sirius, larger-Y solution
+    // (triangulated fixed coordinates).
+    procyon: { x: 370574.551, y: 622837.492, dist: 724742.74, orbit: -2, size: 2.5, startype: 'F', label: loc('star_procyon') },
+    // Procyon B (D-type white dwarf): binary companion, 21 AU from Procyon. No `label`, so it renders
+    // as a star dot with no name on the map.
+    procyonb: { x: 370591.097, y: 622824.561, dist: 724740.088, orbit: -2, size: 1.2, startype: 'D' },
+    // Wolf 359 (M-type): 498972.1 AU from the Sun with positive X & Y. A positive-X/Y point cannot
+    // also be ~695652 AU from Sirius (Sirius shares that quadrant), so it is placed as far from
+    // Sirius as the first quadrant allows (~372168 AU).
+    wolf359: { x: 86645.596, y: 491391.593, dist: 498972.1, orbit: -2, size: 1.5, startype: 'M', label: loc('star_wolf359') },
+    // Ross 128 (M-type): 701976 AU from the Sun and ~239683.7 AU from Wolf 359, using the solution
+    // furthest from Procyon (triangulated fixed coordinates).
+    ross128: { x: -28909.372, y: 701380.462, dist: 701976, orbit: -2, size: 1.5, startype: 'M', label: loc('star_ross128') },
+    // 61 Cygni (K-type): 720948.3 AU from the Sun, in the negative-X/negative-Y quadrant with |y|
+    // slightly greater than |x| (~32000 AU apart).
+    cygni: { x: -493536.285, y: -525536.285, dist: 720948.3, orbit: -2, size: 1.9, startype: 'K', label: loc('star_61cygni') },
+    // 61 Cygni B (K-type): the binary companion, 84 AU from 61 Cygni. Intentionally has no `label`,
+    // so it renders as a star dot with no name on the map.
+    cygnib: { x: -493545.761, y: -525619.749, dist: 721015.630, orbit: -2, size: 1.75, startype: 'K' },
+    // Sigma Draconis (K-type): 1188932 AU from the Sun, in the negative-X/negative-Y quadrant with
+    // |x| greater than |y| (roughly double).
+    sigmadraconis: { x: -1063413.109, y: -531706.555, dist: 1188932, orbit: -2, size: 1.9, startype: 'K', label: loc('star_sigma_draconis') },
+    // Altair (A-type): 1056126 AU from the Sun, negative X & Y, in the direction between 61 Cygni and
+    // Sigma Draconis as seen from the Sun (midpoint direction).
+    altair: { x: -846976.493, y: -630898.525, dist: 1056126, orbit: -2, size: 2, startype: 'A', label: loc('star_altair') },
+    // Kapteyn's Star (M-type): 811383.02 AU from the Sun, in the direction between Sirius and Eridani
+    // (about 60% of the way from Eridani toward Sirius) as seen from the Sun.
+    kapteynsstar: { x: 765760.807, y: 268240.175, dist: 811383.02, orbit: -2, size: 1.5, startype: 'M', label: loc('star_kapteyns_star') },
+    // Teegarden's Star (M-type): 790513.5 AU from the Sun, roughly halfway between Tau Ceti and
+    // Eridani in direction from the Sun (midpoint direction).
+    teegardensstar: { x: 727115.6, y: -310184.619, dist: 790513.5, orbit: -2, size: 1.5, startype: 'M', label: loc('star_teegardens_star') },
+    // Eta Cassiopeiae (G-type): 1228141.7 AU from the Sun, in the same general (lower-right) direction
+    // as YZ Ceti but at a steeper angle so its X value is lower than YZ Ceti's.
+    etacassiopeiae: { x: 500000, y: -1121753.999, dist: 1228141.7, orbit: -2, size: 2, startype: 'G', label: loc('star_eta_cassiopeiae') },
+    // Eta Cassiopeiae B (K-type): binary companion, 71 AU from Eta Cassiopeiae in a random direction.
+    // No `label`, so it renders as a star dot with no name on the map.
+    etacassiopeiaeb: { x: 500069.949, y: -1121741.827, dist: 1228159.062, orbit: -2, size: 1.5, startype: 'K' },
+    // 70 Ophiuchi (K-type): 1056126 AU from the Sun, negative X & Y, close to (but a few degrees off)
+    // the negative X axis.
+    ophiuchi: { x: -1054753.891, y: -53817.806, dist: 1056126, orbit: -2, size: 2, startype: 'K', label: loc('star_70_ophiuchi') },
+    // 70 Ophiuchi B (K-type): binary companion, 23.2 AU from 70 Ophiuchi in a random direction.
+    // No `label`, so it renders as a star dot with no name on the map.
+    ophiuchib: { x: -1054734.113, y: -53805.68, dist: 1056105.629, orbit: -2, size: 1.5, startype: 'K' },
+    // DX Cancri (M-type): 738655.78 AU from the Sun (swapped direction with Procyon).
+    dxcancri: { x: 322977.327, y: 664302.647, dist: 738655.78, orbit: -2, size: 1.5, startype: 'M', label: loc('star_dx_cancri') },
+    // AD Leonis (M-type): 1024505 AU from the Sun, in the same direction as Wolf 359 but a couple
+    // degrees toward the +x axis (to the right, higher X).
+    adleonis: { x: 219454.827, y: 1000724.774, dist: 1024505, orbit: -2, size: 1.5, startype: 'M', label: loc('star_ad_leonis') },
+    // EV Lacertae (M-type): 1042213 AU from the Sun, between 61 Cygni and Eta Cassiopeiae in
+    // direction, close to the negative Y axis with a small negative X value.
+    evlacertae: { x: -36372.709, y: -1041578.112, dist: 1042213, orbit: -2, size: 1.5, startype: 'M', label: loc('star_ev_lacertae') },
+    // Kruger 60 (M-type): 866402.8 AU from the Sun, between 61 Cygni and EV Lacertae in direction
+    // but closer to EV Lacertae.
+    kruger60: { x: -214886.032, y: -839331.761, dist: 866402.8, orbit: -2, size: 1.5, startype: 'M', label: loc('star_kruger_60') },
+    // Kruger 60 B (M-type): binary companion, 9.5 AU from Kruger 60 in a random direction.
+    // No `label`, so it renders as a star dot with no name on the map.
+    kruger60b: { x: -214894.289, y: -839336.46, dist: 866409.400, orbit: -2, size: 1.3, startype: 'M' },
+    // YZ Canis Minoris (M-type): 1233201 AU from the Sun, in the same direction as Procyon with a
+    // 1 degree variance (the higher-X of the two options).
+    yzcanisminoris: { x: 648958.851, y: 1048635.836, dist: 1233201, orbit: -2, size: 1.5, startype: 'M', label: loc('star_yz_canis_minoris') },
+    // Epsilon Indi (K-type): between 61 Cygni and Kruger 60 in direction but closer to Kruger 60.
+    // Distance from the Sun is deliberately inaccurate (430039 AU, closer than the real ~750672 AU)
+    // for gameplay reasons.
+    epsilonindi: { x: -168117.602, y: -395815.63, dist: 430039, orbit: -2, size: 2, startype: 'K', label: loc('star_epsilon_indi') },
+    // Epsilon Indi Ba (T-type brown dwarf): companion, 1460 AU from Epsilon Indi in a random
+    // direction. No `label`, so it renders as a star dot with no name on the map.
+    epsilonindiba: { x: -166686.946, y: -395524.384, dist: 429213.323, orbit: -2, size: 1.2, startype: 'T' },
+    // Epsilon Indi Bb (T-type brown dwarf): companion to Ba, 2.65 AU from Epsilon Indi Ba in a random
+    // direction. No `label`, so it renders as a star dot with no name on the map.
+    epsilonindibb: { x: -166684.742, y: -395525.856, dist: 429213.824, orbit: -2, size: 1.2, startype: 'T' },
+    // Gliese 570 (K-type): 1201579 AU from the Sun, in the same general direction as Alpha Centauri.
+    gliese570: { x: -963103.935, y: 718486.536, dist: 1201579, orbit: -2, size: 2, startype: 'K', label: loc('star_gliese_570') },
+    // Gliese 570 B & C (M-type binary): ~190 AU from Gliese 570 (random direction) and 0.8 AU from
+    // each other (random orientation). No `label`, so they render as star dots with no names.
+    gliese570b: { x: -963115.353, y: 718296.88, dist: 1201474.757, orbit: -2, size: 1, startype: 'M' },
+    gliese570c: { x: -963115.953, y: 718296.351, dist: 1201474.921, orbit: -2, size: 1, startype: 'M' },
+    // Gliese 570 D (T-type brown dwarf): companion, 1500 AU from Gliese 570 in a random direction.
+    // No `label`, so it renders as a star dot with no name on the map.
+    gliese570d: { x: -961659.938, y: 718080.491, dist: 1200178.915, orbit: -2, size: 1, startype: 'T' },
+    // Wolf 1061 (M-type): 891699.2 AU from the Sun, roughly halfway between Gliese 570 and 70 Ophiuchi
+    // in direction from the Sun (midpoint direction).
+    wolf1061: { x: -853184.411, y: 259237.005, dist: 891699.2, orbit: -2, size: 1.5, startype: 'M', label: loc('star_wolf_1061') },
 };
 
 export function setOrbits(){
@@ -5827,7 +5956,8 @@ export function setOrbits(){
         global.space['position'] = {};
     }
     Object.keys(spacePlanetStats).forEach(function(o){
-        if (!global.space.position.hasOwnProperty(o)){
+        // Stars have fixed coordinates, so they never need an orbital position.
+        if (!spacePlanetStats[o].startype && !global.space.position.hasOwnProperty(o)){
             global.space.position[o] = Math.rand(0,360);
         }
     });
@@ -5839,6 +5969,10 @@ export function setOrbits(){
 }
 
 export function genXYcoord(planet){
+    // Stars have fixed coordinates and are not positioned by distance/angle from the Sun.
+    if (spacePlanetStats[planet].startype){
+        return { x: spacePlanetStats[planet].x, y: spacePlanetStats[planet].y };
+    }
     let pos = global.space.position.hasOwnProperty(planet) ? global.space.position[planet] : 0;
     let rad = pos * (Math.PI / 180);
     // Bodies with a `star` (the Tau Ceti system) ride a clean circular orbit centered on that star —
@@ -6704,7 +6838,8 @@ export function drawMap() {
     ctx.strokeStyle = "#c0c0c0";
     for (let [id, planet] of Object.entries(spacePlanetStats)) {
         if (planet.star){ continue; }   // Tau Ceti orbits are drawn separately in a star-local frame
-        if (!planet.moon && planet.orbit !== -2) {
+        if (actions.space[id] && actions.space[id].info.showDest && !actions.space[id].info.showDest().r){ continue; }
+        if (!planet.moon && !planet.startype) {
             ctx.beginPath();
             if (planet.belt || (global.race['orbit_decayed'] && id === 'spc_home')){
                 ctx.setLineDash([0.01, 0.01]);
@@ -6749,11 +6884,36 @@ export function drawMap() {
             let shift = syndicate(id);
             color = ((Math.round(255*(1-shift)) << 16) + (Math.round(255*shift) << 8)).toString(16).padStart(6, 0);
         }
-        if (id === 'spc_dwarf' || id === 'tau_gas2'){
-            color = '7132a8';
+        if (spacePlanetStats[id].hasOwnProperty('startype')){
+            switch (spacePlanetStats[id].startype){
+                case 'A': // White
+                    color = 'ffffff';
+                    break;
+                case 'F': // Yellow-White
+                    color = 'fdffb8';
+                    break;
+                case 'G': // Yellow dwarf
+                    color = 'f8ff2b';
+                    break;
+                case 'K': // Orange dwarf
+                    color = 'ff802b';
+                    break;
+                case 'M': // Red dwarf
+                    color = 'ff1414';
+                    break;
+                case 'T': // Brown dwarf
+                    color = '9420b1';
+                    break;
+                case 'D': // White dwarf
+                    color = 'e4e4e4';
+                    break;
+                default:
+                    color = 'f8ff2b';
+                    break;
+            }
         }
-        else if (id === 'spc_sun' || id === 'tauceti'){
-            color = 'f8ff2b';
+        else if (id === 'spc_dwarf' || id === 'tau_gas2'){
+            color = '7132a8';
         }
         else if (id === 'spc_sun_gate' || id === 'tau_home'){
             color = '31a557';
@@ -6763,10 +6923,13 @@ export function drawMap() {
 
     // Planets and moons
     for (let [id, planet] of Object.entries(spacePlanetStats)) {
-        if (planet.star || id === 'tauceti'){ continue; }   // Tau Ceti bodies drawn in a star-local frame
+        // Stars other than the Sun (which sits at the origin) are drawn in their own translated
+        // frame below, along with Tau-Ceti-style orbiting bodies (planet.star).
+        if (planet.star || (planet.startype && id !== 'spc_sun')){ continue; }
         if (global.race['orbit_decayed'] && ['spc_home','spc_moon'].includes(id)){
             continue;
         }
+        if (actions.space[id] && actions.space[id].info.showDest && !actions.space[id].info.showDest().r){ continue; }
         let color = setColor(id);
         ctx.fillStyle = "#" + color;
         ctx.beginPath();
@@ -6785,15 +6948,9 @@ export function drawMap() {
             }
         }
         else {
-            let size = planet.size / 10;
-            switch (id){
-                case 'spc_sun':
-                    ctx.arc(planetLocation[id].x, planetLocation[id].y, size, 0, Math.PI * 2, true);
-                    break;
-                default:
-                    ctx.arc(planetLocation[id].x, planetLocation[id].y, size, 0, Math.PI * 2, true);
-                    break;
-            }
+            // The Sun (a star) keeps a minimum on-screen radius so it stays visible when zoomed out.
+            let size = planet.startype ? Math.max(planet.size / 10, 1 / mapScale) : planet.size / 10;
+            ctx.arc(planetLocation[id].x, planetLocation[id].y, size, 0, Math.PI * 2, true);
         }
         ctx.fill();
     }
@@ -6825,10 +6982,14 @@ export function drawMap() {
 
     ctx.fillStyle = "#ffa500";
     ctx.font = `${25 / mapScale}px serif`;
+    // Planet labels clutter once zoomed out past this scale, so they are hidden below it; star
+    // labels are kept (stars stay visible at any zoom).
+    const labelMinScale = 4;
     // Planet names
     for (let [id, planet] of Object.entries(spacePlanetStats)) {
-        if (planet.star || id === 'tauceti'){ continue; }   // Tau Ceti labels drawn in a star-local frame
-        if (actions.space[id] && global.settings.space[id.substring(4)]){
+        if (planet.star || (planet.startype && id !== 'spc_sun')){ continue; }   // star labels drawn in their own frame
+        if (mapScale < labelMinScale){ continue; }   // zoomed out: planet/Sun names give way to star labels
+        if (actions.space[id] && (actions.space[id].info.showDest ? actions.space[id].info.showDest().l : global.settings.space[id.substring(4)]) ){
             if (global.race['orbit_decayed'] && ['spc_home'].includes(id)){
                 continue;
             }
@@ -6848,9 +7009,6 @@ export function drawMap() {
                 }
             } else {
                 switch (id){
-                    case 'spc_sun':
-                        // Do Nothing
-                        break;
                     default:
                         ctx.fillText(nameText, planetLocation[id].x, planetLocation[id].y - (0.2 * planet.size));
                         break;
@@ -6858,31 +7016,37 @@ export function drawMap() {
             }
         }
     }
-    // --- Tau Ceti system ---
-    // Drawn in a frame translated to the star so path coordinates stay small. The star sits ~752k
-    // units from the Sun; drawing the orbits there directly loses canvas precision (jagged rings),
-    // and reusing the Sun's x-shift/eccentricity distorts them. Here they are clean circles centered
-    // on the star.
-    {
-        let tc = genXYcoord('tauceti');
+    // Once zoomed out past the planet-label threshold, identify each star by its label. The Sun sits
+    // at the origin in the home frame; the other stars are labelled in their own frames below.
+    if (mapScale < labelMinScale && spacePlanetStats.spc_sun.label){
+        ctx.fillText(spacePlanetStats.spc_sun.label, planetLocation.spc_sun.x, planetLocation.spc_sun.y - (0.2 * spacePlanetStats.spc_sun.size));
+    }
+    // --- Star systems ---
+    // Every star beyond the Sun is drawn in a frame translated to the star, so its huge coordinates
+    // (hundreds of thousands of AU from the origin) keep canvas precision. Drawing a star and its
+    // orbiting bodies directly in the Sun frame loses precision and distorts the shapes; here each
+    // star and its system are clean circles centered on the star. The Sun itself sits at the origin
+    // and is drawn with the home system above.
+    for (let [starId, star] of Object.entries(spacePlanetStats)) {
+        if (!star.startype || starId === 'spc_sun'){ continue; }
+        let sc = genXYcoord(starId);
         ctx.save();
-        ctx.translate(tc.x, tc.y);
+        ctx.translate(sc.x, sc.y);
         ctx.shadowColor = 'transparent';
 
-        // Star
-        ctx.fillStyle = "#f8ff2b";
+        // The star (minimum on-screen radius so it stays visible when zoomed far out)
+        ctx.fillStyle = "#" + setColor(starId);
         ctx.beginPath();
-        ctx.arc(0, 0, spacePlanetStats.tauceti.size / 10, 0, Math.PI * 2, true);
+        ctx.arc(0, 0, Math.max(star.size / 10, 1 / mapScale), 0, Math.PI * 2, true);
         ctx.fill();
 
-        // Orbits: elliptical and off-center like the solar system (the star sits left of each
-        // orbit's center), but gentler. `e` is the eccentricity (x stretched vs y); each orbit's
-        // center is x-shifted by dist/3 (matching the Sun) so the star is off-center.
+        // Orbits of bodies around this star: elliptical and off-center like the solar system.
+        // `e` is the eccentricity (x stretched vs y); each orbit's center is x-shifted by dist/3.
         let e = 1.2;
         ctx.lineWidth = 1 / mapScale;
         ctx.strokeStyle = "#c0c0c0";
         for (let [id, planet] of Object.entries(spacePlanetStats)) {
-            if (planet.star !== 'tauceti' || !global.tech[planet.unlock]){ continue; }
+            if (planet.star !== starId || !global.tech[planet.unlock]){ continue; }
             ctx.beginPath();
             ctx.setLineDash(planet.belt ? [0.01, 0.01] : []);
             ctx.ellipse(planet.dist / 3, 0, planet.dist * e, planet.dist, 0, 0, Math.PI * 2, true);
@@ -6890,12 +7054,10 @@ export function drawMap() {
         }
         ctx.setLineDash([]);
 
-        // Planets
+        // Bodies orbiting this star
         for (let [id, planet] of Object.entries(spacePlanetStats)) {
-            if (planet.star !== 'tauceti' || !global.tech[planet.unlock]){ continue; }
-            let color = setColor(id);
-            ctx.fillStyle = "#" + color;
-
+            if (planet.star !== starId || !global.tech[planet.unlock]){ continue; }
+            ctx.fillStyle = "#" + setColor(id);
             let pos = global.space.position.hasOwnProperty(id) ? global.space.position[id] : 0;
             let px = Math.cos(pos * (Math.PI / 180)) * planet.dist * e + planet.dist / 3;
             let py = Math.sin(pos * (Math.PI / 180)) * planet.dist;
@@ -6908,11 +7070,17 @@ export function drawMap() {
         ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2; ctx.shadowBlur = 2; ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
         ctx.fillStyle = "#ffa500";
         ctx.font = `${25 / mapScale}px serif`;
-        if (actions.tauceti && actions.tauceti.tau_star && actions.tauceti.tau_star.info && !tauEnabled()){
-            ctx.fillText(actions.tauceti.tau_star.info.name(), 0, -(0.2 * spacePlanetStats.tauceti.size));
+        // Zoomed out past the planet-label threshold, identify the star by its label; when zoomed in,
+        // Tau Ceti still shows its dedicated pre-unlock name from its action set.
+        if (mapScale < labelMinScale){
+            if (star.label){ ctx.fillText(star.label, 0, -(0.2 * star.size)); }
+        }
+        else if (starId === 'tauceti' && actions.tauceti && actions.tauceti.tau_star && actions.tauceti.tau_star.info && !tauEnabled()){
+            ctx.fillText(actions.tauceti.tau_star.info.name(), 0, -(0.2 * star.size));
         }
         for (let [id, planet] of Object.entries(spacePlanetStats)) {
-            if (planet.star !== 'tauceti' || !global.tech[planet.unlock]){ continue; }
+            if (planet.star !== starId || !global.tech[planet.unlock]){ continue; }
+            if (mapScale < labelMinScale){ continue; }
             if (!actions.tauceti[id] || !actions.tauceti[id].info){ continue; }
             let pos = global.space.position.hasOwnProperty(id) ? global.space.position[id] : 0;
             let px = Math.cos(pos * (Math.PI / 180)) * planet.dist * e + planet.dist / 3;

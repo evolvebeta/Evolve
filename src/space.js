@@ -22,6 +22,9 @@ const spaceProjects = {
             },
             desc: loc('space_home_info_desc'),
             zone: 'inner',
+            showDest(){
+                return {r: true, l: global.settings.space.home || global.tech?.resettle >= 3};
+            },
             syndicate(){ return false; },
             nav(){ return false; }
         },
@@ -458,6 +461,9 @@ const spaceProjects = {
             },
             support: 'spaceport',
             zone: 'inner',
+            showDest(){
+                return {r: true, l: global.settings.space.red || global.tech?.resettle >= 3};
+            },
             syndicate(){ return global.tech['resettle'] ? false : true; },
             nav(){ return true; }
         },
@@ -1465,6 +1471,9 @@ const spaceProjects = {
                 return loc('space_hell_info_desc',[planetName().hell]);
             },
             zone: 'inner',
+            showDest(){
+                return {r: true, l: global.settings.space.hell || global.tech?.resettle >= 3};
+            },
             syndicate(){ return false; },
             nav(){ return false; }
         },
@@ -1665,6 +1674,18 @@ const spaceProjects = {
         },
         firework: buildTemplate(`firework`,'space'),
     },
+    spc_sun_gate: {
+        info: {
+            name(){
+                return loc('space_sun_gate_info_name');
+            },
+            showDest(){
+                return global.tech['resettle'] && global.tech.resettle >= 3 ? {r: true, l: true} : {r: false, l: false};
+            },
+            syndicate(){ return false; },
+            nav(){ return false; }
+        }
+    },
     spc_sun: {
         info: {
             name(){
@@ -1672,6 +1693,9 @@ const spaceProjects = {
             },
             desc(){
                 return loc('space_sun_info_desc',[races[global.race.species].home]);
+            },
+            showDest(){
+                return {r: true, l: false};
             },
             support: 'swarm_control',
             zone: 'inner',
@@ -1838,6 +1862,9 @@ const spaceProjects = {
                 return loc('space_gas_info_desc',[planetName().gas, races[global.race.species].home]);
             },
             zone: 'outer',
+            showDest(){
+                return {r: true, l: global.settings.space.gas || global.tech?.resettle >= 3};
+            },
             syndicate(){ return global.tech['resettle'] ? false : true; },
             nav(){ return true; } 
         },
@@ -2144,6 +2171,9 @@ const spaceProjects = {
             },
             support: 'space_station',
             zone: 'inner',
+            showDest(){
+                return {r: global.settings.space.belt || global.tech?.resettle >= 3, l: global.settings.space.belt};
+            },
             syndicate(){ return global.tech['resettle'] ? false : true; },
             nav(){ return true; }
         },
@@ -2354,6 +2384,9 @@ const spaceProjects = {
                 return loc('space_dwarf_info_desc',[planetName().dwarf]);
             },
             zone: 'inner',
+            showDest(){
+                return {r: global.settings.space.dwarf || global.tech?.resettle >= 3, l: global.settings.space.dwarf};
+            },
             syndicate(){ return false; },
             nav(){ return true; }
         },
@@ -6814,8 +6847,6 @@ function space(zone){
     if (!global.settings.showSpace){
         return false;
     }
-
-    console.log(global.settings.civTabs,global.settings.spaceTabs,zone);
 
     let regionOrder = [];
     Object.keys(spaceProjects).forEach(function (region){
