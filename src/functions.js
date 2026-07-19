@@ -1971,7 +1971,30 @@ export function adjustCosts(c_action, offset, wiki){
     costs = dictatorAdjust(costs, offset, wiki);
     costs = lMatAdjust(costs, c_action, offset, wiki);
     costs = nexusAdjust(costs, c_action, offset, wiki);
+    costs = damagedAdjust(costs, c_action, offset, wiki);
     return craftAdjust(costs, offset, wiki);
+}
+
+// A structure whose damaged count exceeds its built count is being rebuilt, so it costs half the
+// normal price. The damaged/count fields live in global[category][key] (e.g. global.space.moon_base),
+// which we resolve from c_action.id (authored as "category-key"). Skipped in the wiki, which
+// documents baseline costs rather than a live save's damage state.
+function damagedAdjust(costs, c_action, offset, wiki){
+    if (!wiki && c_action && c_action['id']){
+        let parts = c_action.id.split('-');
+        let cat = parts.shift();
+        let key = parts.join('-');
+        let struct = global[cat] && global[cat][key];
+        if (struct && typeof struct === 'object' && typeof struct['damaged'] !== 'undefined' && struct.damaged > 0){
+            let adjustRate = struct.damaged > struct.count ? 0.25 : 0.5;
+            var newCosts = {};
+            Object.keys(costs).forEach(function (res){
+                newCosts[res] = function(){ return Math.round(costs[res](offset, wiki) * adjustRate); }
+            });
+            return newCosts;
+        }
+    }
+    return costs;
 }
 
 function bloatAdjust(costs, offset, wiki){

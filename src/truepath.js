@@ -26,13 +26,18 @@ const outerTruth = {
             },
             support: 'electrolysis',
             zone: 'outer',
-            syndicate(){ return global.tech['titan'] && global.tech.titan >= 3 && global.tech['enceladus'] && global.tech.enceladus >= 2 ? true : false; },
+            showDest(){
+                let show = global.settings.space.titan || global.tech?.resettle >= 3 ? true : false;
+                return {r: show, l: show};
+            },
+            syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['titan'] && global.tech.titan >= 3 && global.tech['enceladus'] && global.tech.enceladus >= 2 ? true : false; },
             syndicate_cap(){
                 if (global.tech['triton']){
                     return global.tech.outer >= 4 ? 2000 : 1000;
                 }
                 return 600;
-            }
+            },
+            nav(){ return true; }
         },
         titan_mission: {
             id: 'space-titan_mission',
@@ -724,13 +729,18 @@ const outerTruth = {
             },
             support: 'titan_spaceport',
             zone: 'outer',
-            syndicate(){ return global.tech['titan'] && global.tech.titan >= 3 && global.tech['enceladus'] && global.tech.enceladus >= 2 ? true : false; },
+            showDest(){
+                let show = global.settings.space.enceladus || global.tech?.resettle >= 3 ? true : false;
+                return {r: show, l: show};
+            },
+            syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['titan'] && global.tech.titan >= 3 && global.tech['enceladus'] && global.tech.enceladus >= 2 ? true : false; },
             syndicate_cap(){
                 if (global.tech['triton']){
                     return global.tech.outer >= 4 ? 1500 : 1000;
                 }
                 return 600;
-            }
+            },
+            nav(){ return true; }
         },
         enceladus_mission: {
             id: 'space-enceladus_mission',
@@ -945,8 +955,13 @@ const outerTruth = {
                 return loc('space_triton_info_desc',[planetName().triton, races[global.race.species].home]);
             },
             zone: 'outer',
-            syndicate(){ return global.tech['triton'] && global.tech.triton >= 2 ? true : false; },
+            showDest(){
+                let show = global.settings.space.triton || global.tech?.resettle >= 3 ? true : false;
+                return {r: show, l: show};
+            },
+            syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['triton'] && global.tech.triton >= 2 ? true : false; },
             syndicate_cap(){ return global.tech['outer'] && global.tech.outer >= 4 ? 5000 : 3000; },
+            nav(){ return true; },
             extra(region){
                 if (global.tech['triton'] && global.tech.triton >= 3){
                     $(`#${region}`).append(`<div id="${region}resist" v-show="${region}" class="syndThreat has-text-caution">${loc('space_ground_resist')} <span class="has-text-danger" v-html="threat(enemy,troops)"></span></div>`);
@@ -1123,8 +1138,12 @@ const outerTruth = {
                 return loc('space_kuiper_desc');
             },
             zone: 'outer',
-            syndicate(){ return global.tech['kuiper'] ? true : false; },
+            showDest(){
+                return {r: global.settings.space.kuiper || global.tech?.resettle >= 3, l: global.settings.space.kuiper};
+            },
+            syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['kuiper'] ? true : false; },
             syndicate_cap(){ return 2500; },
+            nav(){ return true; }
         },
         kuiper_mission: {
             id: 'space-kuiper_mission',
@@ -1316,8 +1335,12 @@ const outerTruth = {
             },
             support: 'drone_control',
             zone: 'outer',
-            syndicate(){ return global.tech['eris'] ? true : false; },
+            showDest(){
+                return {r: global.settings.space.eris || global.tech?.resettle >= 3, l: global.settings.space.eris};
+            },
+            syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['eris'] ? true : false; },
             syndicate_cap(){ return 7500; },
+            nav(){ return true; },
             extra(region){
                 if (global.tech['eris'] && global.tech['eris'] === 1){
                     $(`#${region}`).append(`<div id="${region}scanned" v-show="${region}" class="syndThreat has-text-caution">${loc('space_scanned')} <span class="has-text-info">{{ eris_scan }}%</span></div>`);
@@ -1510,7 +1533,8 @@ const tauCetiModules = {
             },
             desc(){
                 return loc('tau_star',[loc('tab_tauceti'),loc('space_sun_info_name')]);
-            }
+            },
+            nav(){ return false; }
         },
         ringworld: {
             id: 'tauceti-ringworld',
@@ -1711,6 +1735,7 @@ const tauCetiModules = {
             desc(){
                 return loc('tau_home',[races[global.race.species].home]);
             },
+            nav(){ return global.tech['resettle'] ? true : false; },
             support: 'orbital_station',
             extra(region){
                 if (global.tech['tau_home'] && global.tech.tau_home >= 2 && !tauEnabled()){
@@ -2245,7 +2270,7 @@ const tauCetiModules = {
         },
         jump_gate: {
             id: 'tauceti-jump_gate',
-            title: loc('tau_jump_gate'),
+            title(){ return global.tech['resettle'] ? loc('tau_jump_gate_target',[actions.space.spc_sun.info.name()]) : loc('tau_jump_gate'); },
             desc(wiki){
                 if (!global.tauceti.hasOwnProperty('jump_gate') || global.tauceti.jump_gate.count < 100 || wiki){
                     return `<div>${loc('tau_jump_gate')}</div><div class="has-text-special">${loc('requires_segments',[100])}</div>`;
@@ -2255,7 +2280,7 @@ const tauCetiModules = {
                 }
             },
             reqs: { tauceti: 3 },
-            condition(){ return global.tech['isolation'] ? 0 : 1; },
+            condition(){ return global.tech['isolation'] && !global.tech['resettle'] ? 0 : 1; },
             path: ['truepath'],
             queue_size: 10,
             queue_complete(){ return 100 - global.tauceti.jump_gate.count; },
@@ -2268,6 +2293,9 @@ const tauCetiModules = {
                 if (count < 100){
                     let remain = 100 - count;
                     return `<div>${loc('tau_jump_gate_effect')}</div><div class="has-text-special">${loc('space_dwarf_collider_effect2',[remain])}</div>`;
+                }
+                else if (global.tech['resettle']){
+                    return global.tech.resettle >= 3 ? loc('tau_jump_gate_effect2',[actions.space.spc_sun.info.name()]) : loc('tau_jump_gate_disabled');
                 }
                 else {
                     return loc('tau_jump_gate_effect');
@@ -2735,6 +2763,7 @@ const tauCetiModules = {
             desc(){
                 return loc('tau_red',[planetName().red]);
             },
+            nav(){ return global.tech['resettle'] ? true : false; },
             support: 'orbital_platform',
             extra(region){
                 if (global.tech['tau_red'] && global.tech.tau_red >= 5){
@@ -3207,6 +3236,43 @@ const tauCetiModules = {
                 };
             },
         },
+        antimatter_reactor: {
+            id: 'tauceti-antimatter_reactor',
+            title: loc('tech_antimatter_reactor'),
+            desc(){
+                return `<div>${loc('tech_antimatter_reactor')}</div><div class="has-text-special">${loc('requires_res',[global.resource.Helium_3.name])}</div>`;
+            },
+            reqs: { womling_energy: 1 },
+            path: ['truepath'],
+            cost: {
+                Money(offset){ return spaceCostMultiplier('antimatter_reactor', offset, 1000000000, 1.3, 'tauceti'); },
+                Neutronium(offset){ return  spaceCostMultiplier('antimatter_reactor', offset, 3750000, 1.3, 'tauceti'); },
+                Orichalcum(offset){ return spaceCostMultiplier('antimatter_reactor', offset, 75000000, 1.3, 'tauceti'); },
+                Quantium(offset){ return spaceCostMultiplier('antimatter_reactor', offset, wom_recycle(420000), 1.3, 'tauceti'); },
+            },
+            effect(){
+                let fuel = +int_fuel_adjust($(this)[0].p_fuel().a).toFixed(2);
+                let desc = `<div>${loc('space_dwarf_reactor_effect1',[-($(this)[0].powered())])}</div>`;
+                desc = desc + `<div class="has-text-caution">${loc('spend',[fuel,global.resource[$(this)[0].p_fuel().r].name])}</div>`;
+                return desc;
+            },
+            p_fuel(){ return { r: 'Positronium', a: 0.12 }; },
+            powered(){ return powerModifier(-48); },
+            action(){
+                if (payCosts($(this)[0])){
+                    incrementStruct('antimatter_reactor','tauceti');
+                    global.tauceti.antimatter_reactor.on++;
+                    return true;
+                }
+                return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0 },
+                    p: ['antimatter_reactor','tauceti']
+                };
+            }
+        },
         womling_rangers: {
             id: 'tauceti-womling_rangers',
             title: loc('tau_red_womling_rangers'),
@@ -3341,7 +3407,8 @@ const tauCetiModules = {
             },
             desc(){
                 return loc('tau_gas_desc');
-            }
+            },
+            nav(){ return global.tech['resettle'] ? true : false; }
         },
         gas_contest: {
             id: 'tauceti-gas_contest',
@@ -3577,6 +3644,7 @@ const tauCetiModules = {
             desc(){
                 return loc('tau_roid_desc');
             },
+            nav(){ return global.tech['resettle'] ? true : false; },
             support: 'patrol_ship',
         },
         roid_mission: {
@@ -3770,7 +3838,8 @@ const tauCetiModules = {
             },
             desc(){
                 return loc('tau_gas2_desc',[tauCetiModules.tau_gas.info.name()]);
-            }
+            },
+            nav(){ return global.tech['resettle'] ? true : false; }
         },
         gas_contest2: {
             id: 'tauceti-gas_contest2',
@@ -4428,10 +4497,10 @@ export function drawShipYard(){
 
         let shipConfig = {
             class: ['corvette','frigate','destroyer','cruiser','battlecruiser','dreadnought','explorer'],
-            power: ['solar','diesel','fission','fusion','elerium'],
+            power: ['solar','diesel','fission','fusion','elerium','antimatter'],
             weapon: ['railgun','laser','p_laser','plasma','phaser','disruptor'],
             armor : ['steel','alloy','neutronium'],
-            engine: ['ion','tie','pulse','photon','vacuum','emdrive'],
+            engine: ['ion','tie','pulse','photon','vacuum','emdrive','electrokinetic'],
             sensor: ['visual','radar','lidar','quantum'],
         };
 
@@ -4456,7 +4525,7 @@ export function drawShipYard(){
         assemble.append(`<span><b-checkbox class="patrol" v-model="s.sort" @change="redraw()">${loc('outer_shipyard_fleet_sort')}</b-checkbox></span>`);
 
         plans.append(assemble);
-        assemble.append(`<div><span>${loc(`outer_shipyard_park`,[global.tech['resettle'] ? tauCetiModules.tau_home.info.name() : planetName().dwarf])}</span><a href="#" class="solarMap" @click="trigModal">${loc(`outer_shipyard_map`)}</span></a>`);
+        assemble.append(`<div><span>${loc(`outer_shipyard_park`,[global.tech['resettle'] ? tauCetiModules.tau_gas2.info.name() : planetName().dwarf])}</span><a href="#" class="solarMap" @click="trigModal">${loc(`outer_shipyard_map`)}</span></a>`);
 
         updateCosts();
 
@@ -4659,8 +4728,8 @@ export function TPShipDesc(parent,obj){
 }
 
 function buildTPShip(ship, queue){
-    ship['location'] = 'spc_dwarf';
-    ship['xy'] = genXYcoord('spc_dwarf');
+    ship['location'] = global.tech['resettle'] ? 'tau_gas2' : 'spc_dwarf';
+    ship['xy'] = genXYcoord(global.tech['resettle'] ? 'tau_gas2' : 'spc_dwarf');
     ship['origin'] = deepClone(ship['xy']);
     ship['destination'] = deepClone(ship['xy']);
     ship['transit'] = 0;
@@ -4806,6 +4875,9 @@ export function shipPower(ship, wiki){
         case 'elerium':
             watts = Math.round(200 * out_inflate);
             break;
+        case 'antimatter':
+            watts = Math.round(250 * out_inflate);
+            break;
     }
 
     watts = Math.round(Math.max(watts, powerModifier(watts)));
@@ -4833,22 +4905,25 @@ export function shipPower(ship, wiki){
 
     switch (ship.engine){
         case 'ion':
-            watts -= Math.round(25 * use_inflate);
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 18 : 25) * use_inflate);
             break;
         case 'tie':
-            watts -= Math.round(50 * use_inflate);
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 36 : 50) * use_inflate);
             break;
         case 'pulse':
-            watts -= Math.round(40 * use_inflate);
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 25 : 40) * use_inflate);
             break;
         case 'photon':
-            watts -= Math.round(75 * use_inflate);
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 50 : 75) * use_inflate);
             break;
         case 'vacuum':
-            watts -= Math.round(120 * use_inflate);
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 75 : 120) * use_inflate);
             break;
         case 'emdrive':
             watts -= Math.round((ship.class !== 'explorer' && !wiki ? 1024 : 515) * use_inflate);
+            break;
+        case 'electrokinetic':
+            watts -= Math.round((global.tech.syard_engine >= 6 ? 100 : 140) * use_inflate);
             break;
     }
 
@@ -4916,42 +4991,55 @@ export function shipSpeed(ship){
     let mass = 1;
     switch (ship.class){
         case 'corvette':
-            mass = ship.armor === 'neutronium' ? 1.1 : 1;
+            mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 1 : 0.95) : ship.armor === 'neutronium' ? 1.1 : 1;
             break;
         case 'frigate':
-            mass = ship.armor === 'neutronium' ? 1.35 : 1.25;
+            mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 1.12 : 1.1) : ship.armor === 'neutronium' ? 1.35 : 1.25;
             break;
         case 'destroyer':
-            mass = ship.armor === 'neutronium' ? 1.95 : 1.8;
+            mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 1.25 : 1.2) : ship.armor === 'neutronium' ? 1.95 : 1.8;
             break;
         case 'cruiser':
-            mass = ship.armor === 'neutronium' ? 3.5 : 3;
+            mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 1.75 : 1.5) : ship.armor === 'neutronium' ? 3.5 : 3;
             break;
         case 'battlecruiser':
-            mass = ship.armor === 'neutronium' ? 4.8 : 4;
+            mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 2.4 : 2) : ship.armor === 'neutronium' ? 4.8 : 4;
             break;
         case 'dreadnought':
-            mass = ship.armor === 'neutronium' ? 7.5 : 6;
+            mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 3.5 : 3) : (ship.armor === 'neutronium' ? 7.5 : 6);
             break;
         case 'explorer':
             mass = 1;
             break;
     }
 
-    let boost = ship.location === 'spc_dwarf' && p_on['m_relay'] && ship.transit === 0 && global.space['m_relay'] && global.space.m_relay.charged >= 10000 ? 3 : 1;
+    let boost = 1;
+    switch (ship.location){
+        case 'spc_dwarf':
+            boost = p_on['m_relay'] && ship.transit === 0 && global.space['m_relay'] && global.space.m_relay.charged >= 10000 ? 3 : 1;
+            break;
+        case 'tau_gas2':
+            boost = p_on['tcm_relay'] && ship.transit === 0 && global.tauceti['tcm_relay'] && global.tauceti.tcm_relay.charged >= 10000 ? 3 : 1;
+            break;
+        default:
+            boost = 1;
+            break;
+    }
     switch (ship.engine){
         case 'ion':
-            return 12 / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 30 : 12) / mass * boost;
         case 'tie':
-            return 22 / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 55 : 22) / mass * boost;
         case 'pulse':
-            return 18 / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 45 : 18) / mass * boost;
         case 'photon':
-            return 30 / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 75 : 30) / mass * boost;
         case 'vacuum':
-            return 42 / mass * boost;
+            return (global.tech.syard_engine >= 6 ? 105 : 42) / mass * boost;
         case 'emdrive':
             return 37500 / mass * boost;
+        case 'electrokinetic':
+            return (global.tech.syard_engine >= 6 ? 140 : 56) / mass * boost;
     }
 }
 
@@ -4975,6 +5063,10 @@ export function shipFuelUse(ship){
         case 'elerium':
             res = 'Elerium';
             burn = 1;
+            break;
+        case 'antimatter':
+            res = 'Positronium';
+            burn = 0.05;
             break;
     }
 
@@ -5092,6 +5184,9 @@ export function shipCosts(bp){
         case 'emdrive':
             costs['Titanium'] = Math.round(1250000 ** p_inflate);
             break;
+        case 'electrokinetic':
+            costs['Titanium'] = Math.round(1750000 ** p_inflate);
+            break;
     }
 
     let alt_mat = ['dreadnought','explorer'].includes(bp.class) ? true : false;
@@ -5115,6 +5210,10 @@ export function shipCosts(bp){
         case 'elerium':
             costs[alt_mat ? 'Orichalcum' : 'Copper'] = Math.round(60000 ** h_inflate);
             costs['Iridium'] = Math.round(55000 ** p_inflate);
+            break;
+        case 'antimatter':
+            costs[alt_mat ? 'Orichalcum' : 'Copper'] = Math.round(60000 ** h_inflate);
+            costs['Iridium'] = Math.round(65000 ** p_inflate);
             break;
     }
 
@@ -5232,7 +5331,8 @@ const shipyardRanks = {
         tau_red: 14,
         tau_gas: 15,
         tau_gas2: 16,
-        tau_roid: 17
+        tau_roid: 17,
+        spc_sun_gate: 18,
     },
     class: {
         corvette: 1,
@@ -5250,6 +5350,7 @@ const shipyardRanks = {
         photon: 4,
         vacuum: 5,
         emdrive: 6,
+        electrokinetic: 7
     },
     power: {
         solar: 1,
@@ -5277,7 +5378,7 @@ function drawShips(){
     clearShipDrag();
     clearElement($('#shipList'));
 
-    if (global.tech['isolation']){
+    if (global.tech['isolation'] && !global.tech['resettle']){
         return;
     }
 
@@ -5287,7 +5388,23 @@ function drawShips(){
         global.space.shipyard.ships = global.space.shipyard.ships.sort(shipyardShipCompare);
     }
 
+
     const spaceRegions = spaceTech();
+    let regionNames = {};
+    Object.keys(spaceRegions).forEach(function(region){
+        if (spaceRegions[region].info.nav()){
+            let name = typeof spaceRegions[region].info.name === 'string' ? spaceRegions[region].info.name : spaceRegions[region].info.name();
+            regionNames[region] = name;
+        }
+    });
+    Object.keys(tauCetiModules).forEach(function(region){
+        if (tauCetiModules[region].info.nav()){
+            let name = typeof tauCetiModules[region].info.name === 'string' ? tauCetiModules[region].info.name : tauCetiModules[region].info.name();
+            regionNames[region] = name;
+        }
+    });
+    regionNames['tauceti'] = loc('tech_era_tauceti');
+
     for (let i=0; i<global.space.shipyard.ships.length; i++){
         let ship = global.space.shipyard.ships[i];
         if (!ship['xy']){ ship['xy'] = genXYcoord(ship.location); }
@@ -5295,10 +5412,8 @@ function drawShips(){
         if (!ship.hasOwnProperty('origin')){ ship['origin'] = ship['xy']; }
         if (!ship.hasOwnProperty('destination')){ ship['destination'] = genXYcoord(ship.location); }
 
-        let location = ship.location === 'tauceti' ? loc('tech_era_tauceti') : typeof spaceRegions[ship.location].info.name === 'string' ? spaceRegions[ship.location].info.name : spaceRegions[ship.location].info.name();
-
         let dispatch = `<button id="ship${i}loc" class="button is-info" @click="pickDest(${i})">
-            <span>${location}</span>
+            <span>${regionNames[ship.location]}</span>
         </button>`;
 
         if (global.space.shipyard.expand){
@@ -5350,14 +5465,14 @@ function drawShips(){
             data: global.space.shipyard.ships[i],
             methods: {
                 scrap(id){
-                    if (global.space.shipyard.ships[id] && global.space.shipyard.ships[id].location === 'spc_dwarf'){
+                    if (global.space.shipyard.ships[id] && ['spc_dwarf','tau_gas2'].includes(global.space.shipyard.ships[id].location)){
                         global.space.shipyard.ships.splice(id,1);
                         drawShips();
                         updateCosts();
                     }
                 },
                 scrapAllowed(id){
-                    if (global.space.shipyard.ships[id] && global.space.shipyard.ships[id].location === 'spc_dwarf'){
+                    if (global.space.shipyard.ships[id] && ['spc_dwarf','tau_gas2'].includes(global.space.shipyard.ships[id].location)){
                         return true;
                     }
                     return false;
@@ -5413,7 +5528,7 @@ function drawShips(){
                     return ``;
                 },
                 dest(id){
-                    let name = ship.class === 'explorer' ? loc('tech_era_tauceti') : typeof spaceRegions[global.space.shipyard.ships[id].location].info.name === 'string' ? spaceRegions[global.space.shipyard.ships[id].location].info.name : spaceRegions[global.space.shipyard.ships[id].location].info.name();
+                    let name = ship.class === 'explorer' ? loc('tech_era_tauceti') : regionNames[global.space.shipyard.ships[id].location];
                     return loc(`outer_shipyard_arrive`,[
                         name,
                         global.space.shipyard.ships[id].transit
@@ -5449,17 +5564,24 @@ function tauEnableSoldiers(){
 }
 
 function calcLandingPoint(ship, planet) {
-    if (spacePlanetStats[planet].orbit === -2 ) { return genXYcoord(planet); }
-    let ship_dist = Math.sqrt(((ship.xy.x - xShift(planet)) ** 2) + (ship.xy.y ** 2));
+    if (spacePlanetStats[planet].startype) { return genXYcoord(planet); }
+    // Tau Ceti bodies orbit their star, which sits far from the home-system origin.
+    // Mirror genXYcoord so the orbit center and eccentricity match the body's actual
+    // rendered position; otherwise a ship already in Tau Ceti has its landing point
+    // computed back near the home sun, producing a bogus multi-star transit distance.
+    let star = spacePlanetStats[planet].star ? genXYcoord(spacePlanetStats[planet].star) : { x: 0, y: 0 };
+    let ecc = spacePlanetStats[planet].star ? 1.2 : xPosition(1, planet);
+    let center_x = star.x + xShift(planet);
+    let center_y = star.y;
+    let ship_dist = Math.sqrt(((ship.xy.x - center_x) ** 2) + ((ship.xy.y - center_y) ** 2));
     let ship_speed = shipSpeed(ship) / 225;
-    let width = xPosition(1, planet);
     let cross1_dist = Math.abs(ship_dist - spacePlanetStats[planet].dist);
     let cross2_dist = Math.abs(ship_dist + spacePlanetStats[planet].dist);
-    let cross1w_dist = Math.abs(ship_dist - spacePlanetStats[planet].dist * width);
-    let cross2w_dist = Math.abs(ship_dist + spacePlanetStats[planet].dist * width);
+    let cross1w_dist = Math.abs(ship_dist - spacePlanetStats[planet].dist * ecc);
+    let cross2w_dist = Math.abs(ship_dist + spacePlanetStats[planet].dist * ecc);
     let cross1_days = Math.floor(Math.min(cross1_dist, cross1w_dist, cross2_dist, cross2w_dist) / ship_speed);
     let cross2_days = Math.ceil(Math.max(cross1_dist, cross1w_dist, cross2_dist, cross2w_dist) / ship_speed);
-    if (ship_dist >= spacePlanetStats[planet].dist && ship_dist <= spacePlanetStats[planet].dist * width) {
+    if (ship_dist >= spacePlanetStats[planet].dist && ship_dist <= spacePlanetStats[planet].dist * ecc) {
         cross1_days = 0;
     }
     let planet_orbit = spacePlanetStats[planet].orbit === -1
@@ -5469,9 +5591,8 @@ function calcLandingPoint(ship, planet) {
     let planet_degree = (global.space.position[planet] + (cross1_days * planet_speed)) % 360;
     let rads = (Math.PI / 180);
     for (let i = cross1_days; i <= cross2_days; i++) {
-        let planet_x = xPosition(Math.cos(planet_degree * rads) * spacePlanetStats[planet].dist, planet);
-        planet_x += xShift(planet);
-        let planet_y = Math.sin(planet_degree * rads) * spacePlanetStats[planet].dist;
+        let planet_x = Math.cos(planet_degree * rads) * spacePlanetStats[planet].dist * ecc + center_x;
+        let planet_y = Math.sin(planet_degree * rads) * spacePlanetStats[planet].dist + center_y;
         let time = Math.sqrt(((planet_x - ship.xy.x) ** 2) + ((planet_y - ship.xy.y) ** 2)) / ship_speed;
         if (time <= i) {
             return {x: planet_x, y: planet_y};
@@ -5689,18 +5810,22 @@ export function erisWar(){
     }
 }
 
+// Stars (entries with a `startype`) are placed by fixed x,y coordinates — in AU, measured from the
+// Sun at the origin — rather than by a distance + orbital angle. They therefore need no
+// global.space.position entry and never move. `dist` is retained for reference/UI only.
 export const spacePlanetStats = {
-    spc_sun: { dist: 0, orbit: 0, size: 2 },
+    spc_sun: { x: 0, y: 0, dist: 0, orbit: 0, size: 2, startype: 'G', label: loc('star_sun') },
+    spc_sun_gate: { dist: 0.3, orbit: 53, size: 0.1, belt: true },
     spc_home: { dist: 1, orbit: -1, size: 0.6 },
     spc_moon: { dist: 1.01, orbit: -1, size: 0.1, moon: true },
     spc_red: { dist: 1.524, orbit: 687, size: 0.5 },
     spc_hell: { dist: 0.4, orbit: 88, size: 0.4 },
     spc_venus: { dist: 0.7, orbit: 225, size: 0.5 },
-    spc_gas: { dist: 5.203, orbit: 4330, size: 1.25 },
+    spc_gas: { dist: 5.203, orbit: 4330, size: 1.3 },
     spc_gas_moon: { dist: 5.204, orbit: 4330, size: 0.2, moon: true },
     spc_belt: { dist: 2.7, orbit: 1642, size: 0.5, belt: true },
     spc_dwarf: { dist: 2.77, orbit: 1682, size: 0.5 },
-    spc_saturn: { dist: 9.539, orbit: 10751, size: 1.1 },
+    spc_saturn: { dist: 9.539, orbit: 10751, size: 1.15 },
     spc_titan: { dist: 9.536, orbit: 10751, size: 0.2, moon: true },
     spc_enceladus: { dist: 9.542, orbit: 10751, size: 0.1, moon: true },
     spc_uranus: { dist: 19.8, orbit: 30660, size: 1 },
@@ -5708,14 +5833,122 @@ export const spacePlanetStats = {
     spc_triton: { dist: 30.1, orbit: 60152, size: 0.1, moon: true },
     spc_kuiper: { dist: 39.5, orbit: 90498, size: 0.5, belt: true },
     spc_eris: { dist: 68, orbit: 204060, size: 0.5 },
-    tauceti: { dist: 752568.8, orbit: -2, size: 2 },
-    // Tau Ceti system bodies. They orbit the tauceti star (star: 'tauceti') rather than the Sun,
+    // Tau Ceti system. Planets orbit the tauceti star (star: 'tauceti') rather than the Sun,
     // with distances (AU) taken from the area descriptions and Kepler-derived orbital periods.
+    tauceti: { x: 603207.923, y: -450000, dist: 752568.8, orbit: -2, size: 2, startype: 'G', label: loc('star_tauceti') },
     tau_home: { dist: 0.5, orbit: 129, size: 0.6, star: 'tauceti', unlock: 'tau_home' },
     tau_red: { dist: 1.24, orbit: 504, size: 0.5, star: 'tauceti', unlock: 'tau_red' },
     tau_gas: { dist: 5.6, orbit: 4839, size: 1.25, star: 'tauceti', unlock: 'tau_gas' },
     tau_gas2: { dist: 8.2, orbit: 8576, size: 1.1, star: 'tauceti', unlock: 'tau_gas2' },
     tau_roid: { dist: 15, orbit: 21217, size: 0.5, star: 'tauceti', belt: true, unlock: 'tau_roid' },
+    // Epsilon Eridani: 657707.2 AU from the Sun and 344663.9 AU from Tau Ceti triangulated fixed coordinates).
+    eridani: { x: 648720.37, y: -108354.246, dist: 657707.2, orbit: -2, size: 1.9, startype: 'K', label: loc('star_eridani') },
+    // Gliese 65 (M-type): 554624.2 AU from the Sun and 322529 AU from Eridani, sitting roughly
+    // between the Sun and Tau Ceti (triangulated fixed coordinates).
+    gliese65: { x: 432282.302, y: -347476.639, dist: 554624.2, orbit: -2, size: 1.5, startype: 'M', label: loc('star_gliese65') },
+    // YZ Ceti (M-type): 766481.85 AU from the Sun, ~101186 AU from Tau Ceti and ~442688 AU from
+    // Eridani (triangulated fixed coordinates).
+    yzceti: { x: 548661.064, y: -535224.684, dist: 766481.85, orbit: -2, size: 1.5, startype: 'M', label: loc('star_yzceti') },
+    // Alpha Centauri: 276363.5 AU from the Sun, placed directly opposite Tau Ceti (negative X,
+    // positive Y); its distance from Tau Ceti is therefore its maximum, ~1028932 AU.
+    alphacentauri: { x: -221514.17, y: 165252.101, dist: 276363.5, orbit: -2, size: 2, startype: 'G', label: loc('star_alpha_centauri') },
+    // Alpha Centauri B (K-type): binary companion, 17.5 AU from Alpha Centauri. No `label`, so it
+    // renders as a star dot with no name on the map.
+    alphacentaurib: { x: -221509.369, y: 165235.272, dist: 276349.590, orbit: -2, size: 1.5, startype: 'K' },
+    // Proxima Centauri (M-type): 12950 AU from Alpha Centauri, toward the Sun but offset ~10 deg to
+    // one side. No `label`, so it renders as a star dot with no name on the map.
+    proximacentauri: { x: -209947.384, y: 159428.704, dist: 263619.831, orbit: -2, size: 1, startype: 'M' },
+    // Barnard's Star (M-type): 359841.7 AU from the Sun, on the negative X side with a near-zero
+    // (but non-zero) Y value.
+    barnardsstar: { x: -359713.935, y: 9588.242, dist: 359841.7, orbit: -2, size: 1.5, startype: 'M', label: loc('star_barnards_star') },
+    // Sirius (A-type): 544505.7 AU from the Sun and ~499605 AU from Eridani, on the positive X side
+    // with positive Y (triangulated fixed coordinates).
+    sirius: { x: 426154.845, y: 338937.318, dist: 544505.7, orbit: -2, size: 3, startype: 'A', label: loc('star_sirius') },
+    // Sirius B (D-type white dwarf): binary companion, 20 AU from Sirius. No `label`, so it renders
+    // as a star dot with no name on the map.
+    siriusb: { x: 426171.044, y: 338949.048, dist: 544525.680, orbit: -2, size: 1.2, startype: 'D' },
+    // Procyon (F-type): 724742.74 AU from the Sun and ~331383.2 AU from Sirius, larger-Y solution
+    // (triangulated fixed coordinates).
+    procyon: { x: 370574.551, y: 622837.492, dist: 724742.74, orbit: -2, size: 2.5, startype: 'F', label: loc('star_procyon') },
+    // Procyon B (D-type white dwarf): binary companion, 21 AU from Procyon. No `label`, so it renders
+    // as a star dot with no name on the map.
+    procyonb: { x: 370591.097, y: 622824.561, dist: 724740.088, orbit: -2, size: 1.2, startype: 'D' },
+    // Wolf 359 (M-type): 498972.1 AU from the Sun with positive X & Y. A positive-X/Y point cannot
+    // also be ~695652 AU from Sirius (Sirius shares that quadrant), so it is placed as far from
+    // Sirius as the first quadrant allows (~372168 AU).
+    wolf359: { x: 86645.596, y: 491391.593, dist: 498972.1, orbit: -2, size: 1.5, startype: 'M', label: loc('star_wolf359') },
+    // Ross 128 (M-type): 701976 AU from the Sun and ~239683.7 AU from Wolf 359, using the solution
+    // furthest from Procyon (triangulated fixed coordinates).
+    ross128: { x: -28909.372, y: 701380.462, dist: 701976, orbit: -2, size: 1.5, startype: 'M', label: loc('star_ross128') },
+    // 61 Cygni (K-type): 720948.3 AU from the Sun, in the negative-X/negative-Y quadrant with |y|
+    // slightly greater than |x| (~32000 AU apart).
+    cygni: { x: -493536.285, y: -525536.285, dist: 720948.3, orbit: -2, size: 1.9, startype: 'K', label: loc('star_61cygni') },
+    // 61 Cygni B (K-type): the binary companion, 84 AU from 61 Cygni. Intentionally has no `label`,
+    // so it renders as a star dot with no name on the map.
+    cygnib: { x: -493545.761, y: -525619.749, dist: 721015.630, orbit: -2, size: 1.75, startype: 'K' },
+    // Sigma Draconis (K-type): 1188932 AU from the Sun, in the negative-X/negative-Y quadrant with
+    // |x| greater than |y| (roughly double).
+    sigmadraconis: { x: -1063413.109, y: -531706.555, dist: 1188932, orbit: -2, size: 1.9, startype: 'K', label: loc('star_sigma_draconis') },
+    // Altair (A-type): 1056126 AU from the Sun, negative X & Y, in the direction between 61 Cygni and
+    // Sigma Draconis as seen from the Sun (midpoint direction).
+    altair: { x: -846976.493, y: -630898.525, dist: 1056126, orbit: -2, size: 2, startype: 'A', label: loc('star_altair') },
+    // Kapteyn's Star (M-type): 811383.02 AU from the Sun, in the direction between Sirius and Eridani
+    // (about 60% of the way from Eridani toward Sirius) as seen from the Sun.
+    kapteynsstar: { x: 765760.807, y: 268240.175, dist: 811383.02, orbit: -2, size: 1.5, startype: 'M', label: loc('star_kapteyns_star') },
+    // Teegarden's Star (M-type): 790513.5 AU from the Sun, roughly halfway between Tau Ceti and
+    // Eridani in direction from the Sun (midpoint direction).
+    teegardensstar: { x: 727115.6, y: -310184.619, dist: 790513.5, orbit: -2, size: 1.5, startype: 'M', label: loc('star_teegardens_star') },
+    // Eta Cassiopeiae (G-type): 1228141.7 AU from the Sun, in the same general (lower-right) direction
+    // as YZ Ceti but at a steeper angle so its X value is lower than YZ Ceti's.
+    etacassiopeiae: { x: 500000, y: -1121753.999, dist: 1228141.7, orbit: -2, size: 2, startype: 'G', label: loc('star_eta_cassiopeiae') },
+    // Eta Cassiopeiae B (K-type): binary companion, 71 AU from Eta Cassiopeiae in a random direction.
+    // No `label`, so it renders as a star dot with no name on the map.
+    etacassiopeiaeb: { x: 500069.949, y: -1121741.827, dist: 1228159.062, orbit: -2, size: 1.5, startype: 'K' },
+    // 70 Ophiuchi (K-type): 1056126 AU from the Sun, negative X & Y, close to (but a few degrees off)
+    // the negative X axis.
+    ophiuchi: { x: -1054753.891, y: -53817.806, dist: 1056126, orbit: -2, size: 2, startype: 'K', label: loc('star_70_ophiuchi') },
+    // 70 Ophiuchi B (K-type): binary companion, 23.2 AU from 70 Ophiuchi in a random direction.
+    // No `label`, so it renders as a star dot with no name on the map.
+    ophiuchib: { x: -1054734.113, y: -53805.68, dist: 1056105.629, orbit: -2, size: 1.5, startype: 'K' },
+    // DX Cancri (M-type): 738655.78 AU from the Sun (swapped direction with Procyon).
+    dxcancri: { x: 322977.327, y: 664302.647, dist: 738655.78, orbit: -2, size: 1.5, startype: 'M', label: loc('star_dx_cancri') },
+    // AD Leonis (M-type): 1024505 AU from the Sun, in the same direction as Wolf 359 but a couple
+    // degrees toward the +x axis (to the right, higher X).
+    adleonis: { x: 219454.827, y: 1000724.774, dist: 1024505, orbit: -2, size: 1.5, startype: 'M', label: loc('star_ad_leonis') },
+    // EV Lacertae (M-type): 1042213 AU from the Sun, between 61 Cygni and Eta Cassiopeiae in
+    // direction, close to the negative Y axis with a small negative X value.
+    evlacertae: { x: -36372.709, y: -1041578.112, dist: 1042213, orbit: -2, size: 1.5, startype: 'M', label: loc('star_ev_lacertae') },
+    // Kruger 60 (M-type): 866402.8 AU from the Sun, between 61 Cygni and EV Lacertae in direction
+    // but closer to EV Lacertae.
+    kruger60: { x: -214886.032, y: -839331.761, dist: 866402.8, orbit: -2, size: 1.5, startype: 'M', label: loc('star_kruger_60') },
+    // Kruger 60 B (M-type): binary companion, 9.5 AU from Kruger 60 in a random direction.
+    // No `label`, so it renders as a star dot with no name on the map.
+    kruger60b: { x: -214894.289, y: -839336.46, dist: 866409.400, orbit: -2, size: 1.3, startype: 'M' },
+    // YZ Canis Minoris (M-type): 1233201 AU from the Sun, in the same direction as Procyon with a
+    // 1 degree variance (the higher-X of the two options).
+    yzcanisminoris: { x: 648958.851, y: 1048635.836, dist: 1233201, orbit: -2, size: 1.5, startype: 'M', label: loc('star_yz_canis_minoris') },
+    // Epsilon Indi (K-type): between 61 Cygni and Kruger 60 in direction but closer to Kruger 60.
+    // Distance from the Sun is deliberately inaccurate (430039 AU, closer than the real ~750672 AU)
+    // for gameplay reasons.
+    epsilonindi: { x: -168117.602, y: -395815.63, dist: 430039, orbit: -2, size: 2, startype: 'K', label: loc('star_epsilon_indi') },
+    // Epsilon Indi Ba (T-type brown dwarf): companion, 1460 AU from Epsilon Indi in a random
+    // direction. No `label`, so it renders as a star dot with no name on the map.
+    epsilonindiba: { x: -166686.946, y: -395524.384, dist: 429213.323, orbit: -2, size: 1.2, startype: 'T' },
+    // Epsilon Indi Bb (T-type brown dwarf): companion to Ba, 2.65 AU from Epsilon Indi Ba in a random
+    // direction. No `label`, so it renders as a star dot with no name on the map.
+    epsilonindibb: { x: -166684.742, y: -395525.856, dist: 429213.824, orbit: -2, size: 1.2, startype: 'T' },
+    // Gliese 570 (K-type): 1201579 AU from the Sun, in the same general direction as Alpha Centauri.
+    gliese570: { x: -963103.935, y: 718486.536, dist: 1201579, orbit: -2, size: 2, startype: 'K', label: loc('star_gliese_570') },
+    // Gliese 570 B & C (M-type binary): ~190 AU from Gliese 570 (random direction) and 0.8 AU from
+    // each other (random orientation). No `label`, so they render as star dots with no names.
+    gliese570b: { x: -963115.353, y: 718296.88, dist: 1201474.757, orbit: -2, size: 1, startype: 'M' },
+    gliese570c: { x: -963115.953, y: 718296.351, dist: 1201474.921, orbit: -2, size: 1, startype: 'M' },
+    // Gliese 570 D (T-type brown dwarf): companion, 1500 AU from Gliese 570 in a random direction.
+    // No `label`, so it renders as a star dot with no name on the map.
+    gliese570d: { x: -961659.938, y: 718080.491, dist: 1200178.915, orbit: -2, size: 1, startype: 'T' },
+    // Wolf 1061 (M-type): 891699.2 AU from the Sun, roughly halfway between Gliese 570 and 70 Ophiuchi
+    // in direction from the Sun (midpoint direction).
+    wolf1061: { x: -853184.411, y: 259237.005, dist: 891699.2, orbit: -2, size: 1.5, startype: 'M', label: loc('star_wolf_1061') },
 };
 
 export function setOrbits(){
@@ -5723,7 +5956,8 @@ export function setOrbits(){
         global.space['position'] = {};
     }
     Object.keys(spacePlanetStats).forEach(function(o){
-        if (!global.space.position.hasOwnProperty(o)){
+        // Stars have fixed coordinates, so they never need an orbital position.
+        if (!spacePlanetStats[o].startype && !global.space.position.hasOwnProperty(o)){
             global.space.position[o] = Math.rand(0,360);
         }
     });
@@ -5735,6 +5969,10 @@ export function setOrbits(){
 }
 
 export function genXYcoord(planet){
+    // Stars have fixed coordinates and are not positioned by distance/angle from the Sun.
+    if (spacePlanetStats[planet].startype){
+        return { x: spacePlanetStats[planet].x, y: spacePlanetStats[planet].y };
+    }
     let pos = global.space.position.hasOwnProperty(planet) ? global.space.position[planet] : 0;
     let rad = pos * (Math.PI / 180);
     // Bodies with a `star` (the Tau Ceti system) ride a clean circular orbit centered on that star —
@@ -5751,6 +5989,89 @@ export function genXYcoord(planet){
 
 function transferWindow(p1,p2){
     return Math.ceil(Math.sqrt(((p2.x - p1.x) ** 2) + ((p2.y - p1.y) ** 2)) * 225);
+}
+
+// ---- Wormhole / jump gate network ----------------------------------------------------------
+// Extensible registry of jump gates and the directed wormhole links between them. A gate is a
+// physical location (a spacePlanetStats key) belonging to a star system. When a ship crosses
+// between two systems it is routed through a linked pair of active gates — an entry gate in its
+// own system and an exit gate in the destination's — and covers the inter-gate leg at
+// wormholeSpeedMult times its normal speed. To extend the network, add gates here and links
+// below; a link is one-way, so list both directions for a two-way wormhole or a single direction
+// for a one-way gate. New/not-yet-built gates can gate their availability via active().
+const wormholeSpeedMult = 25000;
+const jumpGates = {
+    spc_sun_gate: {
+        system: 'sun',
+        location: 'spc_sun_gate',
+        active(){ return global.tech['resettle'] && global.tech.resettle >= 3 ? true : false; }
+    },
+    tau_home_gate: {
+        system: 'tauceti',
+        location: 'tau_home',
+        active(){ return global.tech['resettle'] && global.tech.resettle >= 3 ? true : false; }
+    }
+};
+// Directed wormhole links. Two entries = a two-way wormhole; a single entry = a one-way gate.
+const jumpLinks = [
+    { from: 'spc_sun_gate', to: 'tau_home_gate' },
+    { from: 'tau_home_gate', to: 'spc_sun_gate' }
+];
+
+// Which star system a location belongs to. Tau Ceti bodies carry star:'tauceti'; everything else
+// (including the Tau Ceti star region itself) resolves explicitly, defaulting to the Sun system.
+function locSystem(loc){
+    if (loc === 'tauceti'){ return 'tauceti'; }
+    return spacePlanetStats[loc] && spacePlanetStats[loc].star ? spacePlanetStats[loc].star : 'sun';
+}
+
+// Find an active wormhole route (entry + exit gate) connecting fromLoc's system to toLoc's system,
+// or null when none applies (same system, no link, or either gate inactive).
+function findWormholeRoute(fromLoc, toLoc){
+    let fromSys = locSystem(fromLoc);
+    let toSys = locSystem(toLoc);
+    if (fromSys === toSys){ return null; }
+    for (let link of jumpLinks){
+        let entry = jumpGates[link.from];
+        let exit = jumpGates[link.to];
+        if (entry && exit && entry.system === fromSys && exit.system === toSys && entry.active() && exit.active()){
+            return { entry, exit };
+        }
+    }
+    return null;
+}
+
+// Plan a ship's trip to location l. Returns the total transit time (days, computed up front),
+// origin/destination coordinates, and — when an active wormhole route applies — a multi-leg path
+// of time-normalized waypoints: origin -> entry gate -> (wormhole, wormholeSpeedMult x speed) exit
+// gate -> final destination. Without a route it returns a plain single-leg trip (path: false).
+function planShipTrip(ship, l){
+    let speed = shipSpeed(ship);
+    let route = findWormholeRoute(ship.location, l);
+    if (!route){
+        let dest = calcLandingPoint(ship, l);
+        let days = Math.round(transferWindow(ship.xy, dest) / speed);
+        return { transit: days, dist: days, origin: deepClone(ship.xy), destination: { x: dest.x, y: dest.y }, path: false };
+    }
+    // Leg 1: current position -> entry gate (normal speed).
+    let entryPt = calcLandingPoint(ship, route.entry.location);
+    let d1 = transferWindow(ship.xy, entryPt) / speed;
+    // Leg 2: entry gate -> exit gate through the wormhole (accelerated).
+    let exitPt = genXYcoord(route.exit.location);
+    let d2 = transferWindow(entryPt, exitPt) / (speed * wormholeSpeedMult);
+    // Leg 3: exit gate -> final destination (normal speed). Compute the landing point in the exit
+    // gate's frame by treating the gate as the ship's position (final xy is snapped on arrival).
+    let destPt = calcLandingPoint(Object.assign({}, ship, { xy: exitPt }), l);
+    let d3 = transferWindow(exitPt, destPt) / speed;
+    let total = d1 + d2 + d3;
+    let days = Math.max(1, Math.round(total));
+    let path = [
+        { x: ship.xy.x, y: ship.xy.y, tn: 0 },
+        { x: entryPt.x, y: entryPt.y, tn: d1 / total },
+        { x: exitPt.x, y: exitPt.y, tn: (d1 + d2) / total },
+        { x: destPt.x, y: destPt.y, tn: 1 }
+    ];
+    return { transit: days, dist: days, origin: deepClone(ship.xy), destination: { x: destPt.x, y: destPt.y }, path };
 }
 
 export function tpStorageMultiplier(type,heavy,wiki){
@@ -5934,6 +6255,35 @@ export function jumpGateShutdown(){
 
     clearElement($(`#infoTimer`));
     global.race['inactive'] = inactive;
+}
+
+export function jumpGateRestart(){
+    let regions = {
+        space: [
+            'home','moon','red','hell','gas','gas_moon','belt','dwarf',
+            'titan','enceladus','triton','eris','kuiper'
+        ]
+    };
+    Object.keys(regions).forEach(function(r){
+        regions[r].forEach(function(v){
+            if (global.settings[r].hasOwnProperty(v)){
+                global.settings[r][v] = false;
+            }
+        });
+    });
+
+    Object.keys(global.race.inactive.space).forEach(function (k){
+        if (global.space.hasOwnProperty(k) && global.space[k].hasOwnProperty('count')){
+            global.space[k]['damaged'] = global.race.inactive.space[k].c;
+        }
+    });
+
+    global.space.jump_gate.count = 100;
+    global.space.jump_gate.damaged = 0;
+    global.settings.showSpace = true;
+    //global.settings.civTabs = 1;
+    global.settings.spaceTabs = 1;
+    renderSpace();
 }
 
 export function loneSurvivor(){
@@ -6488,7 +6838,8 @@ export function drawMap() {
     ctx.strokeStyle = "#c0c0c0";
     for (let [id, planet] of Object.entries(spacePlanetStats)) {
         if (planet.star){ continue; }   // Tau Ceti orbits are drawn separately in a star-local frame
-        if (!planet.moon && planet.orbit !== -2) {
+        if (actions.space[id] && actions.space[id].info.showDest && !actions.space[id].info.showDest().r){ continue; }
+        if (!planet.moon && !planet.startype) {
             ctx.beginPath();
             if (planet.belt || (global.race['orbit_decayed'] && id === 'spc_home')){
                 ctx.setLineDash([0.01, 0.01]);
@@ -6510,28 +6861,76 @@ export function drawMap() {
             ctx.beginPath();
             ctx.setLineDash([0.1, 0.4]);
             ctx.moveTo(ship.xy.x, ship.xy.y);
-            ctx.lineTo(ship.destination.x, ship.destination.y);
+            if (ship.path){
+                // Multi-leg wormhole route: draw the full remaining flight path through each
+                // waypoint still ahead of the ship (entry gate -> exit gate -> destination).
+                let trip = ship.dist > 0 ? 1 - (ship.transit / ship.dist) : 0;
+                for (let i=0; i<ship.path.length; i++){
+                    if (ship.path[i].tn > trip){
+                        ctx.lineTo(ship.path[i].x, ship.path[i].y);
+                    }
+                }
+            }
+            else {
+                ctx.lineTo(ship.destination.x, ship.destination.y);
+            }
             ctx.stroke();
         }
     }
 
-    // Planets and moons
-    for (let [id, planet] of Object.entries(spacePlanetStats)) {
-        if (planet.star || id === 'tauceti'){ continue; }   // Tau Ceti bodies drawn in a star-local frame
-        if (global.race['orbit_decayed'] && ['spc_home','spc_moon'].includes(id)){
-            continue;
-        }
+    let setColor = function(id){
         let color = '558888';
         if (actions.space[id] && actions.space[id].info.syndicate() && global.settings.space[id.substring(4)]){
             let shift = syndicate(id);
             color = ((Math.round(255*(1-shift)) << 16) + (Math.round(255*shift) << 8)).toString(16).padStart(6, 0);
         }
-        if (id === 'spc_dwarf'){
+        if (spacePlanetStats[id].hasOwnProperty('startype')){
+            switch (spacePlanetStats[id].startype){
+                case 'A': // White
+                    color = 'ffffff';
+                    break;
+                case 'F': // Yellow-White
+                    color = 'fdffb8';
+                    break;
+                case 'G': // Yellow dwarf
+                    color = 'f8ff2b';
+                    break;
+                case 'K': // Orange dwarf
+                    color = 'ff802b';
+                    break;
+                case 'M': // Red dwarf
+                    color = 'ff1414';
+                    break;
+                case 'T': // Brown dwarf
+                    color = '9420b1';
+                    break;
+                case 'D': // White dwarf
+                    color = 'e4e4e4';
+                    break;
+                default:
+                    color = 'f8ff2b';
+                    break;
+            }
+        }
+        else if (id === 'spc_dwarf' || id === 'tau_gas2'){
             color = '7132a8';
         }
-        else if (id === 'spc_sun' || id === 'tauceti'){
-            color = 'f8ff2b';
+        else if (id === 'spc_sun_gate' || id === 'tau_home'){
+            color = '31a557';
         }
+        return color;
+    }
+
+    // Planets and moons
+    for (let [id, planet] of Object.entries(spacePlanetStats)) {
+        // Stars other than the Sun (which sits at the origin) are drawn in their own translated
+        // frame below, along with Tau-Ceti-style orbiting bodies (planet.star).
+        if (planet.star || (planet.startype && id !== 'spc_sun')){ continue; }
+        if (global.race['orbit_decayed'] && ['spc_home','spc_moon'].includes(id)){
+            continue;
+        }
+        if (actions.space[id] && actions.space[id].info.showDest && !actions.space[id].info.showDest().r){ continue; }
+        let color = setColor(id);
         ctx.fillStyle = "#" + color;
         ctx.beginPath();
         let size = planet.size / 10;
@@ -6549,15 +6948,9 @@ export function drawMap() {
             }
         }
         else {
-            let size = planet.size / 10;
-            switch (id){
-                case 'spc_sun':
-                    ctx.arc(planetLocation[id].x, planetLocation[id].y, size, 0, Math.PI * 2, true);
-                    break;
-                default:
-                    ctx.arc(planetLocation[id].x, planetLocation[id].y, size, 0, Math.PI * 2, true);
-                    break;
-            }
+            // The Sun (a star) keeps a minimum on-screen radius so it stays visible when zoomed out.
+            let size = planet.startype ? Math.max(planet.size / 10, 1 / mapScale) : planet.size / 10;
+            ctx.arc(planetLocation[id].x, planetLocation[id].y, size, 0, Math.PI * 2, true);
         }
         ctx.fill();
     }
@@ -6589,10 +6982,14 @@ export function drawMap() {
 
     ctx.fillStyle = "#ffa500";
     ctx.font = `${25 / mapScale}px serif`;
+    // Planet labels clutter once zoomed out past this scale, so they are hidden below it; star
+    // labels are kept (stars stay visible at any zoom).
+    const labelMinScale = 4;
     // Planet names
     for (let [id, planet] of Object.entries(spacePlanetStats)) {
-        if (planet.star || id === 'tauceti'){ continue; }   // Tau Ceti labels drawn in a star-local frame
-        if (actions.space[id] && global.settings.space[id.substring(4)]){
+        if (planet.star || (planet.startype && id !== 'spc_sun')){ continue; }   // star labels drawn in their own frame
+        if (mapScale < labelMinScale){ continue; }   // zoomed out: planet/Sun names give way to star labels
+        if (actions.space[id] && (actions.space[id].info.showDest ? actions.space[id].info.showDest().l : global.settings.space[id.substring(4)]) ){
             if (global.race['orbit_decayed'] && ['spc_home'].includes(id)){
                 continue;
             }
@@ -6612,9 +7009,6 @@ export function drawMap() {
                 }
             } else {
                 switch (id){
-                    case 'spc_sun':
-                        // Do Nothing
-                        break;
                     default:
                         ctx.fillText(nameText, planetLocation[id].x, planetLocation[id].y - (0.2 * planet.size));
                         break;
@@ -6622,31 +7016,37 @@ export function drawMap() {
             }
         }
     }
-    // --- Tau Ceti system ---
-    // Drawn in a frame translated to the star so path coordinates stay small. The star sits ~752k
-    // units from the Sun; drawing the orbits there directly loses canvas precision (jagged rings),
-    // and reusing the Sun's x-shift/eccentricity distorts them. Here they are clean circles centered
-    // on the star.
-    {
-        let tc = genXYcoord('tauceti');
+    // Once zoomed out past the planet-label threshold, identify each star by its label. The Sun sits
+    // at the origin in the home frame; the other stars are labelled in their own frames below.
+    if (mapScale < labelMinScale && spacePlanetStats.spc_sun.label){
+        ctx.fillText(spacePlanetStats.spc_sun.label, planetLocation.spc_sun.x, planetLocation.spc_sun.y - (0.2 * spacePlanetStats.spc_sun.size));
+    }
+    // --- Star systems ---
+    // Every star beyond the Sun is drawn in a frame translated to the star, so its huge coordinates
+    // (hundreds of thousands of AU from the origin) keep canvas precision. Drawing a star and its
+    // orbiting bodies directly in the Sun frame loses precision and distorts the shapes; here each
+    // star and its system are clean circles centered on the star. The Sun itself sits at the origin
+    // and is drawn with the home system above.
+    for (let [starId, star] of Object.entries(spacePlanetStats)) {
+        if (!star.startype || starId === 'spc_sun'){ continue; }
+        let sc = genXYcoord(starId);
         ctx.save();
-        ctx.translate(tc.x, tc.y);
+        ctx.translate(sc.x, sc.y);
         ctx.shadowColor = 'transparent';
 
-        // Star
-        ctx.fillStyle = "#f8ff2b";
+        // The star (minimum on-screen radius so it stays visible when zoomed far out)
+        ctx.fillStyle = "#" + setColor(starId);
         ctx.beginPath();
-        ctx.arc(0, 0, spacePlanetStats.tauceti.size / 10, 0, Math.PI * 2, true);
+        ctx.arc(0, 0, Math.max(star.size / 10, 1 / mapScale), 0, Math.PI * 2, true);
         ctx.fill();
 
-        // Orbits: elliptical and off-center like the solar system (the star sits left of each
-        // orbit's center), but gentler. `e` is the eccentricity (x stretched vs y); each orbit's
-        // center is x-shifted by dist/3 (matching the Sun) so the star is off-center.
+        // Orbits of bodies around this star: elliptical and off-center like the solar system.
+        // `e` is the eccentricity (x stretched vs y); each orbit's center is x-shifted by dist/3.
         let e = 1.2;
         ctx.lineWidth = 1 / mapScale;
         ctx.strokeStyle = "#c0c0c0";
         for (let [id, planet] of Object.entries(spacePlanetStats)) {
-            if (planet.star !== 'tauceti' || !global.tech[planet.unlock]){ continue; }
+            if (planet.star !== starId || !global.tech[planet.unlock]){ continue; }
             ctx.beginPath();
             ctx.setLineDash(planet.belt ? [0.01, 0.01] : []);
             ctx.ellipse(planet.dist / 3, 0, planet.dist * e, planet.dist, 0, 0, Math.PI * 2, true);
@@ -6654,10 +7054,10 @@ export function drawMap() {
         }
         ctx.setLineDash([]);
 
-        // Planets
-        ctx.fillStyle = "#558888";
+        // Bodies orbiting this star
         for (let [id, planet] of Object.entries(spacePlanetStats)) {
-            if (planet.star !== 'tauceti' || !global.tech[planet.unlock]){ continue; }
+            if (planet.star !== starId || !global.tech[planet.unlock]){ continue; }
+            ctx.fillStyle = "#" + setColor(id);
             let pos = global.space.position.hasOwnProperty(id) ? global.space.position[id] : 0;
             let px = Math.cos(pos * (Math.PI / 180)) * planet.dist * e + planet.dist / 3;
             let py = Math.sin(pos * (Math.PI / 180)) * planet.dist;
@@ -6670,11 +7070,17 @@ export function drawMap() {
         ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2; ctx.shadowBlur = 2; ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
         ctx.fillStyle = "#ffa500";
         ctx.font = `${25 / mapScale}px serif`;
-        if (actions.tauceti && actions.tauceti.tau_star && actions.tauceti.tau_star.info && !tauEnabled()){
-            ctx.fillText(actions.tauceti.tau_star.info.name(), 0, -(0.2 * spacePlanetStats.tauceti.size));
+        // Zoomed out past the planet-label threshold, identify the star by its label; when zoomed in,
+        // Tau Ceti still shows its dedicated pre-unlock name from its action set.
+        if (mapScale < labelMinScale){
+            if (star.label){ ctx.fillText(star.label, 0, -(0.2 * star.size)); }
+        }
+        else if (starId === 'tauceti' && actions.tauceti && actions.tauceti.tau_star && actions.tauceti.tau_star.info && !tauEnabled()){
+            ctx.fillText(actions.tauceti.tau_star.info.name(), 0, -(0.2 * star.size));
         }
         for (let [id, planet] of Object.entries(spacePlanetStats)) {
-            if (planet.star !== 'tauceti' || !global.tech[planet.unlock]){ continue; }
+            if (planet.star !== starId || !global.tech[planet.unlock]){ continue; }
+            if (mapScale < labelMinScale){ continue; }
             if (!actions.tauceti[id] || !actions.tauceti[id].info){ continue; }
             let pos = global.space.position.hasOwnProperty(id) ? global.space.position[id] : 0;
             let px = Math.cos(pos * (Math.PI / 180)) * planet.dist * e + planet.dist / 3;
@@ -6818,11 +7224,19 @@ function shipDispatchModal(id, modal){
     else {
         Object.keys(spaceRegions).forEach(function(region){
             if (ship.location !== region){
-                if (spaceRegions[region].info.syndicate() || region === 'spc_dwarf'){
+                if (spaceRegions[region].info.nav()){
                     if (!global.race['orbit_decayed'] || (global.race['orbit_decayed'] && region !== 'spc_moon')){
                         let name = typeof spaceRegions[region].info.name === 'string' ? spaceRegions[region].info.name : spaceRegions[region].info.name();
                         dests.push({ region: region, name: name });
                     }
+                }
+            }
+        });
+        Object.keys(tauCetiModules).forEach(function(region){
+            if (ship.location !== region){
+                if (tauCetiModules[region].info.nav()){
+                    let name = typeof tauCetiModules[region].info.name === 'string' ? tauCetiModules[region].info.name : tauCetiModules[region].info.name();
+                    dests.push({ region: region, name: name });
                 }
             }
         });
@@ -6833,7 +7247,7 @@ function shipDispatchModal(id, modal){
     }
     else {
         dests.forEach(function(d){
-            let days = Math.round(transferWindow(ship.xy, calcLandingPoint(ship, d.region)) / shipSpeed(ship));
+            let days = planShipTrip(ship, d.region).transit;
             $(`<button class="button is-info ${d.region}"><span class="dispatchName">${d.name}</span><span class="dispatchDays has-text-caution">${loc('transit_time',[days])}</span></button>`)
                 .on('click', function(){
                     sendShipTo(id, d.region);
@@ -6844,21 +7258,20 @@ function shipDispatchModal(id, modal){
     }
 }
 
-// Send a ship to a destination region (extracted from the old dropdown selector).
+// Send a ship to a destination region.
 function sendShipTo(id, l){
     let ship = global.space.shipyard.ships[id];
     if (!ship || l === ship.location){ return; }
     let crew = shipCrewSize(ship);
-    let manned = ship.transit > 0 || ship.location !== 'spc_dwarf';
+    let manned = ship.transit > 0 || (ship.location !== 'spc_dwarf' && ship.location !== 'tau_gas2');
     if (manned || global.civic.garrison.workers - global.civic.garrison.crew >= crew){
-        let dest = calcLandingPoint(ship, l);
-        let distance = transferWindow(ship.xy,dest);
-        let speed = shipSpeed(ship);
+        let trip = planShipTrip(ship, l);
         ship.location = l;
-        ship.transit = Math.round(distance / speed);
-        ship.dist = Math.round(distance / speed);
-        ship.origin = deepClone(ship.xy);
-        ship.destination = {x: dest.x, y: dest.y};
+        ship.transit = trip.transit;
+        ship.dist = trip.dist;
+        ship.origin = trip.origin;
+        ship.destination = trip.destination;
+        ship.path = trip.path;
         if (!manned){
             global.civic.garrison.crew += crew;
         }

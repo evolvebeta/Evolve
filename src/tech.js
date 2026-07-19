@@ -9,7 +9,7 @@ import { loadFoundry, jobScale, jobName, limitCraftsmen } from './jobs.js';
 import { buildGarrison, checkControlling, govTitle } from './civics.js';
 import { renderSpace, planetName, int_fuel_adjust } from './space.js';
 import { drawHellObservations } from './portal.js';
-import { setOrbits, drawShipYard, jumpGateShutdown } from './truepath.js';
+import { setOrbits, drawShipYard, jumpGateShutdown, jumpGateRestart } from './truepath.js';
 import { arpa } from './arpa.js';
 import { setPowerGrid, defineIndustry, addSmelter, setupRituals } from './industry.js';
 import { defineGovernor, removeTask } from './governor.js';
@@ -13064,6 +13064,27 @@ const techs = {
             return false;
         }
     },
+    weight_reduction: {
+        id: 'tech-weight_reduction',
+        title: loc('tech_weight_reduction'),
+        desc: loc('tech_weight_reduction'),
+        category: 'space_militarization',
+        era: 'solar',
+        path: ['truepath'],
+        reqs: { syard_class: 6, m_ignite: 4, resettle: 2 },
+        grant: ['syard_mass',1],
+        cost: {
+            Knowledge(){ return 19120000; },
+            Cipher(){ return 22000; }
+        },
+        effect: loc('tech_weight_reduction_effect'),
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
     pulse_engine: {
         id: 'tech-pulse_engine',
         title: loc('outer_shipyard_engine_pulse'),
@@ -13127,6 +13148,48 @@ const techs = {
             return false;
         }
     },
+    drive_optimizations: {
+        id: 'tech-drive_optimizations',
+        title: loc('outer_shipyard_engine_optimizations'),
+        desc: loc('outer_shipyard_engine_optimizations'),
+        category: 'space_militarization',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { syard_engine: 5, m_ignite: 4, resettle: 2 },
+        grant: ['syard_engine',6],
+        cost: {
+            Knowledge(){ return 18950000; },
+            Cipher(){ return 35000; }
+        },
+        effect: loc('outer_shipyard_engine_optimizations_desc'),
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
+    electrokinetic_thruster: {
+        id: 'tech-electrokinetic_thruster',
+        title: loc('outer_shipyard_engine_electrokinetic'),
+        desc: loc('outer_shipyard_engine_electrokinetic'),
+        category: 'space_militarization',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { syard_engine: 6 },
+        grant: ['syard_engine',7],
+        cost: {
+            Knowledge(){ return 19600000; },
+            Cipher(){ return 48000; }
+        },
+        effect: loc('outer_shipyard_engine_electrokinetic_desc'),
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
     ship_fusion: {
         id: 'tech-ship_fusion',
         title: loc('tech_fusion_generator'),
@@ -13162,6 +13225,27 @@ const techs = {
             Cipher(){ return 18000; }
         },
         effect: loc('tech_elerium_generator_effect'),
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
+    ship_antimatter: {
+        id: 'tech-ship_antimatter',
+        title: loc('tech_antimatter_generator'),
+        desc: loc('tech_antimatter_generator'),
+        category: 'space_militarization',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { syard_power: 5, m_ignite: 4, resettle: 2, womling_energy: 1 },
+        grant: ['syard_power',6],
+        cost: {
+            Knowledge(){ return 19450000; },
+            Cipher(){ return 55000; }
+        },
+        effect: loc('tech_antimatter_generator_effect'),
         action(){
             if (payCosts($(this)[0])){
                 return true;
@@ -13611,6 +13695,49 @@ const techs = {
             }
             return false;
         }
+    },
+    womling_brigade: {
+        id: 'tech-womling_brigade',
+        title: loc('tech_womling_brigade'),
+        desc: loc('tech_womling_brigade'),
+        category: 'womling',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { womling_tech: 9, resettle: 2 },
+        grant: ['womling_military',1],
+        cost: {
+            Knowledge(){ return 18750000; }
+        },
+        effect(){ return `<div>${loc('tech_womling_brigade_effect')}</div>`; },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.tauceti.tau_red.womling_rangers);
+                return true;
+            }
+            return false;
+        }
+    },
+    womling_energy: {
+        id: 'tech-womling_energy',
+        title: loc('tech_antimatter_reactor'),
+        desc: loc('tech_antimatter_reactor'),
+        category: 'womling',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { womling_tech: 10, m_ignite: 3 },
+        grant: ['womling_energy',1],
+        cost: {
+            Knowledge(){ return 19500000; }
+        },
+        effect(){ return `<div>${loc('tech_antimatter_reactor_effect')}</div>`; },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.tauceti.tau_red.antimatter_reactor);
+                return true;
+            }
+            return false;
+        },
+        flair(){ return loc('tech_antimatter_reactor_flair'); }
     },
     asteroid_analysis: {
         id: 'tech-asteroid_analysis',
@@ -14368,22 +14495,23 @@ const techs = {
             return false;
         }
     },
-    womling_brigade: {
-        id: 'tech-womling_brigade',
-        title: loc('tech_womling_brigade'),
-        desc: loc('tech_womling_brigade'),
-        category: 'womling',
+    jump_jump_gate: {
+        id: 'tech-jump_jump_gate',
+        title: loc('tech_jump_jump_gate'),
+        desc: loc('tech_jump_jump_gate'),
+        category: 'progress',
         era: 'matrioshka',
         path: ['truepath'],
-        reqs: { womling_tech: 9, resettle: 2 },
-        grant: ['womling_military',1],
+        reqs: { resettle: 2, m_ignite: 3 },
+        grant: ['resettle',3],
         cost: {
-            Knowledge(){ return 18750000; }
+            Knowledge(){ return 19750000; },
+            Positronium(){ return 15000; }
         },
-        effect(){ return `<div>${loc('tech_womling_brigade_effect')}</div>`; },
+        effect(){ return loc('tech_jump_jump_gate_effect',[actions.space.spc_sun.info.name(),global.resource.Positronium.name]); },
         action(){
             if (payCosts($(this)[0])){
-                initStruct(actions.tauceti.tau_red.womling_rangers);
+                jumpGateRestart();
                 return true;
             }
             return false;

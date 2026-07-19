@@ -2036,6 +2036,22 @@ export function tradeBuyPrice(res){
     return price;
 }
 
+// Breakdown modifier keys can carry arbitrary locale/user text (translated titles, custom
+// planet names) that may contain quotes, backslashes or even newlines. These popovers embed
+// that text into a live Vue `{{ }}` expression, so the key must be a valid JS string literal —
+// JSON.stringify escapes every such character (a stray newline previously crashed the whole
+// template compile with "Invalid or unexpected token", blanking the resource's breakdown).
+function bdKey(mod){
+    return JSON.stringify(mod);
+}
+
+// Escape a breakdown label for safe embedding as HTML text content, and neutralize any mustache
+// delimiters so Vue does not try to compile embedded {{ }} in the label as an interpolation.
+function bdLabel(label){
+    return label.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+        .replace(/\{\{/g,'{&#123;').replace(/\}\}/g,'}&#125;');
+}
+
 export function craftingPopover(id,res,type,extra){
     popover(`${id}`,function(){
         let bd = $(`<div class="resBreakdown"><div class="has-text-info">{{ namespace(res.name) }}</div></div>`);
@@ -2053,8 +2069,7 @@ export function craftingPopover(id,res,type,extra){
                 if (val != 0 && !isNaN(val)){
                     let type = val > 0 ? 'success' : 'danger';
                     let label = mod.replace(/\+.+$/,"");
-                    mod = mod.replace(/'/g, "\\'");
-                    col1.append(`<div class="modal_bd"><span>${label}</span><span class="has-text-${type}">{{ translate(${[res]}['${mod}']) }}</span></div>`);
+                    col1.append(`<div class="modal_bd"><span>${bdLabel(label)}</span><span class="has-text-${type}">{{ translate(${res}[${bdKey(mod)}]) }}</span></div>`);
                 }
             });
         }
@@ -2064,8 +2079,7 @@ export function craftingPopover(id,res,type,extra){
             if (val != 0 && !isNaN(val)){
                 let type = val > 0 ? 'success' : 'danger';
                 let label = mod.replace(/\+.+$/,"");
-                mod = mod.replace(/'/g, "\\'");
-                col1.append(`<div class="modal_bd"><span>${label}</span><span class="has-text-${type}">{{ translate(craft.multi_bd['${mod}']) }}</span></div>`);
+                col1.append(`<div class="modal_bd"><span>${bdLabel(label)}</span><span class="has-text-${type}">{{ translate(craft.multi_bd[${bdKey(mod)}]) }}</span></div>`);
             }
         });
         
@@ -2080,8 +2094,7 @@ export function craftingPopover(id,res,type,extra){
                 count++;
                 let type = val > 0 ? 'success' : 'danger';
                 let label = mod.replace(/\+.+$/,"");
-                mod = mod.replace(/'/g, "\\'");
-                col2.append(`<div class="modal_bd"><span>${label}</span><span class="has-text-${type}">{{ translate(craft.add_bd['${mod}']) }}</span></div>`);
+                col2.append(`<div class="modal_bd"><span>${bdLabel(label)}</span><span class="has-text-${type}">{{ translate(craft.add_bd[${bdKey(mod)}]) }}</span></div>`);
             }
         });
         if (count > 0){
@@ -2097,8 +2110,7 @@ export function craftingPopover(id,res,type,extra){
                     count++;
                     let type = val > 0 ? 'success' : 'danger';
                     let label = mod.replace(/\+.+$/,"");
-                    mod = mod.replace(/'/g, "\\'");
-                    col3.append(`<div class="modal_bd"><span>${label}</span><span class="has-text-${type}">{{ translate(fix(consume.${res}['${mod}'])) }}</span></div>`);
+                    col3.append(`<div class="modal_bd"><span>${bdLabel(label)}</span><span class="has-text-${type}">{{ translate(fix(consume.${res}[${bdKey(mod)}])) }}</span></div>`);
                 }
             });
             if (count > 0){
@@ -2207,8 +2219,7 @@ function breakdownPopover(id,name,type){
                             prevCol = true;
                             let type = val > 0 ? 'success' : 'danger';
                             let label = mod.replace(/\+.+$/,"");
-                            mod = mod.replace(/'/g, "\\'");
-                            col1.append(`<div class="modal_bd"><span>${label}</span><span class="has-text-${type}">{{ translate(${t}['${mod}']) }}</span></div>`);
+                            col1.append(`<div class="modal_bd"><span>${bdLabel(label)}</span><span class="has-text-${type}">{{ translate(${t}[${bdKey(mod)}]) }}</span></div>`);
                         }
                     });
                 }
@@ -2224,8 +2235,7 @@ function breakdownPopover(id,name,type){
                     count++;
                     let type = val > 0 ? 'success' : 'danger';
                     let label = mod.replace(/\+.+$/,"");
-                    mod = mod.replace(/'/g, "\\'");
-                    col2.append(`<div class="modal_bd"><span>${label}</span><span class="has-text-${type}">{{ translate(fix(consume.${name}['${mod}'])) }}</span></div>`);
+                    col2.append(`<div class="modal_bd"><span>${bdLabel(label)}</span><span class="has-text-${type}">{{ translate(fix(consume.${name}[${bdKey(mod)}])) }}</span></div>`);
                 }
             });
             if (count > 0){

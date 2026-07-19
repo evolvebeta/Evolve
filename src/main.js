@@ -247,6 +247,9 @@ if (global.space['fob']){
 if (global.tauceti['fusion_generator']){
     p_on['fusion_generator'] = global.tauceti.fusion_generator.on;
 }
+if (global.tauceti['antimatter_reactor']){
+    p_on['antimatter_reactor'] = global.tauceti.antimatter_reactor.on;
+}
 if (global.eden['encampment']){
     p_on['encampment'] = global.eden.encampment.on;
 }
@@ -2039,7 +2042,7 @@ function fastLoop(){
 
         [
             {r:'city',s:'coal_power'},{r:'city',s:'oil_power'},{r:'city',s:'fission_power'},{r:'spc_hell',s:'geothermal'},{r:'spc_dwarf',s:'e_reactor'},
-            {r:'int_alpha',s:'fusion'},{r:'tau_home',s:'fusion_generator'},{r:'tau_gas2',s:'alien_space_station'}
+            {r:'int_alpha',s:'fusion'},{r:'tau_home',s:'fusion_generator'},{r:'tau_gas2',s:'alien_space_station'},{r:'tau_red',s:'antimatter_reactor'}
         ].forEach(function(generator){
             let space = convertSpaceSector(generator.r);
             let region = generator.r === 'city' ? generator.r : space;
@@ -2481,7 +2484,7 @@ function fastLoop(){
                         let fuel = s_fuels[j];
                         let fuel_cost = ['Oil','Helium_3'].includes(fuel.r) ? (sup.a === 'space' ? +fuel_adjust(fuel.a,true) : +int_fuel_adjust(fuel.a)) : fuel.a;
                         let mb_consume = p_on[sup.s] * fuel_cost;
-                        breakdown.p.consume[fuel.r][actions[sup.a][sup.r][sup.s].title] = -(mb_consume);
+                        breakdown.p.consume[fuel.r][typeof actions[sup.a][sup.r][sup.s].title === 'string' ? actions[sup.a][sup.r][sup.s].title : actions[sup.a][sup.r][sup.s].title()] = -(mb_consume);
                         for (let i=0; i<p_on[sup.s]; i++){
                             if (!modRes(fuel.r, -(time_multiplier * fuel_cost))){
                                 mb_consume -= (p_on[sup.s] * fuel_cost) - (i * fuel_cost);
@@ -2562,7 +2565,7 @@ function fastLoop(){
                                 let fuel = s_fuels[j];
                                 let fuel_cost = ['Oil','Helium_3'].includes(fuel.r) ? (sup.a === 'space' ? +fuel_adjust(fuel.a,true) : +int_fuel_adjust(fuel.a)) : fuel.a;
                                 let mb_consume = operating * fuel_cost;
-                                breakdown.p.consume[fuel.r][actions[sup.a][sup.r2][area_structs[i]].title] = -(mb_consume);
+                                breakdown.p.consume[fuel.r][typeof actions[sup.a][sup.r2][area_structs[i]].title === 'string' ? actions[sup.a][sup.r2][area_structs[i]].title : actions[sup.a][sup.r2][area_structs[i]].title()] = -(mb_consume);
                                 for (let i=0; i<operating; i++){
                                     if (!modRes(fuel.r, -(time_multiplier * fuel_cost))){
                                         mb_consume -= (operating * fuel_cost) - (i * fuel_cost);
@@ -3166,7 +3169,7 @@ function fastLoop(){
         if (global.civic.garrison.hasOwnProperty('crew')){
             if (global.space.hasOwnProperty('shipyard') && global.space.shipyard.hasOwnProperty('ships')){
                 global.space.shipyard.ships.forEach(function(ship){
-                    if (ship.location !== 'spc_dwarf' && ship.location !== 'tau_ceti' || (ship.location === 'spc_dwarf' && ship.transit > 0) || (ship.location === 'tau_ceti' && ship.transit > 0)){
+                    if (ship.location !== 'spc_dwarf' && ship.location !== 'tau_gas2' || (ship.location === 'spc_dwarf' && ship.transit > 0) || (ship.location === 'tau_gas2' && ship.transit > 0)){
                         crew_mil += shipCrewSize(ship);
                     }
                 });
@@ -4192,7 +4195,7 @@ function fastLoop(){
                 Elerium: 0
             };
             global.space.shipyard.ships.forEach(function(ship){
-                if ((ship.location !== 'spc_dwarf' && ship.location !== 'tau_ceti') || ship.transit !== 0){
+                if ((ship.location !== 'spc_dwarf' && ship.location !== 'tau_gas2') || ship.transit !== 0){
                     let fuel = shipFuelUse(ship);
                     if (fuel.res && fuel.burn > 0){
                         if (fuel.burn * time_multiplier < global.resource[fuel.res].amount + (global.resource[fuel.res].diff > 0 ? global.resource[fuel.res].diff * time_multiplier : 0)){
@@ -12420,15 +12423,32 @@ function longLoop(){
                     if (ship.transit > 0 && ship.fueled){
                         ship.transit--;
                         let trip = 1 - (ship.transit / ship.dist);
-                        let mx = Math.abs(ship.origin.x - ship.destination.x) * trip;
-                        let my = Math.abs(ship.origin.y - ship.destination.y) * trip;
-                        if (ship.origin.x <= ship.destination.x){ ship.xy.x = ship.origin.x + mx; } else { ship.xy.x = ship.origin.x - mx; }
-                        if (ship.origin.y <= ship.destination.y){ ship.xy.y = ship.origin.y + my; } else { ship.xy.y = ship.origin.y - my; }
+                        if (ship.path){
+                            // Multi-leg wormhole route: place the ship by elapsed-time fraction along
+                            // the path so the near-instant inter-gate leg is crossed in its allotted time.
+                            let path = ship.path;
+                            let seg = path.length - 2;
+                            for (let i=0; i<path.length-1; i++){
+                                if (trip <= path[i+1].tn){ seg = i; break; }
+                            }
+                            let a = path[seg], b = path[seg+1];
+                            let span = b.tn - a.tn;
+                            let sf = span > 0 ? (trip - a.tn) / span : 1;
+                            ship.xy.x = a.x + (b.x - a.x) * sf;
+                            ship.xy.y = a.y + (b.y - a.y) * sf;
+                        }
+                        else {
+                            let mx = Math.abs(ship.origin.x - ship.destination.x) * trip;
+                            let my = Math.abs(ship.origin.y - ship.destination.y) * trip;
+                            if (ship.origin.x <= ship.destination.x){ ship.xy.x = ship.origin.x + mx; } else { ship.xy.x = ship.origin.x - mx; }
+                            if (ship.origin.y <= ship.destination.y){ ship.xy.y = ship.origin.y + my; } else { ship.xy.y = ship.origin.y - my; }
+                        }
                     }
                     if (ship.transit === 0){
                         ship.xy = genXYcoord(ship.location);
                         ship.origin = deepClone(ship.xy);
                         ship.dist = 0;
+                        if (ship.path){ ship.path = false; }
                     }
                     if (ship.damage > 0 && (p_on['shipyard'] || p_on['adv_shipyard'])){
                         ship.damage--;
@@ -12481,12 +12501,10 @@ function longLoop(){
                 }
                 if (global.space.hasOwnProperty('position')){
                     Object.keys(spacePlanetStats).forEach(function(planet){
+                        if (spacePlanetStats[planet].startype){ return; }   // stars use fixed coordinates
                         if (global.space.position.hasOwnProperty(planet)){
                             let orbit = spacePlanetStats[planet].orbit === -1 ? orbitLength() : spacePlanetStats[planet].orbit;
-                            if (orbit === -2){
-                                return;
-                            }
-                            else if (orbit === 0){
+                            if (orbit === 0){
                                 global.space.position[planet] = 0;
                             }
                             else {
