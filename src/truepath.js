@@ -5814,7 +5814,7 @@ export function erisWar(){
 // Sun at the origin — rather than by a distance + orbital angle. They therefore need no
 // global.space.position entry and never move. `dist` is retained for reference/UI only.
 export const spacePlanetStats = {
-    spc_sun: { x: 0, y: 0, dist: 0, orbit: 0, size: 2, startype: 'G', label: loc('star_sun') },
+    spc_sun: { x: 0, y: 0, dist: 0, orbit: 0, size: 2, startype: 'G', label: loc('star_sun'), zlabel: loc('star_sun') },
     spc_sun_gate: { dist: 0.3, orbit: 53, size: 0.1, belt: true },
     spc_home: { dist: 1, orbit: -1, size: 0.6 },
     spc_moon: { dist: 1.01, orbit: -1, size: 0.1, moon: true },
@@ -5835,120 +5835,85 @@ export const spacePlanetStats = {
     spc_eris: { dist: 68, orbit: 204060, size: 0.5 },
     // Tau Ceti system. Planets orbit the tauceti star (star: 'tauceti') rather than the Sun,
     // with distances (AU) taken from the area descriptions and Kepler-derived orbital periods.
-    tauceti: { x: 603207.923, y: -450000, dist: 752568.8, orbit: -2, size: 2, startype: 'G', label: loc('star_tauceti') },
+    tauceti: { x: 603207.923, y: -450000, dist: 752568.8, orbit: -2, size: 2, startype: 'G', label: loc('star_tauceti'), zlabel: loc('star_tauceti') },
     tau_home: { dist: 0.5, orbit: 129, size: 0.6, star: 'tauceti', unlock: 'tau_home' },
     tau_red: { dist: 1.24, orbit: 504, size: 0.5, star: 'tauceti', unlock: 'tau_red' },
     tau_gas: { dist: 5.6, orbit: 4839, size: 1.25, star: 'tauceti', unlock: 'tau_gas' },
     tau_gas2: { dist: 8.2, orbit: 8576, size: 1.1, star: 'tauceti', unlock: 'tau_gas2' },
     tau_roid: { dist: 15, orbit: 21217, size: 0.5, star: 'tauceti', belt: true, unlock: 'tau_roid' },
     // Epsilon Eridani: 657707.2 AU from the Sun and 344663.9 AU from Tau Ceti triangulated fixed coordinates).
-    eridani: { x: 648720.37, y: -108354.246, dist: 657707.2, orbit: -2, size: 1.9, startype: 'K', label: loc('star_eridani') },
-    // Gliese 65 (M-type): 554624.2 AU from the Sun and 322529 AU from Eridani, sitting roughly
-    // between the Sun and Tau Ceti (triangulated fixed coordinates).
-    gliese65: { x: 432282.302, y: -347476.639, dist: 554624.2, orbit: -2, size: 1.5, startype: 'M', label: loc('star_gliese65') },
-    // YZ Ceti (M-type): 766481.85 AU from the Sun, ~101186 AU from Tau Ceti and ~442688 AU from
-    // Eridani (triangulated fixed coordinates).
-    yzceti: { x: 548661.064, y: -535224.684, dist: 766481.85, orbit: -2, size: 1.5, startype: 'M', label: loc('star_yzceti') },
-    // Alpha Centauri: 276363.5 AU from the Sun, placed directly opposite Tau Ceti (negative X,
-    // positive Y); its distance from Tau Ceti is therefore its maximum, ~1028932 AU.
-    alphacentauri: { x: -221514.17, y: 165252.101, dist: 276363.5, orbit: -2, size: 2, startype: 'G', label: loc('star_alpha_centauri') },
-    // Alpha Centauri B (K-type): binary companion, 17.5 AU from Alpha Centauri. No `label`, so it
-    // renders as a star dot with no name on the map.
-    alphacentaurib: { x: -221509.369, y: 165235.272, dist: 276349.590, orbit: -2, size: 1.5, startype: 'K' },
-    // Proxima Centauri (M-type): 12950 AU from Alpha Centauri, toward the Sun but offset ~10 deg to
-    // one side. No `label`, so it renders as a star dot with no name on the map.
-    proximacentauri: { x: -209947.384, y: 159428.704, dist: 263619.831, orbit: -2, size: 1, startype: 'M' },
-    // Barnard's Star (M-type): 359841.7 AU from the Sun, on the negative X side with a near-zero
-    // (but non-zero) Y value.
-    barnardsstar: { x: -359713.935, y: 9588.242, dist: 359841.7, orbit: -2, size: 1.5, startype: 'M', label: loc('star_barnards_star') },
-    // Sirius (A-type): 544505.7 AU from the Sun and ~499605 AU from Eridani, on the positive X side
-    // with positive Y (triangulated fixed coordinates).
-    sirius: { x: 426154.845, y: 338937.318, dist: 544505.7, orbit: -2, size: 3, startype: 'A', label: loc('star_sirius') },
-    // Sirius B (D-type white dwarf): binary companion, 20 AU from Sirius. No `label`, so it renders
-    // as a star dot with no name on the map.
-    siriusb: { x: 426171.044, y: 338949.048, dist: 544525.680, orbit: -2, size: 1.2, startype: 'D' },
-    // Procyon (F-type): 724742.74 AU from the Sun and ~331383.2 AU from Sirius, larger-Y solution
-    // (triangulated fixed coordinates).
-    procyon: { x: 370574.551, y: 622837.492, dist: 724742.74, orbit: -2, size: 2.5, startype: 'F', label: loc('star_procyon') },
-    // Procyon B (D-type white dwarf): binary companion, 21 AU from Procyon. No `label`, so it renders
-    // as a star dot with no name on the map.
-    procyonb: { x: 370591.097, y: 622824.561, dist: 724740.088, orbit: -2, size: 1.2, startype: 'D' },
-    // Wolf 359 (M-type): 498972.1 AU from the Sun with positive X & Y. A positive-X/Y point cannot
-    // also be ~695652 AU from Sirius (Sirius shares that quadrant), so it is placed as far from
-    // Sirius as the first quadrant allows (~372168 AU).
-    wolf359: { x: 86645.596, y: 491391.593, dist: 498972.1, orbit: -2, size: 1.5, startype: 'M', label: loc('star_wolf359') },
-    // Ross 128 (M-type): 701976 AU from the Sun and ~239683.7 AU from Wolf 359, using the solution
-    // furthest from Procyon (triangulated fixed coordinates).
-    ross128: { x: -28909.372, y: 701380.462, dist: 701976, orbit: -2, size: 1.5, startype: 'M', label: loc('star_ross128') },
-    // 61 Cygni (K-type): 720948.3 AU from the Sun, in the negative-X/negative-Y quadrant with |y|
-    // slightly greater than |x| (~32000 AU apart).
-    cygni: { x: -493536.285, y: -525536.285, dist: 720948.3, orbit: -2, size: 1.9, startype: 'K', label: loc('star_61cygni') },
-    // 61 Cygni B (K-type): the binary companion, 84 AU from 61 Cygni. Intentionally has no `label`,
-    // so it renders as a star dot with no name on the map.
-    cygnib: { x: -493545.761, y: -525619.749, dist: 721015.630, orbit: -2, size: 1.75, startype: 'K' },
-    // Sigma Draconis (K-type): 1188932 AU from the Sun, in the negative-X/negative-Y quadrant with
-    // |x| greater than |y| (roughly double).
-    sigmadraconis: { x: -1063413.109, y: -531706.555, dist: 1188932, orbit: -2, size: 1.9, startype: 'K', label: loc('star_sigma_draconis') },
-    // Altair (A-type): 1056126 AU from the Sun, negative X & Y, in the direction between 61 Cygni and
-    // Sigma Draconis as seen from the Sun (midpoint direction).
-    altair: { x: -846976.493, y: -630898.525, dist: 1056126, orbit: -2, size: 2, startype: 'A', label: loc('star_altair') },
-    // Kapteyn's Star (M-type): 811383.02 AU from the Sun, in the direction between Sirius and Eridani
-    // (about 60% of the way from Eridani toward Sirius) as seen from the Sun.
-    kapteynsstar: { x: 765760.807, y: 268240.175, dist: 811383.02, orbit: -2, size: 1.5, startype: 'M', label: loc('star_kapteyns_star') },
-    // Teegarden's Star (M-type): 790513.5 AU from the Sun, roughly halfway between Tau Ceti and
-    // Eridani in direction from the Sun (midpoint direction).
-    teegardensstar: { x: 727115.6, y: -310184.619, dist: 790513.5, orbit: -2, size: 1.5, startype: 'M', label: loc('star_teegardens_star') },
-    // Eta Cassiopeiae (G-type): 1228141.7 AU from the Sun, in the same general (lower-right) direction
-    // as YZ Ceti but at a steeper angle so its X value is lower than YZ Ceti's.
-    etacassiopeiae: { x: 500000, y: -1121753.999, dist: 1228141.7, orbit: -2, size: 2, startype: 'G', label: loc('star_eta_cassiopeiae') },
-    // Eta Cassiopeiae B (K-type): binary companion, 71 AU from Eta Cassiopeiae in a random direction.
-    // No `label`, so it renders as a star dot with no name on the map.
-    etacassiopeiaeb: { x: 500069.949, y: -1121741.827, dist: 1228159.062, orbit: -2, size: 1.5, startype: 'K' },
-    // 70 Ophiuchi (K-type): 1056126 AU from the Sun, negative X & Y, close to (but a few degrees off)
-    // the negative X axis.
-    ophiuchi: { x: -1054753.891, y: -53817.806, dist: 1056126, orbit: -2, size: 2, startype: 'K', label: loc('star_70_ophiuchi') },
-    // 70 Ophiuchi B (K-type): binary companion, 23.2 AU from 70 Ophiuchi in a random direction.
-    // No `label`, so it renders as a star dot with no name on the map.
-    ophiuchib: { x: -1054734.113, y: -53805.68, dist: 1056105.629, orbit: -2, size: 1.5, startype: 'K' },
-    // DX Cancri (M-type): 738655.78 AU from the Sun (swapped direction with Procyon).
-    dxcancri: { x: 322977.327, y: 664302.647, dist: 738655.78, orbit: -2, size: 1.5, startype: 'M', label: loc('star_dx_cancri') },
-    // AD Leonis (M-type): 1024505 AU from the Sun, in the same direction as Wolf 359 but a couple
-    // degrees toward the +x axis (to the right, higher X).
-    adleonis: { x: 219454.827, y: 1000724.774, dist: 1024505, orbit: -2, size: 1.5, startype: 'M', label: loc('star_ad_leonis') },
-    // EV Lacertae (M-type): 1042213 AU from the Sun, between 61 Cygni and Eta Cassiopeiae in
-    // direction, close to the negative Y axis with a small negative X value.
-    evlacertae: { x: -36372.709, y: -1041578.112, dist: 1042213, orbit: -2, size: 1.5, startype: 'M', label: loc('star_ev_lacertae') },
-    // Kruger 60 (M-type): 866402.8 AU from the Sun, between 61 Cygni and EV Lacertae in direction
-    // but closer to EV Lacertae.
-    kruger60: { x: -214886.032, y: -839331.761, dist: 866402.8, orbit: -2, size: 1.5, startype: 'M', label: loc('star_kruger_60') },
-    // Kruger 60 B (M-type): binary companion, 9.5 AU from Kruger 60 in a random direction.
-    // No `label`, so it renders as a star dot with no name on the map.
-    kruger60b: { x: -214894.289, y: -839336.46, dist: 866409.400, orbit: -2, size: 1.3, startype: 'M' },
-    // YZ Canis Minoris (M-type): 1233201 AU from the Sun, in the same direction as Procyon with a
-    // 1 degree variance (the higher-X of the two options).
-    yzcanisminoris: { x: 648958.851, y: 1048635.836, dist: 1233201, orbit: -2, size: 1.5, startype: 'M', label: loc('star_yz_canis_minoris') },
-    // Epsilon Indi (K-type): between 61 Cygni and Kruger 60 in direction but closer to Kruger 60.
-    // Distance from the Sun is deliberately inaccurate (430039 AU, closer than the real ~750672 AU)
-    // for gameplay reasons.
-    epsilonindi: { x: -168117.602, y: -395815.63, dist: 430039, orbit: -2, size: 2, startype: 'K', label: loc('star_epsilon_indi') },
-    // Epsilon Indi Ba (T-type brown dwarf): companion, 1460 AU from Epsilon Indi in a random
-    // direction. No `label`, so it renders as a star dot with no name on the map.
-    epsilonindiba: { x: -166686.946, y: -395524.384, dist: 429213.323, orbit: -2, size: 1.2, startype: 'T' },
-    // Epsilon Indi Bb (T-type brown dwarf): companion to Ba, 2.65 AU from Epsilon Indi Ba in a random
-    // direction. No `label`, so it renders as a star dot with no name on the map.
-    epsilonindibb: { x: -166684.742, y: -395525.856, dist: 429213.824, orbit: -2, size: 1.2, startype: 'T' },
-    // Gliese 570 (K-type): 1201579 AU from the Sun, in the same general direction as Alpha Centauri.
-    gliese570: { x: -963103.935, y: 718486.536, dist: 1201579, orbit: -2, size: 2, startype: 'K', label: loc('star_gliese_570') },
-    // Gliese 570 B & C (M-type binary): ~190 AU from Gliese 570 (random direction) and 0.8 AU from
-    // each other (random orientation). No `label`, so they render as star dots with no names.
-    gliese570b: { x: -963115.353, y: 718296.88, dist: 1201474.757, orbit: -2, size: 1, startype: 'M' },
-    gliese570c: { x: -963115.953, y: 718296.351, dist: 1201474.921, orbit: -2, size: 1, startype: 'M' },
-    // Gliese 570 D (T-type brown dwarf): companion, 1500 AU from Gliese 570 in a random direction.
-    // No `label`, so it renders as a star dot with no name on the map.
-    gliese570d: { x: -961659.938, y: 718080.491, dist: 1200178.915, orbit: -2, size: 1, startype: 'T' },
-    // Wolf 1061 (M-type): 891699.2 AU from the Sun, roughly halfway between Gliese 570 and 70 Ophiuchi
-    // in direction from the Sun (midpoint direction).
-    wolf1061: { x: -853184.411, y: 259237.005, dist: 891699.2, orbit: -2, size: 1.5, startype: 'M', label: loc('star_wolf_1061') },
+    eridani: { x: 648720.37, y: -108354.246, dist: 657707.2, orbit: -2, size: 1.9, startype: 'K', label: loc('star_eridani'), zlabel: loc('star_eridani') },
+    // Gliese 65 (M-type): 554624.2 AU from the Sun and 322529 AU from Eridani, sitting roughly (triangulated fixed coordinates).
+    gliese65: { x: 432282.302, y: -347476.639, dist: 554624.2, orbit: -2, size: 1.5, startype: 'M', label: loc('star_gliese65'), zlabel: loc('star_gliese65') },
+    // YZ Ceti (M-type): 766481.85 AU from the Sun, ~101186 AU from Tau Ceti and ~442688 AU from Eridani (triangulated fixed coordinates).
+    yzceti: { x: 548661.064, y: -535224.684, dist: 766481.85, orbit: -2, size: 1.5, startype: 'M', label: loc('star_yzceti'), zlabel: loc('star_yzceti') },
+    // Alpha Centauri: 276363.5 AU from the Sun
+    alphacentauri: { x: -221514.17, y: 165252.101, dist: 276363.5, orbit: -2, size: 2, startype: 'G', label: loc('star_alpha_centauri'), zlabel: loc('star_alpha_centauri') + ' A' },
+    // Alpha Centauri B (K-type): binary companion, 17.5 AU from Alpha Centauri.
+    alphacentaurib: { x: -221509.369, y: 165235.272, dist: 276349.590, orbit: -2, size: 1.5, startype: 'K', zlabel: loc('star_alpha_centauri') + ' B' },
+    // Proxima Centauri (M-type): 12950 AU from Alpha Centauri
+    proximacentauri: { x: -209947.384, y: 159428.704, dist: 263619.831, orbit: -2, size: 1, startype: 'M', zlabel: loc('star_proxima_centauri') },
+    // Barnard's Star (M-type): 359841.7 AU from the Sun
+    barnardsstar: { x: -359713.935, y: 9588.242, dist: 359841.7, orbit: -2, size: 1.5, startype: 'M', label: loc('star_barnards_star'), zlabel: loc('star_barnards_star') },
+    // Sirius (A-type): 544505.7 AU from the Sun
+    sirius: { x: 426154.845, y: 338937.318, dist: 544505.7, orbit: -2, size: 3, startype: 'A', label: loc('star_sirius'), zlabel: loc('star_sirius') + ' A' },
+    // Sirius B (D-type white dwarf): binary companion, 20 AU from Sirius.
+    siriusb: { x: 426171.044, y: 338949.048, dist: 544525.680, orbit: -2, size: 1.2, startype: 'D', zlabel: loc('star_sirius') + ' B' },
+    // Procyon (F-type): 724742.74 AU from the Sun and ~331383.2 AU from Sirius
+    procyon: { x: 370574.551, y: 622837.492, dist: 724742.74, orbit: -2, size: 2.5, startype: 'F', label: loc('star_procyon'), zlabel: loc('star_procyon') + ' A' },
+    // Procyon B (D-type white dwarf): binary companion, 21 AU from Procyon.
+    procyonb: { x: 370591.097, y: 622824.561, dist: 724740.088, orbit: -2, size: 1.2, startype: 'D', zlabel: loc('star_procyon') + ' B' },
+    // Wolf 359 (M-type): 498972.1 AU from the Sun
+    wolf359: { x: 86645.596, y: 491391.593, dist: 498972.1, orbit: -2, size: 1.5, startype: 'M', label: loc('star_wolf359'), zlabel: loc('star_wolf359') },
+    // Ross 128 (M-type): 701976 AU from the Sun and ~239683.7 AU from Wolf 359
+    ross128: { x: -28909.372, y: 701380.462, dist: 701976, orbit: -2, size: 1.5, startype: 'M', label: loc('star_ross128'), zlabel: loc('star_ross128') },
+    // 61 Cygni (K-type): 720948.3 AU from the Sun
+    cygni: { x: -493536.285, y: -525536.285, dist: 720948.3, orbit: -2, size: 1.9, startype: 'K', label: loc('star_61cygni'), zlabel: loc('star_61cygni') + ' A' },
+    // 61 Cygni B (K-type): the binary companion, 84 AU from 61 Cygni.
+    cygnib: { x: -493545.761, y: -525619.749, dist: 721015.630, orbit: -2, size: 1.75, startype: 'K', zlabel: loc('star_61cygni') + ' B' },
+    // Sigma Draconis (K-type): 1188932 AU from the Sun
+    sigmadraconis: { x: -1063413.109, y: -531706.555, dist: 1188932, orbit: -2, size: 1.9, startype: 'K', label: loc('star_sigma_draconis'), zlabel: loc('star_sigma_draconis') },
+    // Altair (A-type): 1056126 AU from the Sun
+    altair: { x: -846976.493, y: -630898.525, dist: 1056126, orbit: -2, size: 2, startype: 'A', label: loc('star_altair'), zlabel: loc('star_altair') },
+    // Kapteyn's Star (M-type): 811383.02 AU from the Sun
+    kapteynsstar: { x: 765760.807, y: 268240.175, dist: 811383.02, orbit: -2, size: 1.5, startype: 'M', label: loc('star_kapteyns_star'), zlabel: loc('star_kapteyns_star') },
+    // Teegarden's Star (M-type): 790513.5 AU from the Sun
+    teegardensstar: { x: 727115.6, y: -310184.619, dist: 790513.5, orbit: -2, size: 1.5, startype: 'M', label: loc('star_teegardens_star'), zlabel: loc('star_teegardens_star') },
+    // Eta Cassiopeiae (G-type): 1228141.7 AU from the Sun
+    etacassiopeiae: { x: 500000, y: -1121753.999, dist: 1228141.7, orbit: -2, size: 2, startype: 'G', label: loc('star_eta_cassiopeiae'), zlabel: loc('star_eta_cassiopeiae') + ' A' },
+    // Eta Cassiopeiae B (K-type): binary companion, 71 AU from Eta Cassiopeiae
+    etacassiopeiaeb: { x: 500069.949, y: -1121741.827, dist: 1228159.062, orbit: -2, size: 1.5, startype: 'K', zlabel: loc('star_eta_cassiopeiae') + ' B' },
+    // 70 Ophiuchi (K-type): 1056126 AU from the Sun
+    ophiuchi: { x: -1054753.891, y: -53817.806, dist: 1056126, orbit: -2, size: 2, startype: 'K', label: loc('star_70_ophiuchi'), zlabel: loc('star_70_ophiuchi') + ' A' },
+    // 70 Ophiuchi B (K-type): binary companion, 23.2 AU from 70 Ophiuchi 
+    ophiuchib: { x: -1054734.113, y: -53805.68, dist: 1056105.629, orbit: -2, size: 1.5, startype: 'K', zlabel: loc('star_70_ophiuchi') + ' B' },
+    // DX Cancri (M-type): 738655.78 AU from the Sun.
+    dxcancri: { x: 322977.327, y: 664302.647, dist: 738655.78, orbit: -2, size: 1.5, startype: 'M', label: loc('star_dx_cancri'), zlabel: loc('star_dx_cancri') },
+    // AD Leonis (M-type): 1024505 AU from the Sun
+    adleonis: { x: 219454.827, y: 1000724.774, dist: 1024505, orbit: -2, size: 1.5, startype: 'M', label: loc('star_ad_leonis'), zlabel: loc('star_ad_leonis') },
+    // EV Lacertae (M-type): 1042213 AU from the Sun
+    evlacertae: { x: -36372.709, y: -1041578.112, dist: 1042213, orbit: -2, size: 1.5, startype: 'M', label: loc('star_ev_lacertae'), zlabel: loc('star_ev_lacertae') },
+    // Kruger 60 (M-type): 866402.8 AU from the Sun
+    kruger60: { x: -214886.032, y: -839331.761, dist: 866402.8, orbit: -2, size: 1.5, startype: 'M', label: loc('star_kruger_60'), zlabel: loc('star_kruger_60') + ' A' },
+    // Kruger 60 B (M-type): binary companion, 9.5 AU from Kruger 60 
+    kruger60b: { x: -214894.289, y: -839336.46, dist: 866409.400, orbit: -2, size: 1.3, startype: 'M', zlabel: loc('star_kruger_60') + ' B' },
+    // YZ Canis Minoris (M-type): 1233201 AU from the Sun
+    yzcanisminoris: { x: 648958.851, y: 1048635.836, dist: 1233201, orbit: -2, size: 1.5, startype: 'M', label: loc('star_yz_canis_minoris'), zlabel: loc('star_yz_canis_minoris') },
+    // Epsilon Indi (K-type): Distance from the Sun is deliberately inaccurate (430039 AU, closer than the real ~750672 AU) for gameplay reasons.
+    epsilonindi: { x: -168117.602, y: -395815.63, dist: 430039, orbit: -2, size: 2, startype: 'K', label: loc('star_epsilon_indi'), zlabel: loc('star_epsilon_indi') + ' A' },
+    // Epsilon Indi Ba (T-type brown dwarf): companion, 1460 AU from Epsilon Indi
+    epsilonindiba: { x: -166686.946, y: -395524.384, dist: 429213.323, orbit: -2, size: 1.2, startype: 'T', zlabel: loc('star_epsilon_indi') + ' BA' },
+    // Epsilon Indi Bb (T-type brown dwarf): companion to Ba, 2.65 AU from Epsilon Indi Ba
+    epsilonindibb: { x: -166684.742, y: -395525.856, dist: 429213.824, orbit: -2, size: 1.2, startype: 'T', zlabel: loc('star_epsilon_indi') + ' BB' },
+    // Gliese 570 (K-type): 1201579 AU from the Sun
+    gliese570: { x: -963103.935, y: 718486.536, dist: 1201579, orbit: -2, size: 2, startype: 'K', label: loc('star_gliese_570'), zlabel: loc('star_gliese_570') + ' A' },
+    // Gliese 570 B & C (M-type binary): ~190 AU from Gliese 570 and 0.8 AU from each other.
+    gliese570b: { x: -963115.353, y: 718296.88, dist: 1201474.757, orbit: -2, size: 1, startype: 'M', zlabel: loc('star_gliese_570') + ' B' },
+    gliese570c: { x: -963115.953, y: 718296.351, dist: 1201474.921, orbit: -2, size: 1, startype: 'M', zlabel: loc('star_gliese_570') + ' C' },
+    // Gliese 570 D (T-type brown dwarf): companion, 1500 AU from Gliese 570
+    gliese570d: { x: -961659.938, y: 718080.491, dist: 1200178.915, orbit: -2, size: 1, startype: 'T', zlabel: loc('star_gliese_570') + ' D' },
+    // Wolf 1061 (M-type): 891699.2 AU from the Sun
+    wolf1061: { x: -853184.411, y: 259237.005, dist: 891699.2, orbit: -2, size: 1.5, startype: 'M', label: loc('star_wolf_1061'), zlabel: loc('star_wolf_1061') },
 };
 
 export function setOrbits(){
@@ -6982,13 +6947,14 @@ export function drawMap() {
 
     ctx.fillStyle = "#ffa500";
     ctx.font = `${25 / mapScale}px serif`;
+    ctx.textAlign = 'center';   // labels are centered horizontally above the item they label
     // Planet labels clutter once zoomed out past this scale, so they are hidden below it; star
     // labels are kept (stars stay visible at any zoom).
     const labelMinScale = 4;
     // Planet names
     for (let [id, planet] of Object.entries(spacePlanetStats)) {
-        if (planet.star || (planet.startype && id !== 'spc_sun')){ continue; }   // star labels drawn in their own frame
-        if (mapScale < labelMinScale){ continue; }   // zoomed out: planet/Sun names give way to star labels
+        if (planet.star || planet.startype){ continue; }   // all star labels handled separately (below)
+        if (mapScale < labelMinScale){ continue; }   // zoomed out: planet names give way to star labels
         if (actions.space[id] && (actions.space[id].info.showDest ? actions.space[id].info.showDest().l : global.settings.space[id.substring(4)]) ){
             if (global.race['orbit_decayed'] && ['spc_home'].includes(id)){
                 continue;
@@ -7016,10 +6982,15 @@ export function drawMap() {
             }
         }
     }
-    // Once zoomed out past the planet-label threshold, identify each star by its label. The Sun sits
-    // at the origin in the home frame; the other stars are labelled in their own frames below.
-    if (mapScale < labelMinScale && spacePlanetStats.spc_sun.label){
-        ctx.fillText(spacePlanetStats.spc_sun.label, planetLocation.spc_sun.x, planetLocation.spc_sun.y - (0.2 * spacePlanetStats.spc_sun.size));
+    // The Sun's label (home frame, at the origin): the cluster name (label) when zoomed out, and the
+    // per-star name (zlabel) when zoomed in — opposite zoom ranges, so exactly one shows.
+    {
+        let sunText = mapScale < labelMinScale ? spacePlanetStats.spc_sun.label : spacePlanetStats.spc_sun.zlabel;
+        if (sunText){
+            // Sit just above the drawn dot (its radius + a small screen-constant gap) so the label
+            // stays close to the star at any zoom.
+            ctx.fillText(sunText, planetLocation.spc_sun.x, planetLocation.spc_sun.y - (Math.max(spacePlanetStats.spc_sun.size / 10, 1 / mapScale) + 2 / mapScale));
+        }
     }
     // --- Star systems ---
     // Every star beyond the Sun is drawn in a frame translated to the star, so its huge coordinates
@@ -7070,13 +7041,13 @@ export function drawMap() {
         ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2; ctx.shadowBlur = 2; ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
         ctx.fillStyle = "#ffa500";
         ctx.font = `${25 / mapScale}px serif`;
-        // Zoomed out past the planet-label threshold, identify the star by its label; when zoomed in,
-        // Tau Ceti still shows its dedicated pre-unlock name from its action set.
-        if (mapScale < labelMinScale){
-            if (star.label){ ctx.fillText(star.label, 0, -(0.2 * star.size)); }
-        }
-        else if (starId === 'tauceti' && actions.tauceti && actions.tauceti.tau_star && actions.tauceti.tau_star.info && !tauEnabled()){
-            ctx.fillText(actions.tauceti.tau_star.info.name(), 0, -(0.2 * star.size));
+        // Cluster name (label) when zoomed out; per-star name (zlabel, which distinguishes companions
+        // like "Sirius A" / "Sirius B") when zoomed in. Opposite zoom ranges, so at most one shows.
+        {
+            let starText = mapScale < labelMinScale ? star.label : star.zlabel;
+            // Sit just above the drawn dot (its radius + a small screen-constant gap) so the label
+            // stays close to the star at any zoom.
+            if (starText){ ctx.fillText(starText, 0, -(Math.max(star.size / 10, 1 / mapScale) + 2 / mapScale)); }
         }
         for (let [id, planet] of Object.entries(spacePlanetStats)) {
             if (planet.star !== starId || !global.tech[planet.unlock]){ continue; }
