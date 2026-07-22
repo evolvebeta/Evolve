@@ -5632,8 +5632,8 @@ function fastLoop(){
             // Refine Ore
             if (global.tauceti.ore_refinery.fill > 0){
                 let raw = p_on['ore_refinery'] * production('ore_refinery');
-                if (raw > global.tauceti.ore_refinery.fill){
-                    raw = global.tauceti.ore_refinery.fill;
+                if (raw * time_multiplier > global.tauceti.ore_refinery.fill){
+                    raw = global.tauceti.ore_refinery.fill / time_multiplier;
                 }
                 global.tauceti.ore_refinery.fill -= raw * time_multiplier;
 
@@ -6925,8 +6925,8 @@ function fastLoop(){
                 // Refine Oil
                 if (global.tauceti.whaling_station.fill > 0){
                     let raw = p_on['whaling_station'] * production('whaling_station');
-                    if (raw > global.tauceti.whaling_station.fill){
-                        raw = global.tauceti.whaling_station.fill;
+                    if (raw * time_multiplier > global.tauceti.whaling_station.fill){
+                        raw = global.tauceti.whaling_station.fill / time_multiplier;
                     }
                     global.tauceti.whaling_station.fill -= raw * time_multiplier;
 

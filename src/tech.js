@@ -14517,6 +14517,48 @@ const techs = {
             return false;
         }
     },
+    analyze_ship: {
+        id: 'tech-analyze_ship',
+        title: loc('tech_analyze_ship'),
+        desc: loc('tech_analyze_ship'),
+        category: 'progress',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { resettle: 4 },
+        grant: ['resettle',5],
+        cost: {
+            Knowledge(){ return 19820000; }
+        },
+        effect(){ return loc('tech_analyze_ship_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                messageQueue(loc('tech_analyze_ship_msg'),'info',false,['progress']);
+                return true;
+            }
+            return false;
+        }
+    },
+    zombie_data: {
+        id: 'tech-zombie_data',
+        title: loc('tech_zombie_data'),
+        desc: loc('tech_zombie_data'),
+        category: 'progress',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { resettle: 5 },
+        grant: ['resettle',6],
+        cost: {
+            Knowledge(){ return 19900000; }
+        },
+        effect(){ return loc('tech_zombie_data_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                messageQueue(loc('tech_zombie_data_msg',[races[global.race.species].home, races[global.race.species].solar.red]),'info',false,['progress']);
+                return true;
+            }
+            return false;
+        }
+    },
     element_zero: {
         id: 'tech-element_zero',
         title: loc('tech_element_zero'),

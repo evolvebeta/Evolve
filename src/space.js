@@ -7,7 +7,7 @@ import { loadFoundry, jobScale } from './jobs.js';
 import { defineIndustry, addSmelter } from './industry.js';
 import { garrisonSize, describeSoldier, checkControlling, govTitle } from './civics.js';
 import { actions, payCosts, powerOnNewStruct, initStruct, setAction, setPlanet, storageMultipler, drawTech, bank_vault, updateDesc, actionDesc, templeEffect, templeCount, casinoEffect, wardenLabel, buildTemplate, structName } from './actions.js';
-import { outerTruthTech, syndicate, drawShipYard } from './truepath.js';
+import { outerTruthTech, syndicate, drawShipYard, genXYcoord } from './truepath.js';
 import { production, highPopAdjust } from './prod.js';
 import { defineGovernor, govActive } from './governor.js';
 import { ascend, terraform, apotheosis } from './resets.js';
@@ -229,7 +229,7 @@ const spaceProjects = {
             support: 'moon_base',
             zone: 'inner',
             syndicate(){ return global.tech['resettle'] ? false : true; },
-            nav(){ return true; }
+            nav(){ global.tech['resettle'] ? false : true; }
         },
         moon_mission: {
             id: 'space-moon_mission',
@@ -465,7 +465,7 @@ const spaceProjects = {
                 return {r: true, l: global.settings.space.red || global.tech?.resettle >= 3};
             },
             syndicate(){ return global.tech['resettle'] ? false : true; },
-            nav(){ return true; }
+            nav(){ return global.tech['resettle'] && global.tech.resettle < 6 ? false : true; }
         },
         red_mission: {
             id: 'space-red_mission',
@@ -1679,11 +1679,14 @@ const spaceProjects = {
             name(){
                 return loc('space_sun_gate_info_name');
             },
+            desc(){
+                return loc('space_sun_gate_info_desc');
+            },
             showDest(){
                 return global.tech['resettle'] && global.tech.resettle >= 3 ? {r: true, l: true} : {r: false, l: false};
             },
             syndicate(){ return false; },
-            nav(){ return false; }
+            nav(){ return global.tech['resettle'] && global.tech.resettle >= 3 ? true : false; }
         }
     },
     spc_sun: {
@@ -1852,6 +1855,60 @@ const spaceProjects = {
                 };
             }
         },
+        salvage_ship: {
+            id: 'space-salvage_ship',
+            title(){
+                let ship = global.race.inactive?.ships?.[global.race.salvage_ship];
+                return loc('space_sun_salvage_ship_title',[ship ? ship.name : '']);
+            },
+            desc(){
+                let ship = global.race.inactive?.ships?.[global.race.salvage_ship];
+                return `<div>${loc('space_sun_salvage_ship_desc',[ship ? ship.name : ''])}</div>`;
+            },
+            reqs: { resettle: 3 },
+            path: ['truepath'],
+            grant: ['resettle',4],
+            condition(){
+                return global.tech['resettle'] === 3
+                    && global.race.inactive?.ships?.length > 0
+                    && typeof global.race.salvage_ship === 'number'
+                    && global.race.salvage_ship < global.race.inactive.ships.length ? true : false;
+            },
+            queue_complete(){ return global.tech.resettle >= 4 ? 0 : 1; },
+            cost: {
+                Helium_3(offset,wiki){ return +fuel_adjust(5000000,false,wiki).toFixed(0); }
+            },
+            effect(){
+                return loc('space_sun_salvage_ship_effect');
+            },
+            action(args){
+                if (payCosts($(this)[0])){
+                    let idx = global.race['salvage_ship'];
+                    if (global.race.inactive?.ships && typeof idx === 'number' && idx < global.race.inactive.ships.length){
+                        let ship = global.race.inactive.ships.splice(idx,1)[0];
+                        ship.location = 'tau_gas2';
+                        ship.xy = genXYcoord('tau_gas2');
+                        ship.origin = deepClone(ship.xy);
+                        ship.destination = deepClone(ship.xy);
+                        ship.transit = 0;
+                        ship.dist = 0;
+                        ship.damage = 90;
+                        ship.fueled = false;
+                        let num = 1;
+                        let name = ship.name;
+                        while (global.space.shipyard.ships.filter(s => s.name === name).length > 0){
+                            num++;
+                            name = ship.name + ` ${num}`;
+                        }
+                        ship.name = name;
+                        global.space.shipyard.ships.push(ship);
+                        drawShipYard();
+                    }
+                    return true;
+                }
+                return false;
+            }
+        },
     },
     spc_gas: {
         info: {
@@ -1866,7 +1923,7 @@ const spaceProjects = {
                 return {r: true, l: global.settings.space.gas || global.tech?.resettle >= 3};
             },
             syndicate(){ return global.tech['resettle'] ? false : true; },
-            nav(){ return true; } 
+            nav(){ return global.tech['resettle'] ? false : true; }
         },
         gas_mission: {
             id: 'space-gas_mission',
@@ -2012,7 +2069,7 @@ const spaceProjects = {
             },
             zone: 'outer',
             syndicate(){ return global.tech['resettle'] ? false : true; },
-            nav(){ return true; }
+            nav(){ return global.tech['resettle'] ? false : true; }
         },
         gas_moon_mission: {
             id: 'space-gas_moon_mission',
@@ -2175,7 +2232,7 @@ const spaceProjects = {
                 return {r: global.settings.space.belt || global.tech?.resettle >= 3, l: global.settings.space.belt};
             },
             syndicate(){ return global.tech['resettle'] ? false : true; },
-            nav(){ return true; }
+            nav(){ return global.tech['resettle'] ? false : true; }
         },
         belt_mission: {
             id: 'space-belt_mission',
@@ -2388,7 +2445,7 @@ const spaceProjects = {
                 return {r: global.settings.space.dwarf || global.tech?.resettle >= 3, l: global.settings.space.dwarf};
             },
             syndicate(){ return false; },
-            nav(){ return true; }
+            nav(){ return global.tech['resettle'] ? false : true; }
         },
         dwarf_mission: {
             id: 'space-dwarf_mission',
@@ -6761,9 +6818,9 @@ export function incrementStruct(c_action,sector){
         global[sector][struct]['l_m'] = 0;
     }
     global[sector][struct].count++;
-    // Building a unit repairs a damaged one: decrement the damaged tally as count rises.
-    if (typeof global[sector][struct]['damaged'] !== 'undefined' && global[sector][struct].damaged > 0){
-        global[sector][struct].damaged--;
+    // Building a unit rebuilds a razed one: decrement the razed tally as count rises.
+    if (typeof global[sector][struct]['razed'] !== 'undefined' && global[sector][struct].razed > 0){
+        global[sector][struct].razed--;
     }
 }
 
