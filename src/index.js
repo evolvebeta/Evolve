@@ -1178,8 +1178,9 @@ export function index(){
         });
     }
 
-    // Settings Tab
-    let settings = $(`<b-tab-item id="settings" class="settings sticky" :label="label('tab_settings')">
+    // Settings Tab (header-class lets the mobile layout drop this tab from the top bar; it is
+    // reached from the footer nav instead)
+    let settings = $(`<b-tab-item id="settings" class="settings sticky" header-class="mobileSettingsTab" :label="label('tab_settings')">
         <div class="theme">
             <span>{{ label('theme') }} </span>
             <b-dropdown aria-role="list">
@@ -1363,14 +1364,30 @@ export function index(){
             <button class="mobile-nav-btn is-active" data-panel="resources">${loc('mobile_nav_resources')}</button>
             <button class="mobile-nav-btn" data-panel="game">${loc('mobile_nav_game')}</button>
             <button class="mobile-nav-btn" data-panel="queue">${loc('mobile_nav_queue')}</button>
+            <button class="mobile-nav-btn" data-panel="settings">${loc('mobile_nav_settings')}</button>
         </div>
     `);
 
+    // civTabs index of the Settings tab (matches quickMap.settings in main.js).
+    const SETTINGS_TAB = 7;
+    let lastGameTab = global.settings.civTabs === SETTINGS_TAB ? 1 : global.settings.civTabs;
     $('#mobileNav').on('click', '.mobile-nav-btn', function () {
         const panel = $(this).data('panel');
+        // The Settings panel and the Game panel both show the main column but on different tabs, so
+        // switch civTabs to (or away from) the settings tab as needed, remembering the game tab.
+        if (panel === 'settings'){
+            if (global.settings.civTabs !== SETTINGS_TAB){ lastGameTab = global.settings.civTabs; }
+            global.settings.civTabs = SETTINGS_TAB;
+            if (!global.settings.tabLoad){ loadTab(SETTINGS_TAB); }
+        }
+        else if (panel === 'game' && global.settings.civTabs === SETTINGS_TAB){
+            global.settings.civTabs = lastGameTab;
+            if (!global.settings.tabLoad){ loadTab(lastGameTab); }
+        }
         $('#main')
             .toggleClass('mobile-panel-game', panel === 'game')
-            .toggleClass('mobile-panel-queue', panel === 'queue');
+            .toggleClass('mobile-panel-queue', panel === 'queue')
+            .toggleClass('mobile-panel-settings', panel === 'settings');
         $('#mobileNav .mobile-nav-btn').removeClass('is-active');
         $(this).addClass('is-active');
     });

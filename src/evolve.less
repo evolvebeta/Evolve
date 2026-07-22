@@ -6061,6 +6061,29 @@ div.bigbang {
         }
     }
 
+    // Settings panel — reached from the footer nav (the Settings tab is removed from the top tab bar
+    // on mobile, see .mobileSettingsTab). Shows the main column with the settings tab active and the
+    // top tab bar hidden, so settings reads as its own full-screen page.
+    #main.mobile-panel-settings {
+        .leftColumn {
+            display: none;
+        }
+
+        #mainColumn {
+            display: block;
+            padding-bottom: 4.9rem;
+        }
+
+        #mainTabs > nav.tabs {
+            display: none;
+        }
+    }
+
+    // The Settings tab lives in the footer nav on mobile, so drop its header from the top tab bar.
+    .mobileSettingsTab {
+        display: none !important;
+    }
+
     // Resource list height
     .resources {
         height: ~"calc(100svh - 9.2rem)";
