@@ -1070,42 +1070,43 @@ export function index(){
     content.append(tabs);
 
     // Evolution Tab
-    let evolution = $(`<b-tab-item id="evolution" class="tab-item sticky" :visible="s.showEvolve" :label="label('tab_evolve')">
+    // header-class tags each nav header so the mobile layout can render it as an icon tab.
+    let evolution = $(`<b-tab-item id="evolution" class="tab-item sticky" header-class="micon micon-evolve" :visible="s.showEvolve" :label="label('tab_evolve')">
     </b-tab-item>`);
     tabs.append(evolution);
 
     // City Tab
-    let city = $(`<b-tab-item :visible="s.showCiv" :label="label('tab_civil')">
+    let city = $(`<b-tab-item header-class="micon micon-city" :visible="s.showCiv" :label="label('tab_civil')">
         <div id="mTabCivil"></div>
     </b-tab-item>`);
     tabs.append(city);
 
     // Civics Tab
-    let civic = $(`<b-tab-item :visible="s.showCivic" :label="label('tab_civics')">
+    let civic = $(`<b-tab-item header-class="micon micon-civics" :visible="s.showCivic" :label="label('tab_civics')">
         <div id="mTabCivic"></div>
     </b-tab-item>`);
     tabs.append(civic);
 
     // Research Tab
-    let research = $(`<b-tab-item :visible="s.showResearch" :label="label('tab_research')">
+    let research = $(`<b-tab-item header-class="micon micon-research" :visible="s.showResearch" :label="label('tab_research')">
         <div id="mTabResearch"></div>
     </b-tab-item>`);
     tabs.append(research);
 
     // Resources Tab
-    let resources = $(`<b-tab-item :visible="s.showResources" :label="label('tab_resources')">
+    let resources = $(`<b-tab-item header-class="micon micon-resources" :visible="s.showResources" :label="label('tab_resources')">
         <div id="mTabResource"></div>
     </b-tab-item>`);
     tabs.append(resources);
 
     // ARPA Tab
-    let arpa = $(`<b-tab-item :visible="s.showGenetics" :label="label('tech_arpa')">
+    let arpa = $(`<b-tab-item header-class="micon micon-arpa" :visible="s.showGenetics" :label="label('tech_arpa')">
         <div id="mTabArpa"></div>
     </b-tab-item>`);
     tabs.append(arpa);
 
     // Stats Tab
-    let stats = $(`<b-tab-item :visible="s.showAchieve" :label="label('tab_stats')">
+    let stats = $(`<b-tab-item header-class="micon micon-stats" :visible="s.showAchieve" :label="label('tab_stats')">
         <div id="mTabStats"></div>
     </b-tab-item>`);
     tabs.append(stats);

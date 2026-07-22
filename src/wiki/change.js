@@ -6,10 +6,11 @@ export const changeList = [
         version: `1.5.0`,
         date: `7/??/2026`,
         changes: [
+            `Extended Truepath content`,
+            `New Mobile UI`,
             `Upgraded Vue 2 to Vue 3.`,
             `Added new "Offline Time" feature, replaces "Accelerated Time"`,
             `Added option to Save or Load game from Google Drive.`,
-            `New Mobile UI`
         ]
     },
     {

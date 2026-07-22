@@ -5896,7 +5896,10 @@ div.bigbang {
         
         .resources {
             margin-top:-0.75rem;
-            height: calc(100vh - 8.1rem); // header + taller two-row footer + mobileNav
+            // svh (not vh) so the bottom clears the fixed footer + mobileNav even while the mobile
+            // browser URL bar is showing; the deduction is generous enough that the last rows stay
+            // reachable even when the race-info header (morale + power) is at its tallest.
+            height: ~"calc(100svh - 9.5rem)";
             padding-top:0.75rem;
             padding-bottom: 0.5rem;
 
@@ -5957,6 +5960,21 @@ div.bigbang {
                     overflow-y: auto !important;
                     overflow-x: hidden !important;
                 }
+
+                // Settings opens as a full-screen panel (top tab bar hidden), so its scroller only has
+                // to clear the fixed footer + mobileNav at the bottom. The desktop height is 100vh-based
+                // and leaves the last rows hidden under the footer; svh reserves the right space and
+                // keeps the bottom reachable while the browser URL bar is showing.
+                #settings {
+                    height: ~"calc(100svh - 6.5rem)" !important;
+                }
+
+                // Evolution keeps the (single) icon tab bar above it, so it deducts more than settings.
+                // Same fix: svh-based height so the bottom clears the fixed footer + mobileNav instead
+                // of the desktop 100vh height that runs the last rows under the footer.
+                #evolution {
+                    height: ~"calc(100svh - 10rem)" !important;
+                }
             }
         }
     }
@@ -5996,8 +6014,19 @@ div.bigbang {
         margin-top: -0.25rem;
     }
 
-    // Allow the tab bar to scroll horizontally so all tabs fit on one line
+    // Allow the tab bar to scroll horizontally so all tabs stay reachable on one line. The nested
+    // sub-tab bars (.resTabs .tabs) already scroll, but the main tab bar sits outside .resTabs and
+    // defaults to overflow:hidden, which clips the tabs past the screen edge (e.g. Stats) with no way
+    // to reach them — so enable horizontal scrolling here too.
     .b-tabs .tabs {
+        overflow-x: auto;
+        overflow-y: hidden;
+        // Swipe to scroll; no persistent scrollbar taking a row under the tabs.
+        scrollbar-width: none;
+
+        &::-webkit-scrollbar {
+            display: none;
+        }
 
         ul {
             flex-wrap: nowrap;
@@ -6006,6 +6035,90 @@ div.bigbang {
         li,
         a {
             white-space: nowrap;
+        }
+    }
+
+    // --- Main tab bar as icon tabs ---
+    // Render the main tabs (Civilization / Civics / Research / …) as a compact icon over a tiny
+    // label, each flexing to an equal share of the width, so the whole set fits on screen without
+    // horizontal scrolling. The nested sub-tab bars keep their scrollable text labels.
+    #mainTabs > nav.tabs {
+        > ul {
+            width: 100%;
+            margin-left: 0;
+        }
+
+        // Only the icon-tagged tabs appear here; the empty Buefy placeholder tab and the Settings
+        // header (moved to the footer nav on mobile) are dropped from the bar.
+        li:not(.micon) {
+            display: none;
+        }
+
+        li.micon {
+            flex: 1 1 0;
+            min-width: 0;
+
+            a {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 0.05rem;
+                padding: 0.28rem 0.1rem;
+                font-size: 0.55rem;
+                line-height: 1.05;
+                text-align: center;
+                overflow: hidden;
+                text-overflow: ellipsis;
+
+                // The emoji glyph sits above the label.
+                &::before {
+                    font-size: 1.2rem;
+                    line-height: 1;
+                }
+            }
+
+            // Make the selected tab read clearly: a filled top accent plus a subtle background.
+            &.is-active a {
+                border-top: 2px solid currentColor;
+                background: rgba(255, 255, 255, 0.06);
+            }
+        }
+    }
+
+    // Per-tab glyphs.
+    #mainTabs .micon-evolve    > a::before { content: "🦠"; }
+    #mainTabs .micon-city      > a::before { content: "🏛️"; }
+    #mainTabs .micon-civics    > a::before { content: "⚖️"; }
+    #mainTabs .micon-research  > a::before { content: "🔬"; }
+    #mainTabs .micon-resources > a::before { content: "📦"; }
+    #mainTabs .micon-arpa      > a::before { content: "🧬"; }
+    #mainTabs .micon-stats     > a::before { content: "📊"; }
+
+    // --- Sub-tab bars ---
+    // The per-panel sub-navigation (Hala System / Tau Ceti, Government / Industry / …, Projects /
+    // Genetics / …) all live inside .resTabs. Give them the same fill-the-width, touch-friendly feel
+    // as the main tab bar: each tab flexes to an equal share so a short group (New / Completed)
+    // spreads across the screen and a longer one (Government … Supernatural) still fits, only falling
+    // back to horizontal scrolling when the labels genuinely can't fit at a readable size. The
+    // selected sub-tab gets the same subtle highlight as the active main tab.
+    .resTabs > nav.tabs {
+        > ul {
+            width: 100%;
+            margin-left: 0;
+        }
+
+        li {
+            flex: 1 1 auto;
+
+            a {
+                justify-content: center;
+                text-align: center;
+            }
+
+            &.is-active a {
+                background: rgba(255, 255, 255, 0.06);
+            }
         }
     }
 
@@ -6106,8 +6219,9 @@ div.bigbang {
     // Buttons only ever grow past their desktop width here, never shrink below it (until the 2-column
     // floor forces it on the very narrowest phones).
     #mainColumn {
-        #city, #space, #outerSol, #interstellar, #galaxy,
-        #tauceti, #eden, #portal, #tech, #oldTech {
+        #evolution, #city, #space, #outerSol, #interstellar, #galaxy,
+        #tauceti, #eden, #portal, #tech, #oldTech,
+        #blood, #genes {
             display: grid;
             grid-template-columns: ~"repeat(auto-fill, minmax(min(12.625rem, calc((100% - 0.375rem) / 2)), 1fr))";
             gap: 0.375rem;
@@ -6153,6 +6267,13 @@ div.bigbang {
                 }
             }
         }
+    }
+
+    // On the evolution grid the challenge section headers should run the full width of the window,
+    // not be capped to the action-button width (.actionWidth caps them at 12–38rem). Drop the cap so
+    // their divider lines reach both edges across the whole row.
+    #mainColumn #evolution > .challenge {
+        max-width: none;
     }
 
     // --- Touch-target sizing ---
