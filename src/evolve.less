@@ -4764,7 +4764,10 @@ span.inline {
         }
 
         .atime {
-            margin-left: 1rem;
+            // These were inline on the element; moved here so the footer copy (mobile) can restyle it.
+            padding: 0 0.5rem;
+            margin-left: 0.5rem;
+            cursor: pointer;
         }
 
         .infoTimer {
@@ -4804,103 +4807,112 @@ span.inline {
         }
     }
 
-    .pet {
-        .black {
-            fill: #000000;
-            filter: drop-shadow(0px 0px 2px #fff);
-        }
-        .black.stripe {
-            fill: url(#PetGradient);
-            #PetGradient {
-                .stop1 { stop-color: #000; }
-                .stop2 { stop-color: #4e4e4e; }
-            }
-        }
-        .black.patched {
-            fill: url(#PetGradient);
-            #PetGradient {
-                .stop1 { stop-color: #000; }
-                .stop2 { stop-color: #424242; }
-            }
-        }
-        .orange {
-            fill: #e25f08;
-            filter: drop-shadow(0px 0px 2px #000);
-        }
-        .orange.stripe {
-            fill: url(#PetGradient);
-            #PetGradient {
-                .stop1 { stop-color: #e25f08; }
-                .stop2 { stop-color: #ccb9ad; }
-            }
-        }
-        .gray {
-            fill: #575757;
-            filter: drop-shadow(0px 0px 2px #000);
-        }
-        .gray.stripe {
-            fill: url(#PetGradient);
-            #PetGradient {
-                .stop1 { stop-color: #575757; }
-                .stop2 { stop-color: #202020; }
-            }
-        }
-        .gray.patched {
-            fill: url(#PetGradient);
-            #PetGradient {
-                .stop1 { stop-color: #575757; }
-                .stop2 { stop-color: #665237; }
-            }
-        }
-        .white {
-            fill: #f0efef;
-            filter: drop-shadow(0px 0px 2px #000);
-        }
-        .white.stripe {
-            fill: url(#PetGradient);
-            #PetGradient {
-                .stop1 { stop-color: #f0efef; }
-                .stop2 { stop-color: #f5dec4; }
-            }
-        }
-        .white.patched {
-            fill: url(#PetGradient);
-            #PetGradient {
-                .stop1 { stop-color: #f0efef; }
-                .stop2 { stop-color: #b8ab9b; }
-            }
-        }
-        .cream {
-            fill: #bd8754;
-            filter: drop-shadow(0px 0px 2px #000);
-        }
-        .cream.stripe {
-            fill: url(#PetGradient);
-            #PetGradient {
-                .stop1 { stop-color: #bd8754; }
-                .stop2 { stop-color: #f5dec4; }
-            }
-        }
-        .brown {
-            fill: #996f48;
-            filter: drop-shadow(0px 0px 2px #000);
-        }
-        .brown.patched {
-            fill: url(#PetGradient);
-            #PetGradient {
-                .stop1 { stop-color: #996f48; }
-                .stop2 { stop-color: #af9a85; }
-            }
-        }
-    }
-
     .version {
         margin-right: 1rem;
     }
 }
 
+// Player-pet coat colors. Kept at the top level (not scoped to .topBar) so the icon keeps its color
+// wherever the single #playerPet node lives — the header on desktop, the footer on mobile. Without
+// this the svg falls back to its default black fill once it moves out of the top bar.
+.pet {
+    .black {
+        fill: #000000;
+        filter: drop-shadow(0px 0px 2px #fff);
+    }
+    .black.stripe {
+        fill: url(#PetGradient);
+        #PetGradient {
+            .stop1 { stop-color: #000; }
+            .stop2 { stop-color: #4e4e4e; }
+        }
+    }
+    .black.patched {
+        fill: url(#PetGradient);
+        #PetGradient {
+            .stop1 { stop-color: #000; }
+            .stop2 { stop-color: #424242; }
+        }
+    }
+    .orange {
+        fill: #e25f08;
+        filter: drop-shadow(0px 0px 2px #000);
+    }
+    .orange.stripe {
+        fill: url(#PetGradient);
+        #PetGradient {
+            .stop1 { stop-color: #e25f08; }
+            .stop2 { stop-color: #ccb9ad; }
+        }
+    }
+    .gray {
+        fill: #575757;
+        filter: drop-shadow(0px 0px 2px #000);
+    }
+    .gray.stripe {
+        fill: url(#PetGradient);
+        #PetGradient {
+            .stop1 { stop-color: #575757; }
+            .stop2 { stop-color: #202020; }
+        }
+    }
+    .gray.patched {
+        fill: url(#PetGradient);
+        #PetGradient {
+            .stop1 { stop-color: #575757; }
+            .stop2 { stop-color: #665237; }
+        }
+    }
+    .white {
+        fill: #f0efef;
+        filter: drop-shadow(0px 0px 2px #000);
+    }
+    .white.stripe {
+        fill: url(#PetGradient);
+        #PetGradient {
+            .stop1 { stop-color: #f0efef; }
+            .stop2 { stop-color: #f5dec4; }
+        }
+    }
+    .white.patched {
+        fill: url(#PetGradient);
+        #PetGradient {
+            .stop1 { stop-color: #f0efef; }
+            .stop2 { stop-color: #b8ab9b; }
+        }
+    }
+    .cream {
+        fill: #bd8754;
+        filter: drop-shadow(0px 0px 2px #000);
+    }
+    .cream.stripe {
+        fill: url(#PetGradient);
+        #PetGradient {
+            .stop1 { stop-color: #bd8754; }
+            .stop2 { stop-color: #f5dec4; }
+        }
+    }
+    .brown {
+        fill: #996f48;
+        filter: drop-shadow(0px 0px 2px #000);
+    }
+    .brown.patched {
+        fill: url(#PetGradient);
+        #PetGradient {
+            .stop1 { stop-color: #996f48; }
+            .stop2 { stop-color: #af9a85; }
+        }
+    }
+}
+
 .promoBar {
     bottom: 0;
+
+    // The footer version is only used in the mobile layout (where it replaces the header version);
+    // on desktop the version lives in the top bar, so hide the footer copy.
+    .footVersion {
+        display: none;
+    }
 
     .left {
         display: inline-block;
@@ -5743,16 +5755,94 @@ div.bigbang {
         // but for now, this will at least make the UI usable on mobile by default
     }
 
-    // Keep promoBar visible, stack mobileNav directly above it
+    // Header bar: the version tag makes the single-line bar overflow and wrap on a narrow screen, so
+    // drop it here (it moves to the footer, below) and let the calendar slide over into its place on
+    // the right instead of sitting centered.
+    .topBar {
+        .version {
+            display: none;
+        }
+
+        // Keep the planet info and the calendar each on a single line. Their trailing inline bits —
+        // the optional player-pet icon and the pause control — otherwise wrap to a second row once the
+        // content reaches the screen edge, which is the "pushed onto the next line" look being fixed.
+        // Trimming the calendar's inner spacing buys a little width so the one-line fit holds at more
+        // phone widths; on a genuinely tiny screen the calendar's rightmost icons clip at the edge
+        // (the fixed bar doesn't scroll the page) rather than wrapping, which reads far better.
+        .planetWrap {
+            white-space: nowrap;
+        }
+
+        .calendar {
+            margin: 0 0.5rem 0 auto; // was `0 auto` (centered) → pin to the right
+            white-space: nowrap;
+
+            .infoTimer {
+                margin-right: 0.25rem;
+            }
+        }
+    }
+
+    // Footer: on desktop the author (left) and links (right, absolutely positioned) share one line;
+    // on a narrow screen they overlap. Give the bar two rows instead — external links across the top,
+    // then author on the left and the version (relocated from the header) on the right.
     .promoBar {
         bottom: 0; // stays at bottom
+        height: 2.4rem; // two 1.2rem rows
+        flex-wrap: wrap;
+        align-content: center;
+
+        .right {
+            order: 1; // links first → top row
+            position: static; // was absolute; participate in the flow so it takes a full row
+            width: 100%;
+            margin: 0;
+            text-align: center;
+        }
+
+        .left {
+            order: 2; // author → bottom-left
+            width: auto;
+            margin-left: .5rem;
+        }
+
+        // The player pet is relocated here (see placeMobileBits) beside the author name on mobile.
+        .footPet {
+            margin-left: .4rem;
+
+            .pet {
+                cursor: pointer;
+            }
+
+            svg {
+                vertical-align: middle;
+            }
+        }
+
+        // The pause button is relocated here, centered in the space between the author/pet group on
+        // the left and the version on the right (its two auto margins split the free space evenly).
+        .footPause {
+            order: 3;
+            margin: 0 auto;
+
+            .atime {
+                cursor: pointer;
+                padding: 0 .5rem;
+            }
+        }
+
+        .footVersion {
+            order: 4;
+            display: inline-block;
+            margin-right: .5rem; // version sits at the far right; .footPause's auto margins push it there
+        }
     }
 
     // Bottom navigation bar for switching between active panels on mobile
     #mobileNav {
         display: flex;
         position: fixed;
-        bottom: 1.2rem; // promoBar height — sit directly above it
+        bottom: 2.4rem; // promoBar height (now two rows) — sit directly above it
         left: 0;
         right: 0;
         z-index: 30;
@@ -5806,7 +5896,7 @@ div.bigbang {
         
         .resources {
             margin-top:-0.75rem;
-            height: calc(100vh - 6.9rem); // it's just a coincidence i swear
+            height: calc(100vh - 8.1rem); // header + taller two-row footer + mobileNav
             padding-top:0.75rem;
             padding-bottom: 0.5rem;
 
@@ -5924,7 +6014,7 @@ div.bigbang {
     .leftColumn {
         display: block;
         height: auto;
-        padding-bottom: 3.7rem; // promoBar (1.2) + mobileNav (2.4) + 0.1 gap
+        padding-bottom: 4.9rem; // promoBar (2.4) + mobileNav (2.4) + 0.1 gap
 
         #sideQueue {
             display: none;
@@ -5944,7 +6034,7 @@ div.bigbang {
 
         #mainColumn {
             display: block;
-            padding-bottom: 3.7rem;
+            padding-bottom: 4.9rem;
         }
     }
 
@@ -5954,7 +6044,7 @@ div.bigbang {
             display: block;
             height: auto;
             padding-top: 0.75rem;
-            padding-bottom: 3.7rem;
+            padding-bottom: 4.9rem;
 
             #race,
             #resources {
@@ -5973,7 +6063,7 @@ div.bigbang {
 
     // Resource list height
     .resources {
-        height: ~"calc(100svh - 8rem)";
+        height: ~"calc(100svh - 9.2rem)";
     }
 
     // --- Action-button grid ---

@@ -818,7 +818,7 @@ export function index(){
                 <span class="season">{{ season() }}</span>
                 <b-tooltip :label="weather()" :aria-label="weather()" position="is-bottom" size="is-small" multilined animated><i id="weather" class="weather wi"></i></b-tooltip>
                 <b-tooltip :label="temp()" :aria-label="temp()" position="is-bottom" size="is-small" multilined animated><i id="temp" class="temp wi"></i></b-tooltip>
-                <span role="button" class="atime" style="padding: 0 0.5rem; margin-left: 0.5rem; cursor: pointer" @click="pause" :aria-label="pausedesc()">
+                <span role="button" class="atime" id="pauseBtn" @click="pause" :aria-label="pausedesc()">
                     <span id="pausegame"></span>
                 </span>
             </span>
@@ -1382,7 +1382,7 @@ export function index(){
                 <h1>
                     <span class="has-text-warning">${egg15.length > 0 ? `Ev${egg15}lve` : `Evolve`}</span>
                     by
-                    <span class="has-text-success">Demagorddon</span>
+                    <span class="has-text-success">Demagorddon</span><span id="petFootSlot" class="footPet"></span>
                 </h1>
             </span>
             <span class="right">
@@ -1396,6 +1396,8 @@ export function index(){
                     <li><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=PTRJZBW9J662C&currency_code=USD&source=url" target="_blank">Donate</a></li>
                 </ul>
             </span>
+            <span id="pauseFootSlot" class="footPause"></span>
+            <span class="version footVersion"><a href="wiki.html#changelog" target="_blank"></a></span>
         </div>
     `);
 
