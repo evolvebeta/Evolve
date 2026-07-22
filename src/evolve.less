@@ -5910,6 +5910,11 @@ div.bigbang {
                 position: static !important;
                 overflow-y: auto !important;
                 overflow-x: hidden !important;
+                // Desktop sizes this scroller as `100vh - 10rem`, which only reserves room for the
+                // top chrome. On mobile the fixed footer + mobileNav (~4.8rem) also sit over the
+                // bottom, so the scroller must stop above them or its last rows hide underneath.
+                // svh keeps the fit correct while the browser URL bar is showing.
+                height: ~"calc(100svh - 13rem)" !important;
             }
 
             > .tab-content {
