@@ -1,4 +1,4 @@
-import { global, p_on, support_on, sizeApproximation, keyMap } from './vars.js';
+import { global, p_on, support_on, sizeApproximation, keyMap, seededRandom } from './vars.js';
 import { vBind, clearElement, popover, clearPopper, messageQueue, powerCostMod, powerModifier, spaceCostMultiplier, deepClone, calcPrestige, flib, darkEffect, adjustCosts, get_qlevel, timeCheck, timeFormat, buildQueue } from './functions.js';
 import { races, traits, orbitLength } from './races.js';
 import { spatialReasoning, unlockContainers } from './resources.js';
