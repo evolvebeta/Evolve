@@ -818,7 +818,7 @@ export function index(){
                 <span class="season">{{ season() }}</span>
                 <b-tooltip :label="weather()" :aria-label="weather()" position="is-bottom" size="is-small" multilined animated><i id="weather" class="weather wi"></i></b-tooltip>
                 <b-tooltip :label="temp()" :aria-label="temp()" position="is-bottom" size="is-small" multilined animated><i id="temp" class="temp wi"></i></b-tooltip>
-                <span role="button" class="atime" style="padding: 0 0.5rem; margin-left: 0.5rem; cursor: pointer" @click="pause" :aria-label="pausedesc()">
+                <span role="button" class="atime" id="pauseBtn" @click="pause" :aria-label="pausedesc()">
                     <span id="pausegame"></span>
                 </span>
             </span>
@@ -1178,8 +1178,9 @@ export function index(){
         });
     }
 
-    // Settings Tab
-    let settings = $(`<b-tab-item id="settings" class="settings sticky" :label="label('tab_settings')">
+    // Settings Tab (header-class lets the mobile layout drop this tab from the top bar; it is
+    // reached from the footer nav instead)
+    let settings = $(`<b-tab-item id="settings" class="settings sticky" header-class="mobileSettingsTab" :label="label('tab_settings')">
         <div class="theme">
             <span>{{ label('theme') }} </span>
             <b-dropdown aria-role="list">
@@ -1363,37 +1364,33 @@ export function index(){
             <button class="mobile-nav-btn is-active" data-panel="resources">${loc('mobile_nav_resources')}</button>
             <button class="mobile-nav-btn" data-panel="game">${loc('mobile_nav_game')}</button>
             <button class="mobile-nav-btn" data-panel="queue">${loc('mobile_nav_queue')}</button>
+            <button class="mobile-nav-btn" data-panel="settings">${loc('mobile_nav_settings')}</button>
         </div>
     `);
 
+    // civTabs index of the Settings tab (matches quickMap.settings in main.js).
+    const SETTINGS_TAB = 7;
+    let lastGameTab = global.settings.civTabs === SETTINGS_TAB ? 1 : global.settings.civTabs;
     $('#mobileNav').on('click', '.mobile-nav-btn', function () {
         const panel = $(this).data('panel');
+        // The Settings panel and the Game panel both show the main column but on different tabs, so
+        // switch civTabs to (or away from) the settings tab as needed, remembering the game tab.
+        if (panel === 'settings'){
+            if (global.settings.civTabs !== SETTINGS_TAB){ lastGameTab = global.settings.civTabs; }
+            global.settings.civTabs = SETTINGS_TAB;
+            if (!global.settings.tabLoad){ loadTab(SETTINGS_TAB); }
+        }
+        else if (panel === 'game' && global.settings.civTabs === SETTINGS_TAB){
+            global.settings.civTabs = lastGameTab;
+            if (!global.settings.tabLoad){ loadTab(lastGameTab); }
+        }
         $('#main')
             .toggleClass('mobile-panel-game', panel === 'game')
-            .toggleClass('mobile-panel-queue', panel === 'queue');
+            .toggleClass('mobile-panel-queue', panel === 'queue')
+            .toggleClass('mobile-panel-settings', panel === 'settings');
         $('#mobileNav .mobile-nav-btn').removeClass('is-active');
         $(this).addClass('is-active');
     });
-
-    // Keep #mobileNav and .promoBar visually anchored when browser toolbars toggle or user zooms.
-    // visualViewport tracks the *visible* window; position:fixed tracks the layout viewport —
-    // when they diverge (toolbar changes, zoom) we correct with a CSS transform offset.
-    if ('visualViewport' in window) {
-        const $navBar = $('#mobileNav');
-        const $promoBar = $('.promoBar');
-
-        const syncFixedToViewport = () => {
-            const vv = window.visualViewport;
-            // How many px the visual viewport is inset from the bottom of the layout viewport
-            const offsetFromBottom = window.innerHeight - (vv.height + vv.offsetTop);
-            const translateY = -Math.round(Math.max(0, offsetFromBottom));
-            $navBar.css('transform', `translateY(${translateY}px)`);
-            $promoBar.css('transform', `translateY(${translateY}px)`);
-        };
-
-        window.visualViewport.addEventListener('resize', syncFixedToViewport);
-        window.visualViewport.addEventListener('scroll', syncFixedToViewport);
-    }
 
     // Bottom Bar
     $('body').append(`
@@ -1402,7 +1399,7 @@ export function index(){
                 <h1>
                     <span class="has-text-warning">${egg15.length > 0 ? `Ev${egg15}lve` : `Evolve`}</span>
                     by
-                    <span class="has-text-success">Demagorddon</span>
+                    <span class="has-text-success">Demagorddon</span><span id="petFootSlot" class="footPet"></span>
                 </h1>
             </span>
             <span class="right">
@@ -1416,6 +1413,51 @@ export function index(){
                     <li><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=PTRJZBW9J662C&currency_code=USD&source=url" target="_blank">Donate</a></li>
                 </ul>
             </span>
+            <span id="pauseFootSlot" class="footPause"></span>
+            <span class="version footVersion"><a href="wiki.html#changelog" target="_blank"></a></span>
         </div>
     `);
+
+    if ('visualViewport' in window) {
+        const $navBar = $('#mobileNav');
+        const $promoBar = $('.promoBar');
+
+        const syncFixedToViewport = () => {
+            const vv = window.visualViewport;
+            if (vv.scale !== 1) {
+                return;
+            }
+            const offsetFromBottom = window.innerHeight - (vv.height + vv.offsetTop);
+            const translateY = -Math.round(Math.max(0, offsetFromBottom));
+            $navBar.css('transform', `translateY(${translateY}px)`);
+            $promoBar.css('transform', `translateY(${translateY}px)`);
+        };
+
+        syncFixedToViewport();
+        window.visualViewport.addEventListener('resize', syncFixedToViewport);
+    }
+
+    // Mobile self-scrolling panels (#settings, #evolution, resTabs/govTabs2 sections) get
+    // their height set here instead of a CSS calc(): measure each panel's actual
+    // top position and size it to reach exactly to the bottom bar, on any screen/nesting.
+    const sizeScrollPanels = () => {
+        if (window.innerWidth > 768) {
+            return;
+        }
+        const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
+        const barsPx = 3.7 * remPx;
+        document.querySelectorAll('#settings, #evolution, .resTabs > section, .govTabs2 > section').forEach((el) => {
+            if (!el.offsetParent) {
+                return;
+            }
+            const top = el.getBoundingClientRect().top;
+            el.style.height = `${Math.max(0, window.innerHeight - top - barsPx)}px`;
+        });
+    };
+
+    sizeScrollPanels();
+    window.addEventListener('resize', sizeScrollPanels);
+    // Re-measure after any click (tab switches, panel switches) — delayed past the 300ms
+    // slide-transition so we measure the settled position, not mid-animation.
+    document.addEventListener('click', () => setTimeout(sizeScrollPanels, 400));
 }

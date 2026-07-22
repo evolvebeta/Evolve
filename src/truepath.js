@@ -37,7 +37,7 @@ const outerTruth = {
                 }
                 return 600;
             },
-            nav(){ return true; }
+            nav(){ return global.tech['resettle'] ? false : true; }
         },
         titan_mission: {
             id: 'space-titan_mission',
@@ -740,7 +740,7 @@ const outerTruth = {
                 }
                 return 600;
             },
-            nav(){ return true; }
+            nav(){ return global.tech['resettle'] ? false : true; }
         },
         enceladus_mission: {
             id: 'space-enceladus_mission',
@@ -961,7 +961,7 @@ const outerTruth = {
             },
             syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['triton'] && global.tech.triton >= 2 ? true : false; },
             syndicate_cap(){ return global.tech['outer'] && global.tech.outer >= 4 ? 5000 : 3000; },
-            nav(){ return true; },
+            nav(){ return global.tech['resettle'] ? false : true; },
             extra(region){
                 if (global.tech['triton'] && global.tech.triton >= 3){
                     $(`#${region}`).append(`<div id="${region}resist" v-show="${region}" class="syndThreat has-text-caution">${loc('space_ground_resist')} <span class="has-text-danger" v-html="threat(enemy,troops)"></span></div>`);
@@ -1143,7 +1143,7 @@ const outerTruth = {
             },
             syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['kuiper'] ? true : false; },
             syndicate_cap(){ return 2500; },
-            nav(){ return true; }
+            nav(){ return global.tech['resettle'] ? false : true; }
         },
         kuiper_mission: {
             id: 'space-kuiper_mission',
@@ -1340,7 +1340,7 @@ const outerTruth = {
             },
             syndicate(){ if (global.tech['resettle']){ return false; } return global.tech['eris'] ? true : false; },
             syndicate_cap(){ return 7500; },
-            nav(){ return true; },
+            nav(){ return global.tech['resettle'] ? false : true; },
             extra(region){
                 if (global.tech['eris'] && global.tech['eris'] === 1){
                     $(`#${region}`).append(`<div id="${region}scanned" v-show="${region}" class="syndThreat has-text-caution">${loc('space_scanned')} <span class="has-text-info">{{ eris_scan }}%</span></div>`);
@@ -5849,15 +5849,16 @@ export const spacePlanetStats = {
     eridani_p3: { dist: 0.5, orbit: 154, size: 0.52, star: 'eridani', hz: true },
     // Gliese 65 (M-type): 554624.2 AU from the Sun and 322529 AU from Eridani, sitting roughly (triangulated fixed coordinates).
     gliese65: { x: 432282.302, y: -347476.639, dist: 554624.2, orbit: -2, size: 1, startype: 'M', label: loc('star_gliese65'), zlabel: loc('star_gliese65') },
-    // gliese65 planets (M-type, 3, habitable-zone planet at ~0.15 AU)
-    gliese65_p1: { dist: 0.15, orbit: 39, size: 0.29, star: 'gliese65', hz: true },
-    gliese65_p2: { dist: 0.24, orbit: 78, size: 0.42, star: 'gliese65' },
-    gliese65_p3: { dist: 0.42, orbit: 182, size: 0.99, star: 'gliese65' },
+    // gliese65 planets (M-type, 3, one in the habitable zone)
+    gliese65_p1: { dist: 0.18, orbit: 51, size: 0.35, star: 'gliese65', hz: true },
+    gliese65_p2: { dist: 0.32, orbit: 121, size: 0.3, star: 'gliese65' },
+    gliese65_p3: { dist: 0.62, orbit: 326, size: 0.31, star: 'gliese65' },
     // YZ Ceti (M-type): 766481.85 AU from the Sun, ~101186 AU from Tau Ceti and ~442688 AU from Eridani (triangulated fixed coordinates).
     yzceti: { x: 548661.064, y: -535224.684, dist: 766481.85, orbit: -2, size: 1, startype: 'M', label: loc('star_yzceti'), zlabel: loc('star_yzceti') },
-    // yzceti planets (M-type, 2, habitable-zone planet at ~0.15 AU)
-    yzceti_p1: { dist: 0.15, orbit: 39, size: 0.3, star: 'yzceti', hz: true },
-    yzceti_p2: { dist: 0.24, orbit: 78, size: 0.66, star: 'yzceti' },
+    // yzceti planets (M-type, 3, none habitable)
+    yzceti_p1: { dist: 0.38, orbit: 156, size: 0.46, star: 'yzceti' },
+    yzceti_p2: { dist: 0.7, orbit: 391, size: 0.21, star: 'yzceti' },
+    yzceti_p3: { dist: 1.12, orbit: 790, size: 0.31, star: 'yzceti' },
     // Alpha Centauri: 276363.5 AU from the Sun
     alphacentauri: { x: -221514.17, y: 165252.101, dist: 276363.5, orbit: -2, size: 2, startype: 'G', label: loc('star_alpha_centauri'), zlabel: loc('star_alpha_centauri') + ' A' },
     // alphacentauri planets (G-type, 3, habitable-zone planet at ~1 AU)
@@ -5873,15 +5874,14 @@ export const spacePlanetStats = {
     alphacentaurib_p4: { dist: 1.4, orbit: 723, size: 1.12, star: 'alphacentaurib' },
     // Proxima Centauri (M-type): 12950 AU from Alpha Centauri
     proximacentauri: { x: -209947.384, y: 159428.704, dist: 263619.831, orbit: -2, size: 1, startype: 'M', zlabel: loc('star_proxima_centauri') },
-    // proximacentauri planets (M-type, 2, habitable-zone planet at ~0.15 AU)
-    proximacentauri_p1: { dist: 0.15, orbit: 39, size: 0.28, star: 'proximacentauri' },
-    proximacentauri_p2: { dist: 0.18, orbit: 51, size: 0.32, star: 'proximacentauri', hz: true },
+    // proximacentauri planets (M-type, 1, none habitable)
+    proximacentauri_p1: { dist: 0.35, orbit: 138, size: 0.29, star: 'proximacentauri' },
     // Barnard's Star (M-type): 359841.7 AU from the Sun
     barnardsstar: { x: -359713.935, y: 9588.242, dist: 359841.7, orbit: -2, size: 1, startype: 'M', label: loc('star_barnards_star'), zlabel: loc('star_barnards_star') },
-    // barnardsstar planets (M-type, 3, habitable-zone planet at ~0.15 AU)
-    barnardsstar_p1: { dist: 0.15, orbit: 39, size: 0.25, star: 'barnardsstar' },
-    barnardsstar_p2: { dist: 0.18, orbit: 51, size: 0.22, star: 'barnardsstar' },
-    barnardsstar_p3: { dist: 0.22, orbit: 69, size: 0.33, star: 'barnardsstar', hz: true },
+    // barnardsstar planets (M-type, 3, one in the habitable zone)
+    barnardsstar_p1: { dist: 0.24, orbit: 78, size: 0.31, star: 'barnardsstar', hz: true },
+    barnardsstar_p2: { dist: 0.45, orbit: 201, size: 0.31, star: 'barnardsstar' },
+    barnardsstar_p3: { dist: 0.86, orbit: 532, size: 0.22, star: 'barnardsstar' },
     // Sirius (A-type): 544505.7 AU from the Sun
     sirius: { x: 426154.845, y: 338937.318, dist: 544505.7, orbit: -2, size: 3, startype: 'A', label: loc('star_sirius'), zlabel: loc('star_sirius') + ' A' },
     // sirius planets (A-type, 5, habitable-zone planet at ~4.5 AU)
@@ -5904,15 +5904,13 @@ export const spacePlanetStats = {
     procyonb: { x: 370591.097, y: 622824.561, dist: 724740.088, orbit: -2, size: 1, startype: 'D', zlabel: loc('star_procyon') + ' B' },
     // Wolf 359 (M-type): 498972.1 AU from the Sun
     wolf359: { x: 86645.596, y: 491391.593, dist: 498972.1, orbit: -2, size: 1, startype: 'M', label: loc('star_wolf359'), zlabel: loc('star_wolf359') },
-    // wolf359 planets (M-type, 2, habitable-zone planet at ~0.15 AU)
-    wolf359_p1: { dist: 0.15, orbit: 39, size: 0.33, star: 'wolf359' },
-    wolf359_p2: { dist: 0.18, orbit: 51, size: 0.33, star: 'wolf359', hz: true },
+    // wolf359 planets (M-type, 1, one in the habitable zone)
+    wolf359_p1: { dist: 0.22, orbit: 69, size: 0.48, star: 'wolf359', hz: true },
     // Ross 128 (M-type): 701976 AU from the Sun and ~239683.7 AU from Wolf 359
     ross128: { x: -28909.372, y: 701380.462, dist: 701976, orbit: -2, size: 1, startype: 'M', label: loc('star_ross128'), zlabel: loc('star_ross128') },
-    // ross128 planets (M-type, 3, habitable-zone planet at ~0.15 AU)
-    ross128_p1: { dist: 0.15, orbit: 39, size: 0.33, star: 'ross128', hz: true },
-    ross128_p2: { dist: 0.24, orbit: 78, size: 0.7, star: 'ross128' },
-    ross128_p3: { dist: 0.42, orbit: 182, size: 1.3, star: 'ross128' },
+    // ross128 planets (M-type, 2, none habitable)
+    ross128_p1: { dist: 0.4, orbit: 169, size: 0.35, star: 'ross128' },
+    ross128_p2: { dist: 0.76, orbit: 442, size: 0.21, star: 'ross128' },
     // 61 Cygni (K-type): 720948.3 AU from the Sun
     cygni: { x: -493536.285, y: -525536.285, dist: 720948.3, orbit: -2, size: 1.9, startype: 'K', label: loc('star_61cygni'), zlabel: loc('star_61cygni') + ' A' },
     // cygni planets (K-type, 2, habitable-zone planet at ~0.5 AU)
@@ -5940,13 +5938,12 @@ export const spacePlanetStats = {
     altair_p5: { dist: 22.5, orbit: 27564, size: 1.19, star: 'altair' },
     // Kapteyn's Star (M-type): 811383.02 AU from the Sun
     kapteynsstar: { x: 765760.807, y: 268240.175, dist: 811383.02, orbit: -2, size: 1, startype: 'M', label: loc('star_kapteyns_star'), zlabel: loc('star_kapteyns_star') },
-    // kapteynsstar planets (M-type, 1, habitable-zone planet at ~0.15 AU)
-    kapteynsstar_p1: { dist: 0.15, orbit: 39, size: 0.33, star: 'kapteynsstar', hz: true },
+    // kapteynsstar planets (M-type, 1, one in the habitable zone)
+    kapteynsstar_p1: { dist: 0.2, orbit: 60, size: 0.23, star: 'kapteynsstar', hz: true },
     // Teegarden's Star (M-type): 790513.5 AU from the Sun
     teegardensstar: { x: 727115.6, y: -310184.619, dist: 790513.5, orbit: -2, size: 1, startype: 'M', label: loc('star_teegardens_star'), zlabel: loc('star_teegardens_star') },
-    // teegardensstar planets (M-type, 2, habitable-zone planet at ~0.15 AU)
-    teegardensstar_p1: { dist: 0.15, orbit: 39, size: 0.33, star: 'teegardensstar', hz: true },
-    teegardensstar_p2: { dist: 0.24, orbit: 78, size: 0.86, star: 'teegardensstar' },
+    // teegardensstar planets (M-type, 1, one in the habitable zone)
+    teegardensstar_p1: { dist: 0.23, orbit: 74, size: 0.43, star: 'teegardensstar', hz: true },
     // Eta Cassiopeiae (G-type): 1228141.7 AU from the Sun
     etacassiopeiae: { x: 500000, y: -1121753.999, dist: 1228141.7, orbit: -2, size: 2, startype: 'G', label: loc('star_eta_cassiopeiae'), zlabel: loc('star_eta_cassiopeiae') + ' A' },
     // etacassiopeiae planets (G-type, 4, habitable-zone planet at ~1 AU)
@@ -5975,32 +5972,35 @@ export const spacePlanetStats = {
     ophiuchib_p4: { dist: 2.5, orbit: 1726, size: 1.27, star: 'ophiuchib' },
     // DX Cancri (M-type): 738655.78 AU from the Sun.
     dxcancri: { x: 322977.327, y: 664302.647, dist: 738655.78, orbit: -2, size: 1, startype: 'M', label: loc('star_dx_cancri'), zlabel: loc('star_dx_cancri') },
-    // dxcancri planets (M-type, 3, habitable-zone planet at ~0.15 AU)
-    dxcancri_p1: { dist: 0.15, orbit: 39, size: 0.33, star: 'dxcancri' },
-    dxcancri_p2: { dist: 0.18, orbit: 51, size: 0.33, star: 'dxcancri', hz: true },
-    dxcancri_p3: { dist: 0.24, orbit: 78, size: 0.74, star: 'dxcancri' },
+    // dxcancri planets (M-type, 1, none habitable)
+    dxcancri_p1: { dist: 0.36, orbit: 144, size: 0.31, star: 'dxcancri' },
     // AD Leonis (M-type): 1024505 AU from the Sun
     adleonis: { x: 219454.827, y: 1000724.774, dist: 1024505, orbit: -2, size: 1, startype: 'M', label: loc('star_ad_leonis'), zlabel: loc('star_ad_leonis') },
-    // adleonis planets (M-type, 2, habitable-zone planet at ~0.15 AU)
-    adleonis_p1: { dist: 0.15, orbit: 39, size: 0.33, star: 'adleonis', hz: true },
-    adleonis_p2: { dist: 0.24, orbit: 78, size: 0.71, star: 'adleonis' },
+    // adleonis planets (M-type, 2, none habitable)
+    adleonis_p1: { dist: 0.34, orbit: 132, size: 0.22, star: 'adleonis' },
+    adleonis_p2: { dist: 0.57, orbit: 287, size: 0.28, star: 'adleonis' },
     // EV Lacertae (M-type): 1042213 AU from the Sun
     evlacertae: { x: -36372.709, y: -1041578.112, dist: 1042213, orbit: -2, size: 1, startype: 'M', label: loc('star_ev_lacertae'), zlabel: loc('star_ev_lacertae') },
-    // evlacertae planets (M-type, 1, habitable-zone planet at ~0.15 AU)
-    evlacertae_p1: { dist: 0.15, orbit: 39, size: 0.33, star: 'evlacertae', hz: true },
+    // evlacertae planets (M-type, 3, one in the habitable zone)
+    evlacertae_p1: { dist: 0.25, orbit: 83, size: 0.22, star: 'evlacertae', hz: true },
+    evlacertae_p2: { dist: 0.47, orbit: 215, size: 0.21, star: 'evlacertae' },
+    evlacertae_p3: { dist: 0.89, orbit: 560, size: 0.32, star: 'evlacertae' },
     // Kruger 60 (M-type): 866402.8 AU from the Sun
     kruger60: { x: -214886.032, y: -839331.761, dist: 866402.8, orbit: -2, size: 1, startype: 'M', label: loc('star_kruger_60'), zlabel: loc('star_kruger_60') + ' A' },
-    // kruger60 planets (M-type, 2, habitable-zone planet at ~0.15 AU)
-    kruger60_p1: { dist: 0.15, orbit: 39, size: 0.33, star: 'kruger60' },
-    kruger60_p2: { dist: 0.18, orbit: 51, size: 0.33, star: 'kruger60', hz: true },
+    // kruger60 planets (M-type, 2, one in the habitable zone)
+    kruger60_p1: { dist: 0.24, orbit: 78, size: 0.31, star: 'kruger60', hz: true },
+    kruger60_p2: { dist: 0.46, orbit: 208, size: 0.32, star: 'kruger60' },
     // Kruger 60 B (M-type): binary companion, 9.5 AU from Kruger 60 
     kruger60b: { x: -214894.289, y: -839336.46, dist: 866409.400, orbit: -2, size: 1, startype: 'M', zlabel: loc('star_kruger_60') + ' B' },
-    // kruger60b planets (M-type, 1, habitable-zone planet at ~0.15 AU)
-    kruger60b_p1: { dist: 0.15, orbit: 39, size: 0.33, star: 'kruger60b', hz: true },
+    // kruger60b planets (M-type, 3, one in the habitable zone)
+    kruger60b_p1: { dist: 0.22, orbit: 69, size: 0.24, star: 'kruger60b', hz: true },
+    kruger60b_p2: { dist: 0.4, orbit: 169, size: 0.25, star: 'kruger60b' },
+    kruger60b_p3: { dist: 0.81, orbit: 486, size: 0.35, star: 'kruger60b' },
     // YZ Canis Minoris (M-type): 1233201 AU from the Sun
     yzcanisminoris: { x: 648958.851, y: 1048635.836, dist: 1233201, orbit: -2, size: 1, startype: 'M', label: loc('star_yz_canis_minoris'), zlabel: loc('star_yz_canis_minoris') },
-    // yzcanisminoris planets (M-type, 1, habitable-zone planet at ~0.15 AU)
-    yzcanisminoris_p1: { dist: 0.15, orbit: 39, size: 0.33, star: 'yzcanisminoris', hz: true },
+    // yzcanisminoris planets (M-type, 2, none habitable)
+    yzcanisminoris_p1: { dist: 0.41, orbit: 175, size: 0.41, star: 'yzcanisminoris' },
+    yzcanisminoris_p2: { dist: 0.81, orbit: 486, size: 0.33, star: 'yzcanisminoris' },
     // Epsilon Indi (K-type): Distance from the Sun is deliberately inaccurate (430039 AU, closer than the real ~750672 AU) for gameplay reasons.
     epsilonindi: { x: -168117.602, y: -395815.63, dist: 430039, orbit: -2, size: 2, startype: 'K', label: loc('star_epsilon_indi'), zlabel: loc('star_epsilon_indi') + ' A' },
     // epsilonindi planets (K-type, 4, habitable-zone planet at ~0.5 AU)
@@ -6034,9 +6034,9 @@ export const spacePlanetStats = {
     gliese570d: { x: -961659.938, y: 718080.491, dist: 1200178.915, orbit: -2, size: 1, startype: 'T', zlabel: loc('star_gliese_570') + ' D' },
     // Wolf 1061 (M-type): 891699.2 AU from the Sun
     wolf1061: { x: -853184.411, y: 259237.005, dist: 891699.2, orbit: -2, size: 1, startype: 'M', label: loc('star_wolf_1061'), zlabel: loc('star_wolf_1061') },
-    // wolf1061 planets (M-type, 2, habitable-zone planet at ~0.15 AU)
-    wolf1061_p1: { dist: 0.15, orbit: 39, size: 0.33, star: 'wolf1061', hz: true },
-    wolf1061_p2: { dist: 0.24, orbit: 78, size: 0.89, star: 'wolf1061' },
+    // wolf1061 planets (M-type, 2, none habitable)
+    wolf1061_p1: { dist: 0.33, orbit: 126, size: 0.38, star: 'wolf1061' },
+    wolf1061_p2: { dist: 0.61, orbit: 318, size: 0.32, star: 'wolf1061' },
 };
 
 export function setOrbits(){
@@ -6088,6 +6088,36 @@ function transferWindow(p1,p2){
     return Math.ceil(Math.sqrt(((p2.x - p1.x) ** 2) + ((p2.y - p1.y) ** 2)) * 225);
 }
 
+// The star nearest a point (absolute Sun-frame coords), scanning every star in spacePlanetStats.
+function nearestStar(pt){
+    let best = 'spc_sun';
+    let bestDist = Infinity;
+    for (let [id, body] of Object.entries(spacePlanetStats)){
+        if (!body.startype){ continue; }
+        let d = ((body.x - pt.x) ** 2) + ((body.y - pt.y) ** 2);
+        if (d < bestDist){ bestDist = d; best = id; }
+    }
+    return best;
+}
+
+// The star a ship should be drawn relative to, as absolute Sun-frame coords. Ships store absolute
+// coordinates that can be hundreds of thousands of AU from the origin; drawing those huge numbers
+// directly loses canvas precision and distorts the ship marker (the same reason each star system is
+// drawn in its own translated frame). Reference the nearer of the ship's origin-system star and its
+// destination-system star, so a ship crossing between two systems keeps its origin star until it
+// reaches the point equidistant from the two — the halfway point between them — then swaps to the
+// destination star.
+function shipRefStar(ship){
+    let originStar = nearestStar(ship.origin || ship.xy);
+    let destStar = nearestStar(ship.destination || ship.xy);
+    if (originStar === destStar){ return genXYcoord(originStar); }
+    let so = spacePlanetStats[originStar];
+    let sd = spacePlanetStats[destStar];
+    let dO = ((so.x - ship.xy.x) ** 2) + ((so.y - ship.xy.y) ** 2);
+    let dD = ((sd.x - ship.xy.x) ** 2) + ((sd.y - ship.xy.y) ** 2);
+    return genXYcoord(dO <= dD ? originStar : destStar);
+}
+
 // ---- Wormhole / jump gate network ----------------------------------------------------------
 // Extensible registry of jump gates and the directed wormhole links between them. A gate is a
 // physical location (a spacePlanetStats key) belonging to a star system. When a ship crosses
@@ -6096,7 +6126,7 @@ function transferWindow(p1,p2){
 // wormholeSpeedMult times its normal speed. To extend the network, add gates here and links
 // below; a link is one-way, so list both directions for a two-way wormhole or a single direction
 // for a one-way gate. New/not-yet-built gates can gate their availability via active().
-const wormholeSpeedMult = 25000;
+const wormholeSpeedMult = 125000;
 const jumpGates = {
     spc_sun_gate: {
         system: 'sun',
@@ -6355,6 +6385,7 @@ export function jumpGateShutdown(){
 }
 
 export function jumpGateRestart(){
+    messageQueue(loc('tech_jump_jump_gate_msg'),'info',false,['progress']);
     let regions = {
         space: [
             'home','moon','red','hell','gas','gas_moon','belt','dwarf',
@@ -6371,12 +6402,30 @@ export function jumpGateRestart(){
 
     Object.keys(global.race.inactive.space).forEach(function (k){
         if (global.space.hasOwnProperty(k) && global.space[k].hasOwnProperty('count')){
-            global.space[k]['damaged'] = global.race.inactive.space[k].c;
+            global.space[k]['razed'] = global.race.inactive.space[k].c;
         }
     });
 
     global.space.jump_gate.count = 100;
-    global.space.jump_gate.damaged = 0;
+    global.space.jump_gate.razed = 0;
+
+    // Pin the derelict ship the spc_sun "Salvage" building offers: pick one inactive ship index now
+    // and store it so the choice (and its name on the button) stays fixed until it is salvaged. If
+    // there were no prior ships, seed a default derelict corvette so there is always one to salvage.
+    if (global.race.hasOwnProperty('inactive')){
+        if (!global.race.inactive.ships){ global.race.inactive.ships = []; }
+        if (global.race.inactive.ships.length === 0){
+            let xy = genXYcoord('tau_gas2');
+            global.race.inactive.ships.push({
+                class: 'corvette', armor: 'steel', weapon: 'railgun', engine: 'ion', power: 'solar', sensor: 'radar',
+                name: getRandomShipName(),
+                location: 'tau_gas2', xy: deepClone(xy), origin: deepClone(xy), destination: deepClone(xy),
+                transit: 0, dist: 0, damage: 0, fueled: false
+            });
+        }
+        global.race['salvage_ship'] = Math.floor(seededRandom(0, global.race.inactive.ships.length));
+    }
+
     global.settings.showSpace = true;
     //global.settings.civTabs = 1;
     global.settings.spaceTabs = 1;
@@ -6955,23 +7004,29 @@ export function drawMap() {
     ctx.strokeStyle = "#0000ff";
     for (let ship of global.space.shipyard.ships) {
         if (ship.transit > 0) {
+            // Draw in the ship's reference-star frame (see shipRefStar): a pure translation of every
+            // point, so the trail geometry is unchanged but the coordinates near the ship stay small.
+            let ref = shipRefStar(ship);
+            ctx.save();
+            ctx.translate(ref.x, ref.y);
             ctx.beginPath();
             ctx.setLineDash([0.1, 0.4]);
-            ctx.moveTo(ship.xy.x, ship.xy.y);
+            ctx.moveTo(ship.xy.x - ref.x, ship.xy.y - ref.y);
             if (ship.path){
                 // Multi-leg wormhole route: draw the full remaining flight path through each
                 // waypoint still ahead of the ship (entry gate -> exit gate -> destination).
                 let trip = ship.dist > 0 ? 1 - (ship.transit / ship.dist) : 0;
                 for (let i=0; i<ship.path.length; i++){
                     if (ship.path[i].tn > trip){
-                        ctx.lineTo(ship.path[i].x, ship.path[i].y);
+                        ctx.lineTo(ship.path[i].x - ref.x, ship.path[i].y - ref.y);
                     }
                 }
             }
             else {
-                ctx.lineTo(ship.destination.x, ship.destination.y);
+                ctx.lineTo(ship.destination.x - ref.x, ship.destination.y - ref.y);
             }
             ctx.stroke();
+            ctx.restore();
         }
     }
 
@@ -7060,9 +7115,13 @@ export function drawMap() {
     ctx.strokeStyle = "#0000ff";
     for (let ship of global.space.shipyard.ships) {
         if (ship.transit > 0) {
+            let ref = shipRefStar(ship);
+            ctx.save();
+            ctx.translate(ref.x, ref.y);
             ctx.beginPath();
-            ctx.arc(ship.xy.x, ship.xy.y, 0.1, 0, Math.PI * 2, true);
+            ctx.arc(ship.xy.x - ref.x, ship.xy.y - ref.y, 0.1, 0, Math.PI * 2, true);
             ctx.fill();
+            ctx.restore();
         }
     }
 
@@ -7076,7 +7135,11 @@ export function drawMap() {
     // Ship names
     for (let ship of global.space.shipyard.ships) {
         if (ship.transit > 0) {
-            ctx.fillText(ship.name, ship.xy.x + 0.15, ship.xy.y - 0.15);
+            let ref = shipRefStar(ship);
+            ctx.save();
+            ctx.translate(ref.x, ref.y);
+            ctx.fillText(ship.name, ship.xy.x - ref.x + 0.15, ship.xy.y - ref.y - 0.15);
+            ctx.restore();
         }
     }
 
@@ -7350,7 +7413,11 @@ function shipDispatchModal(id, modal){
         Object.keys(spaceRegions).forEach(function(region){
             if (ship.location !== region){
                 if (spaceRegions[region].info.nav()){
-                    if (!global.race['orbit_decayed'] || (global.race['orbit_decayed'] && region !== 'spc_moon')){
+                    if (region === 'spc_sun_gate'){
+                        let name = typeof spaceRegions.spc_sun_gate.info.desc === 'string' ? spaceRegions.spc_sun_gate.info.desc : spaceRegions.spc_sun_gate.info.desc();
+                        dests.push({ region: region, name: name });
+                    }
+                    else if (!global.race['orbit_decayed'] || (global.race['orbit_decayed'] && region !== 'spc_moon')){
                         let name = typeof spaceRegions[region].info.name === 'string' ? spaceRegions[region].info.name : spaceRegions[region].info.name();
                         dests.push({ region: region, name: name });
                     }

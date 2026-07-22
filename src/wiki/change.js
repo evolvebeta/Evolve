@@ -8,7 +8,8 @@ export const changeList = [
         changes: [
             `Upgraded Vue 2 to Vue 3.`,
             `Added new "Offline Time" feature, replaces "Accelerated Time"`,
-            `Added option to Save or Load game from Google Drive.`
+            `Added option to Save or Load game from Google Drive.`,
+            `New Mobile UI`
         ]
     },
     {

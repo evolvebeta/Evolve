@@ -170,10 +170,11 @@ $(document).mousemove(function(e){
 index();
 var revision = global['revision'] ? global['revision'] : '';
 if (global['beta']){
-    $('#topBar .version > a').html(`v${global.version} Beta ${global.beta}${revision}`);
+    // Sets both the header (#topBar) and mobile footer (.footVersion) copies of the version.
+    $('.version > a').html(`v${global.version} Beta ${global.beta}${revision}`);
 }
 else {
-    $('#topBar .version > a').html('v'+global.version+revision);
+    $('.version > a').html('v'+global.version+revision);
 }
 
 initMessageQueue();
@@ -780,6 +781,38 @@ if (global.race['orbit_decay'] && !global.race['orbit_decayed']){
 
 challengeIcon();
 drawPet();
+
+// A couple of header elements relocate into the footer on the mobile layout: the player pet (beside
+// the author name) and the pause button (centered between the pet and the version). Each is a single
+// node whose Vue @click / reactive bindings and jQuery hooks travel with it, so we move the actual
+// node into a footer slot on mobile and restore it to its authored spot on desktop. The authored
+// parent + next-sibling are captured once up front so the restore lands the node exactly where it was.
+const mobileFootBits = [
+    { node: document.getElementById('playerPet'), slot: 'petFootSlot' },
+    { node: document.getElementById('pauseBtn'), slot: 'pauseFootSlot' }
+].filter(function(b){ return b.node; });
+mobileFootBits.forEach(function(b){ b.home = b.node.parentElement; b.next = b.node.nextSibling; });
+
+function placeMobileBits(mobile){
+    mobileFootBits.forEach(function(b){
+        if (mobile){
+            let slot = document.getElementById(b.slot);
+            if (slot && b.node.parentElement !== slot){ slot.appendChild(b.node); }
+        }
+        else if (b.home && b.node.parentElement !== b.home){
+            // Restore to the captured position; if the recorded next-sibling has since moved, append.
+            if (b.next && b.next.parentElement === b.home){ b.home.insertBefore(b.node, b.next); }
+            else { b.home.appendChild(b.node); }
+        }
+    });
+}
+// Media queries measure rem against the initial 16px font, so 48rem here matches the CSS breakpoint
+// exactly (unaffected by the mobile html font-size override). placeMobileBits is idempotent (a no-op
+// when a node is already in the right spot), so it is safe on load, on breakpoint change, and resize.
+const mobileBitsBreakpoint = window.matchMedia('(max-width: 48rem)');
+placeMobileBits(mobileBitsBreakpoint.matches);
+mobileBitsBreakpoint.addEventListener('change', function(e){ placeMobileBits(e.matches); });
+window.addEventListener('resize', function(){ placeMobileBits(mobileBitsBreakpoint.matches); });
 
 if (global.race.species === 'protoplasm'){
     global.resource.RNA.display = true;
@@ -5632,8 +5665,8 @@ function fastLoop(){
             // Refine Ore
             if (global.tauceti.ore_refinery.fill > 0){
                 let raw = p_on['ore_refinery'] * production('ore_refinery');
-                if (raw > global.tauceti.ore_refinery.fill){
-                    raw = global.tauceti.ore_refinery.fill;
+                if (raw * time_multiplier > global.tauceti.ore_refinery.fill){
+                    raw = global.tauceti.ore_refinery.fill / time_multiplier;
                 }
                 global.tauceti.ore_refinery.fill -= raw * time_multiplier;
 
@@ -6925,8 +6958,8 @@ function fastLoop(){
                 // Refine Oil
                 if (global.tauceti.whaling_station.fill > 0){
                     let raw = p_on['whaling_station'] * production('whaling_station');
-                    if (raw > global.tauceti.whaling_station.fill){
-                        raw = global.tauceti.whaling_station.fill;
+                    if (raw * time_multiplier > global.tauceti.whaling_station.fill){
+                        raw = global.tauceti.whaling_station.fill / time_multiplier;
                     }
                     global.tauceti.whaling_station.fill -= raw * time_multiplier;
 
@@ -13237,7 +13270,7 @@ intervals['version_check'] = setInterval(function(){
         dataType: 'json',
         success: function(res){
             if (res['version'] && res['version'] != global['version'] && !global['beta']){
-                $('#topBar .version > a').html(`<span class="has-text-warning">${loc(`update_avail`)}</span> v`+global.version+revision);
+                $('.version > a').html(`<span class="has-text-warning">${loc(`update_avail`)}</span> v`+global.version+revision);
             }
         }
     });

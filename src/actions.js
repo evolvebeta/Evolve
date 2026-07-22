@@ -6413,12 +6413,12 @@ export function setAction(c_action,action,type,old,prediction){
             repairMax(){
                 return c_action.repair();
             },
-            // Structures accrue a 'damaged' count (e.g. global.space[x].damaged) when hit; the action
-            // button shows a cracked overlay. 'severe' (more cracks, full red) when more units are
-            // damaged than built; 'mild' (fewer cracks, muted red) while damage stays within count.
+            // Structures razed on return to Sol accrue a 'razed' count (e.g. global.space[x].razed);
+            // the action button shows a cracked overlay. 'severe' (more cracks, full red) when more
+            // units are razed than built; 'mild' (fewer cracks, muted red) while razed stays within count.
             damaged(){
-                if (global[action] && global[action][type] && typeof global[action][type]['damaged'] !== 'undefined'){
-                    let d = global[action][type].damaged;
+                if (global[action] && global[action][type] && typeof global[action][type]['razed'] !== 'undefined'){
+                    let d = global[action][type].razed;
                     if (d > global[action][type].count){ return 'damaged severe'; }
                     else if (d > 0){ return 'damaged mild'; }
                 }
@@ -6478,9 +6478,9 @@ export function setAction(c_action,action,type,old,prediction){
                 if (['temple','ziggurat'].includes(t)){
                     return templeCount(t === 'temple' ? false : true);
                 }
-                // Show "built/total" when some units are damaged (e.g. 5/7 = 5 intact, 2 damaged).
-                if (global[action] && global[action][t] && global[action][t].damaged > 0){
-                    return `${v}/${v + global[action][t].damaged}`;
+                // Show "built/total" when some units are razed (e.g. 5/7 = 5 intact, 2 razed).
+                if (global[action] && global[action][t] && global[action][t].razed > 0){
+                    return `${v}/${v + global[action][t].razed}`;
                 }
                 return v;
             }
@@ -7533,7 +7533,7 @@ export function updateDesc(c_action,category,action){
     if (global[category] && global[category][action] && global[category][action]['count']){
         if(!c_action.hasOwnProperty('count')){
             let cnt = global[category][action].count;
-            let dmg = global[category][action].damaged;
+            let dmg = global[category][action].razed;
             $(`#${id} .count`).html(dmg > 0 ? `${cnt}/${cnt + dmg}` : cnt);
         }
         if (global[category][action] && global[category][action].count > 0){
