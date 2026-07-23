@@ -7883,6 +7883,7 @@
   "fortress_demon_kills": "Demons Killed:",
   "fortress_enemy_defeat": "The %0 fortress has fallen! You have captured their commander.",
   "hell_observation_button": "Hell Observations",
+  "hell_observation_close": "Close",
   "hell_observation_tooltip": "Go to the hell observations panel. All activity that occurs each day in the Hell Dimension is logged and compiled here.",
   "hell_tabs_reports": "Reports",
   "hell_tabs_analysis": "Analysis",

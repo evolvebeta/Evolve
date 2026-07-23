@@ -7742,12 +7742,16 @@ export function drawHellObservations(startup){
     
     let observe = $(`<div id="hellObservations"></div>`);
     info.append(observe);
-    
+
+    // The observations panel is the last, hidden main tab; give it an explicit close button to return
+    // to the fortress (Civilization tab) — on mobile there is otherwise no obvious way back out.
+    observe.append(`<button class="button observeClose right" @click="closeObserve">${loc('hell_observation_close')}</button>`);
+
     observe.append(`<b-tabs id="hellTabs" class="resTabs" v-model="s.hellTabs" :animated="s.animated" @update:model-value="swapTab($event)">
         <b-tab-item id="h_Report" label="${loc('hell_tabs_reports')}"></b-tab-item>
         <b-tab-item id="h_Analysis" label="${loc('hell_tabs_analysis')}"></b-tab-item>
     </b-tabs>`);
-    
+
     vBind({
         el: `#hellObservations`,
         data: {
@@ -7768,6 +7772,13 @@ export function drawHellObservations(startup){
                     }
                 }
                 return tab;
+            },
+            closeObserve(){
+                // Return to the Civilization tab, where the fortress / observe button lives.
+                global.settings.civTabs = 1;
+                if (!global.settings.tabLoad){
+                    loadTab(1);
+                }
             }
         }
     });
