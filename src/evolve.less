@@ -1300,7 +1300,14 @@ Misc ---------> Main template
         #mobileNav {
             background-color: @bars-background;
         }
-        
+
+        // The race/name header sits directly above the scrolling resource list, which is tucked up
+        // under it by a negative top margin. Give the header an opaque, page-colored background so the
+        // resource rows scrolling behind it are hidden instead of bleeding through as overlapping text.
+        #race {
+            background-color: @html-background;
+        }
+
         // Play/Pause
         .play {
             display: inline-block;
@@ -5889,17 +5896,13 @@ div.bigbang {
         .tabs ul {
             margin-left: 0;
         }
-
-        .race {
-            padding-top: 0.75rem;
-        }
         
         .resources {
             margin-top:-0.75rem;
             // svh (not vh) so the bottom clears the fixed footer + mobileNav even while the mobile
             // browser URL bar is showing; the deduction is generous enough that the last rows stay
             // reachable even when the race-info header (morale + power) is at its tallest.
-            height: ~"calc(100svh - 9.5rem)";
+            height: ~"calc(100svh - 7.5rem)";
             padding-top:0.75rem;
             padding-bottom: 0.5rem;
 
@@ -6119,6 +6122,139 @@ div.bigbang {
             &.is-active a {
                 background: rgba(255, 255, 255, 0.06);
             }
+        }
+    }
+
+    // --- Ship Yard ---
+    .ShipYardTab {
+        margin-left: 0; // reclaim the desktop left margin on the narrow mobile panel
+
+        // The ship list is a sticky, 100vh, self-scrolling sidebar on desktop; on mobile that makes
+        // it float over the construct-ship options above it. Make it a normal in-flow block that
+        // scrolls with the rest of the panel.
+        #shipList {
+            position: static;
+            height: auto;
+            overflow: visible;
+        }
+
+        // Let the designer's stat readouts wrap onto multiple lines instead of one overflowing row.
+        .stats {
+            flex-wrap: wrap;
+        }
+
+        // Give the ship stats the width and keep the destination button compact against the right
+        // edge (was a fixed 10rem column with the button left-aligned inside it, wasting space).
+        #shipList .shipRow {
+            grid-template-columns: 1fr auto;
+            margin-left: 0;
+
+            .location {
+                justify-self: end;
+                align-self: center;
+                margin-left: .5rem;
+            }
+        }
+    }
+
+    // --- Storage tab ---
+    #resStorage {
+        // The two Construct buttons use big left margins on desktop to line up over the crate /
+        // container columns of the rows below; those columns don't line up on mobile, so drop the
+        // margins and center the pair. (One tooltip wrapper is flex:1 and would otherwise stretch, so
+        // center via text-align on inline-flex wrappers rather than justify-content.)
+        .storage-header {
+            text-align: center;
+
+            .crate,
+            .container {
+                display: inline-flex;
+                vertical-align: top;
+                margin-left: 0;
+            }
+
+            .crate {
+                margin-right: .5rem;
+            }
+        }
+
+        // Each row is: resource name | Crate « n » | Container « n ». The desktop min-widths make the
+        // crate/container groups too wide for the phone, so the « n » wraps (the » drops to a second
+        // line). Trim the widths and keep each group on one line.
+        .market-item {
+            margin-left: 0;
+
+            .res {
+                width: 6.5rem;
+                min-width: 0;
+            }
+
+            .trade {
+                margin-left: .5rem;
+                min-width: 0;
+                white-space: nowrap;
+
+                .current {
+                    width: auto;
+                    min-width: 2.2rem;
+                    display: inline-block;
+                    text-align: center;
+                }
+            }
+        }
+
+        // The unused-crate/container totals row: its desktop left margins (11.5rem / 2rem) push it off
+        // and force it to wrap on mobile. Center it and keep both counts on one line.
+        #crateTotal {
+            justify-content: center;
+            flex-wrap: nowrap;
+
+            .crtTotal {
+                margin-left: 0;
+                white-space: nowrap;
+            }
+
+            .cntTotal {
+                margin-left: 1rem;
+                white-space: nowrap;
+            }
+
+            .crtTotal span:nth-child(2),
+            .cntTotal span:nth-child(2) {
+                width: auto;
+                margin-left: .25rem;
+            }
+        }
+    }
+
+    // --- Hell observations ---
+    // The Reports / Analysis tabs fill the width on mobile, so a right-floated Close button covers the
+    // second tab. Give the tabs the left two-thirds and pin the Close button in the right third. Bulma
+    // makes the tab <ul> flex-shrink:0, so it keeps its full width and overflows the 66% nav — override
+    // it (and the tab items) so the tabs actually fit within the left two-thirds.
+    #hellObservations {
+        position: relative;
+
+        #hellTabs > nav.tabs {
+            width: 66%;
+
+            > ul {
+                flex-shrink: 1;
+                min-width: 0;
+            }
+
+            li {
+                flex: 1 1 0;
+                min-width: 0;
+            }
+        }
+
+        .observeClose {
+            position: absolute;
+            top: .25rem;
+            right: 0;
+            width: 32%;
+            margin: 0;
         }
     }
 

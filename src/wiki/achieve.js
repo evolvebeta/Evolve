@@ -170,7 +170,7 @@ function achieveDesc(achievement,showFlair,universe){
                 return 0;
             }            
         }).forEach(function (key){
-            if (key !== 'protoplasm' 
+            if (key !== 'protoplasm' && key != 'hellspawn' 
                 && (key !== 'custom' || (key === 'custom' && global.stats.achieve['ascended']))
                 && (key !== 'hybrid' || (key === 'hybrid' && global.stats.achieve['what_is_best']))
             ){
