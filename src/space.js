@@ -465,7 +465,7 @@ const spaceProjects = {
                 return {r: true, l: global.settings.space.red || global.tech?.resettle >= 3};
             },
             syndicate(){ return global.tech['resettle'] ? false : true; },
-            nav(){ return global.tech['resettle'] && global.tech.resettle < 6 ? false : true; }
+            nav(){ return global.tech['resettle'] && global.tech.resettle < 7 ? false : true; }
         },
         red_mission: {
             id: 'space-red_mission',
@@ -1472,10 +1472,10 @@ const spaceProjects = {
             },
             zone: 'inner',
             showDest(){
-                return {r: true, l: global.settings.space.hell || global.tech?.resettle >= 3};
+                return {r: true, l: global.settings.space.hell || global.tech?.resettle >= 7};
             },
             syndicate(){ return false; },
-            nav(){ return false; }
+            nav(){ return global.tech?.resettle >= 7 ? true : false; }
         },
         hell_mission: {
             id: 'space-hell_mission',
@@ -1683,7 +1683,7 @@ const spaceProjects = {
                 return loc('space_sun_gate_info_desc');
             },
             showDest(){
-                return global.tech['resettle'] && global.tech.resettle >= 3 ? {r: true, l: true} : {r: false, l: false};
+                return global.tech['resettle'] && global.tech.resettle >= 4 ? {r: true, l: true} : {r: false, l: false};
             },
             syndicate(){ return false; },
             nav(){ return global.tech['resettle'] && global.tech.resettle >= 3 ? true : false; }
@@ -1865,11 +1865,11 @@ const spaceProjects = {
                 let ship = global.race.inactive?.ships?.[global.race.salvage_ship];
                 return `<div>${loc('space_sun_salvage_ship_desc',[ship ? ship.name : ''])}</div>`;
             },
-            reqs: { resettle: 3 },
+            reqs: { resettle: 4 },
             path: ['truepath'],
-            grant: ['resettle',4],
+            grant: ['resettle',5],
             condition(){
-                return global.tech['resettle'] === 3
+                return global.tech['resettle'] === 4
                     && global.race.inactive?.ships?.length > 0
                     && typeof global.race.salvage_ship === 'number'
                     && global.race.salvage_ship < global.race.inactive.ships.length ? true : false;

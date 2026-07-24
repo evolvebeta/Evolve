@@ -12937,6 +12937,16 @@ function longLoop(){
             global.tech['plague'] = 5;
         }
 
+        if (global.space['shipyard'] && global.tech['resettle'] && global.tech.resettle === 3){
+            if (global.space.shipyard.ships.some(s => s.location === 'spc_sun_gate' && s.transit === 0)){
+                global.tech.resettle = 4;
+                global.settings.showSpace = true;
+                global.settings.spaceTabs = 1;
+                renderSpace();
+                messageQueue(loc('scout_sun_gate'),'info',false,['progress']);
+            }
+        }
+
         if (global.civic.govern['protest'] && global.civic.govern.protest > 0){
             global.civic.govern.protest--;
         }
