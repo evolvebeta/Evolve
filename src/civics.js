@@ -39,7 +39,7 @@ export function defineGovernment(define){
         },
         template: `<b-tabs class="resTabs govTabs2" v-show="vis()" v-model="s.govTabs2" :animated="s.animated">
             <b-tab-item id="r_govern0" :label="govLabel"></b-tab-item>
-            <b-tab-item id="r_govern1" v-show="s.showGovernor" :label="governorLabel"></b-tab-item>
+            <b-tab-item id="r_govern1" :visible="s.showGovernor" :label="governorLabel"></b-tab-item>
         </b-tabs>`,
         methods: {
             vis(){

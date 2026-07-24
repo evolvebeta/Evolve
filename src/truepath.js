@@ -6426,10 +6426,10 @@ export function jumpGateRestart(){
         global.race['salvage_ship'] = Math.floor(seededRandom(0, global.race.inactive.ships.length));
     }
 
-    global.settings.showSpace = true;
+    //global.settings.showSpace = true;
     //global.settings.civTabs = 1;
-    global.settings.spaceTabs = 1;
-    renderSpace();
+    //global.settings.spaceTabs = 1;
+    //renderSpace();
 }
 
 export function loneSurvivor(){

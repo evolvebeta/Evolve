@@ -1078,6 +1078,13 @@ export function arpaTimeCheck(project, remain, track, detailed){
 
 function unmountApp(el){
     if (el && el.__vue_app__){
+        // Stop the mount-element v-show effect (see vBind create) before unmounting so it doesn't keep
+        // reacting to global state and toggling a now-detached element.
+        try {
+            if (typeof el.__vue_vshow_stop__ === 'function'){ el.__vue_vshow_stop__(); }
+        }
+        catch(e){}
+        delete el.__vue_vshow_stop__;
         try {
             el.__vue_app__.unmount();
         }
@@ -1229,6 +1236,36 @@ export function vBind(bind,action){
             // Vue 3.5 leaves app._instance unset (fragment-root components). vBind('update') uses it.
             el.__vue_proxy__ = app.mount(bind.el);
             el.__vue_app__ = app;
+
+            // Vue 3 ignores directives written on the element you mount onto: it treats that element as
+            // an inert container and compiles only its innerHTML as the template. So a `v-show` left on
+            // the mount element never takes effect and the panel renders unconditionally (the bug behind
+            // #mad, #govType, #foreign, the syndicate/ground overlays, per-resource eject rows, etc.).
+            // Vue leaves the unprocessed directive behind as a literal DOM attribute, so honor it here:
+            // drive the element's own `display` from a reactive effect that evaluates the same expression
+            // against the component proxy, reproducing what a compiled v-show would do. Only v-show is
+            // handled — the one mount-element directive the codebase actually relies on.
+            if (typeof Vue.watchEffect === 'function' && el.getAttribute && el.getAttribute('v-show') !== null){
+                const vShowExpr = el.getAttribute('v-show');
+                el.removeAttribute('v-show');
+                const proxy = el.__vue_proxy__;
+                let evalVShow = null;
+                try {
+                    // A Function-constructor body runs in sloppy mode even though this module is strict,
+                    // so `with` is legal here — it resolves the raw template expression's bare identifiers
+                    // and method calls against the proxy exactly as Vue's compiled render function would.
+                    evalVShow = new Function('$ctx', `with($ctx){ return (${vShowExpr}); }`);
+                }
+                catch(e){ evalVShow = null; }
+                if (evalVShow && proxy){
+                    el.__vue_vshow_stop__ = Vue.watchEffect(() => {
+                        let show = true;
+                        try { show = evalVShow(proxy); } catch(e){ show = true; }
+                        el.style.display = show ? '' : 'none';
+                    });
+                }
+            }
+
             // Stash the original (unmutated) bind config and template so a later
             // vBind('update') can self-heal — re-mounting the panel from these if its
             // app has since been torn down.
