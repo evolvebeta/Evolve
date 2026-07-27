@@ -3465,12 +3465,11 @@ const tauCetiModules = {
                     incrementStruct('refueling_station','tauceti');
                     if (powerOnNewStruct($(this)[0])) {
                         if (global.tech['isolation']){
-                            // Graphene allocation is stored on the Titan graphene factory even after isolation
                             if (global.race['kindling_kindred'] || global.race['smoldering']){
-                                global.space.g_factory.Oil++;
+                                global.tauceti.refueling_station.Oil++;
                             }
                             else {
-                                global.space.g_factory.Lumber++;
+                                global.tauceti.refueling_station.Lumber++;
                             }
                         }
                     }
@@ -3479,8 +3478,11 @@ const tauCetiModules = {
                 return false;
             },
             struct(){
+                // Carries its own graphene fuel allocation. It used to borrow the Titan factory's, which
+                // only worked while isolation kept Titan out of reach; the jump gate brings Titan back and
+                // both plants now run at the same time.
                 return {
-                    d: { count: 0, on: 0 },
+                    d: { count: 0, on: 0, Lumber: 0, Coal: 0, Oil: 0 },
                     p: ['refueling_station','tauceti']
                 };
             },
@@ -4377,6 +4379,237 @@ export function checkPathRequirements(era,region,action){
     }
 }
 
+// Structures the horde can raze, per infested region. A candidate MUST have a struct() definition on its
+// action — that is what creates the global[category][key] record holding the count/razed pair razing
+// works on — so anything without one is never a target. The remainder of the list is curated: orbital
+// structures (satellites, GPS, nav beacons, orbital stations/platforms) are out of reach of a ground
+// horde, and multi-segment megaprojects plus the powered "completed" forms they unlock (world_collider /
+// world_controller, mass_relay / m_relay, ai_core / ai_core2, jump_gate) are excluded so razing can never
+// unwind a finished project. `c` is the global category the structs live under.
+// spc_home is deliberately absent: Earth is a special location that never fights (see trackInfestation).
+const razeTargets = {
+    spc_moon: { c: 'space', s: ['moon_base','iridium_mine','helium_mine','observatory'] },
+    spc_red: { c: 'space', s: ['spaceport','red_tower','living_quarters','pylon','vr_center','garage','red_mine','fabrication','red_factory','biodome','exotic_lab','ziggurat','space_barracks'] },
+    spc_venus: { c: 'space', s: [] },
+    spc_hell: { c: 'space', s: ['geothermal','hell_smelter','spc_casino','swarm_plant'] },
+    spc_titan: { c: 'space', s: ['titan_spaceport','electrolysis','hydrogen_plant','titan_quarters','titan_mine','storehouse','titan_bank','g_factory','sam','decoder','ai_colonist'] },
+    spc_enceladus: { c: 'space', s: ['water_freighter','zero_g_lab','operating_base','munitions_depot'] },
+    spc_dwarf: { c: 'space', s: ['elerium_contain','e_reactor'] },
+    tau_home: { c: 'tauceti', s: ['colony','tau_housing','pylon','tau_farm','mining_pit','alien_outpost','fusion_generator','repository','tau_factory','infectious_disease_lab','tauceti_casino','tau_cultural_center','marine_barracks'] },
+    tau_red: { c: 'tauceti', s: ['overseer','womling_village','womling_farm','womling_mine','womling_fun','womling_lab','antimatter_reactor','womling_rangers'] }
+};
+
+// Ships shoot the horde from orbit, but bombardment is a blunt instrument against a scattered mob —
+// their firepower counts for a fraction of what the same fight is worth with boots on the ground.
+const orbitalStrikeRate = 0.05;
+// Survivors razed per day: one structure guaranteed per this many zombies still active, with the
+// remainder rolled as a fractional chance, and never more than razeCap in a single day.
+const zombiesPerRazing = 100000;
+const razeCap = 5;
+// Hordes that lie low. Nothing is known to be there until it tears down its first structure, so until
+// then it is absent from the UI and nobody engages it — the razing is how you find out.
+const hiddenInfestation = ['spc_red'];
+// Special cases that sit outside the system entirely: never fought, never counted on screen. Earth's
+// billions are a fact of the setting rather than something a fleet can work on.
+const inertInfestation = ['spc_home'];
+
+// True once a region's horde is known about, which for everywhere but hiddenInfestation is immediately.
+function infestationFound(region){
+    return !hiddenInfestation.includes(region) || (global.race['zfound'] ? global.race.zfound[region] : false);
+}
+
+// Zombies to display for a region, or 0 when there is nothing to show (empty, or still undiscovered).
+export function infestationCount(region){
+    if (!global.race['zhorde'] || !global.race.zhorde[region] || inertInfestation.includes(region) || !infestationFound(region)){
+        return 0;
+    }
+    return global.race.zhorde[region];
+}
+
+// The infestation readout that renders alongside a region's support line. Returns markup only when the
+// region currently has a visible horde; the v-show then hides it again if the horde is wiped out.
+export function infestationLabel(region){
+    if (infestationCount(region) <= 0){ return ``; }
+    return ` <span class="infestation has-text-caution" v-show="zombies()">${loc('space_infestation')} <span class="has-text-danger">{{ zombieCount() }}</span></span>`;
+}
+
+export function infestationMethods(region){
+    return {
+        zombies(){ return infestationCount(region); },
+        // Exact mode: the count ticks down a little every day, and rounding it to "40K" would hide that.
+        zombieCount(){ return sizeApproximation(infestationCount(region),1,false,true); }
+    };
+}
+
+export function trackInfestation(){
+    if (!global.race['zhorde']){
+        global.race['zhorde'] = {
+            spc_home: 9000000000, // Earth
+            spc_moon: 0, // Moon
+            spc_red: 40000, // Mars
+            spc_venus: 0, // Venus
+            spc_hell: 0, // Mercury
+            spc_titan: 25000, // Titan (Saturn)
+            spc_enceladus: 0, // Enceladus (Saturn)
+            spc_dwarf: 0, // Ceres
+            tau_home: 0, // Tau Ceti Homeworld
+            tau_red: 0 // Tau Ceti Womling World
+        };
+    }
+
+    Object.keys(global.race.zhorde).forEach(function(region){
+        if (!inertInfestation.includes(region) && global.race.zhorde[region] > 0){
+            infestationCombat(region);
+        }
+    });
+}
+
+// One day of fighting in a single infested region: the fleet in orbit kills what it can, then whatever
+// horde is left goes looking for something to tear down. A horde nobody has found yet skips the fight
+// entirely and goes straight to the razing that gives it away.
+function infestationCombat(region){
+    if (infestationFound(region)){
+        let crew = 0;
+        let bombard = 0;
+        if (global.space.hasOwnProperty('shipyard') && global.space.shipyard.hasOwnProperty('ships')){
+            global.space.shipyard.ships.forEach(function(ship){
+                if (ship.location === region && ship.transit === 0){
+                    crew += shipCrewSize(ship);
+                    let rating = shipAttackPower(ship);
+                    bombard += ship.damage > 0 ? Math.round(rating * (100 - ship.damage) / 100) : rating;
+                }
+            });
+        }
+
+        // Crews fight as a landed squad, so they rate exactly as soldiers do everywhere else.
+        let firepower = armyRating(crew,'army',0) + Math.round(bombard * orbitalStrikeRate);
+        let kills = Math.min(Math.floor(seededRandom(0,Math.round(firepower) + 1,true)),global.race.zhorde[region]);
+
+        global.race.zhorde[region] -= kills;
+
+        if (global.race['ocular_power'] && global.race['ocularPowerConfig'] && global.race.ocularPowerConfig.p){
+            global.race.ocularPowerConfig.ds += Math.round(kills * traits.ocular_power.vars()[1]);
+        }
+
+        if (global.race.zhorde[region] <= 0){
+            if (kills > 0){
+                messageQueue(loc('infestation_cleared',[regionName(region)]),'success',false,['combat']);
+            }
+            return;
+        }
+    }
+
+    let survivors = global.race.zhorde[region];
+    let razings = Math.min(Math.floor(survivors / zombiesPerRazing),razeCap);
+    if (razings < razeCap && seededRandom(0,1,true) < (survivors % zombiesPerRazing) / zombiesPerRazing){
+        razings++;
+    }
+    if (razings > 0){
+        razeStructures(region,razings);
+    }
+}
+
+// Pick `razings` structures at random from the region's target list and level them, moving each unit out
+// of count and into razed so rebuilding it later is discounted the way any other razed structure is.
+function razeStructures(region,razings){
+    if (!razeTargets.hasOwnProperty(region)){ return; }
+    let cat = razeTargets[region].c;
+    if (!global.hasOwnProperty(cat)){ return; }
+
+    let losses = {};
+    for (let i=0; i<razings; i++){
+        let standing = razeTargets[region].s.filter(s => global[cat][s]?.count > (losses[s] || 0));
+        if (standing.length === 0){ break; }
+        let target = standing[Math.floor(seededRandom(0,standing.length,true))];
+        losses[target] = (losses[target] || 0) + 1;
+    }
+
+    let ambush = Object.keys(losses).length > 0 && !infestationFound(region);
+
+    Object.keys(losses).forEach(function(s){
+        let lost = losses[s];
+        global[cat][s].count -= lost;
+        global[cat][s]['razed'] = (global[cat][s]['razed'] || 0) + lost;
+        if (global[cat][s].hasOwnProperty('on') && global[cat][s].on > global[cat][s].count){
+            global[cat][s].on = global[cat][s].count;
+        }
+        messageQueue(loc('infestation_razed',[lost,structTitle(cat,region,s),regionName(region)]),'danger',false,['combat']);
+    });
+
+    // A hidden horde that just leveled something has announced itself: report the ambush once, then
+    // redraw so its numbers appear. From tomorrow on it is fought like any other. Redrawing after the
+    // losses are applied keeps the rebuilt panel from showing counts that are already stale.
+    if (ambush){
+        if (!global.race['zfound']){ global.race['zfound'] = {}; }
+        global.race.zfound[region] = true;
+        messageQueue(loc('infestation_discovered',[regionName(region)]),'danger',false,['combat','progress']);
+        if (cat === 'tauceti'){ renderTauCeti(); }
+        else { renderSpace(); }
+    }
+}
+
+// Region and structure labels come off the action definitions, where `name`/`title` may be either a
+// plain string or a function depending on the entry.
+function regionName(region){
+    let cat = razeTargets.hasOwnProperty(region) && razeTargets[region].c === 'tauceti' ? 'tauceti' : 'space';
+    let info = actions[cat]?.[region]?.info;
+    if (!info || !info.name){ return region; }
+    return typeof info.name === 'function' ? info.name() : info.name;
+}
+
+function structTitle(cat,region,struct){
+    let title = actions[cat]?.[region]?.[struct]?.title;
+    if (!title){ return struct; }
+    return typeof title === 'function' ? title.call(actions[cat][region][struct]) : title;
+}
+
+export function salvageShip(qty, location, sLocation, eventStyle){
+    if (qty > 0){
+        let salvaged = 0;
+        for (let i=0; i<qty; i++){
+            if (global.race.inactive?.ships && global.race.inactive.ships.length > 0){
+                let idx = Math.floor(seededRandom(0,global.race.inactive.ships.length));
+                let ship = global.race.inactive.ships.splice(idx,1)[0];
+                ship.location = sLocation;
+                ship.xy = genXYcoord(sLocation);
+                ship.origin = deepClone(ship.xy);
+                ship.destination = deepClone(ship.xy);
+                ship.transit = 0;
+                ship.dist = 0;
+                ship.damage = Math.floor(seededRandom(75,90));
+                ship.fueled = false;
+                let num = 1;
+                let name = ship.name;
+                while (global.space.shipyard.ships.filter(s => s.name === name).length > 0){
+                    num++;
+                    name = ship.name + ` ${num}`;
+                }
+                ship.name = name;
+                global.space.shipyard.ships.push(ship);
+                salvaged++;
+            }
+        }
+        if (salvaged > 0){
+            if (eventStyle){
+                let key = `scout_salvage_ship${Math.rand(0,10)}`;
+                messageQueue(loc(key,[location]),'info',false,['progress']);
+            }
+            else {
+                if (salvaged === 1){
+                    messageQueue(loc('scout_spc_found_ship',[location]),'info',false,['progress']);
+                }
+                else {
+                    messageQueue(loc('scout_spc_found_ships',[location,salvaged]),'info',false,['progress']);
+                }
+            }
+            drawShipYard();
+        }
+        else {
+            messageQueue(loc('scout_salvage_ship_fail',[location]),'info',false,['progress']);
+        }
+    }
+}
+
 export function renderTauCeti(){
     if (!global.settings.tabLoad && (global.settings.civTabs !== 1 || global.settings.spaceTabs !== 6)){
         return;
@@ -4398,26 +4631,36 @@ export function renderTauCeti(){
                 property = tauCetiModules[region].info.prop();
             }
 
+            // The horde readout follows the support line when there is one.
+            let infest = infestationLabel(region);
+
             if (tauCetiModules[region].info['support']){
                 let support = tauCetiModules[region].info['support'];
                 if (tauCetiModules[region].info['hide_support']){
-                    parent.append(`<div id="${region}" class="space"><div id="sr${region}"><h3 class="name has-text-warning">${name}</h3>${property}</div></div>`);
+                    parent.append(`<div id="${region}" class="space"><div id="sr${region}"><h3 class="name has-text-warning">${name}</h3>${infest}${property}</div></div>`);
                 }
                 else {
-                    parent.append(`<div id="${region}" class="space"><div id="sr${region}"><h3 class="name has-text-warning">${name}</h3> <span v-show="s_max">{{ support }}/{{ s_max }}</span>${property}</div></div>`);
+                    parent.append(`<div id="${region}" class="space"><div id="sr${region}"><h3 class="name has-text-warning">${name}</h3> <span v-show="s_max">{{ support }}/{{ s_max }}</span>${infest}${property}</div></div>`);
                 }
                 vBind({
                     el: `#sr${region}`,
                     data: global.tauceti[support],
-                    methods: {
+                    methods: Object.assign({
                         filter(){
                             return tauCetiModules[region].info.filter(...arguments);
                         }
-                    }
+                    },infestationMethods(region))
                 });
             }
             else {
-                parent.append(`<div id="${region}" class="space"><div><h3 class="name has-text-warning">${name}</h3>${property}</div></div>`);
+                parent.append(`<div id="${region}" class="space"><div id="sr${region}"><h3 class="name has-text-warning">${name}</h3>${infest}${property}</div></div>`);
+                if (infest){
+                    vBind({
+                        el: `#sr${region}`,
+                        data: global.race.zhorde,
+                        methods: infestationMethods(region)
+                    });
+                }
             }
 
             popover(region, function(){
@@ -5333,6 +5576,7 @@ const shipyardRanks = {
         tau_gas2: 16,
         tau_roid: 17,
         spc_sun_gate: 18,
+        spc_home: 19,
     },
     class: {
         corvette: 1,
@@ -5404,6 +5648,14 @@ function drawShips(){
         }
     });
     regionNames['tauceti'] = loc('tech_era_tauceti');
+    // Temporary coordinates are locations too, so a ship parked on one names it rather than showing
+    // a blank button. Included whether or not they are still active — a ship sitting on a signal
+    // that has gone quiet still has to say where it is.
+    if (global.race['tempCoordinates']){
+        Object.keys(global.race.tempCoordinates).forEach(function(key){
+            if (global.race.tempCoordinates[key]){ regionNames[key] = global.race.tempCoordinates[key].n; }
+        });
+    }
 
     for (let i=0; i<global.space.shipyard.ships.length; i++){
         let ship = global.space.shipyard.ships[i];
@@ -5419,17 +5671,17 @@ function drawShips(){
         if (global.space.shipyard.expand){
             let ship_class = `${loc(`outer_shipyard_engine_${ship.engine}`)} ${loc(`outer_shipyard_class_${ship.class}`)}`;
             let desc = $(`<div id="shipReg${i}" class="shipRow ship${i}"></div>`);
-            let row1 = $(`<div class="row1"><span class="name has-text-caution">${ship.name}</span> <span v-show="scrapAllowed(${i})">| </span><a class="scrap${i}" v-show="scrapAllowed(${i})" @click="scrap(${i})" role="button">${loc(`outer_shipyard_scrap`)}</a> | <span class="has-text-warning">${ship_class}</span> | <span class="has-text-danger">${loc(`outer_shipyard_weapon_${ship.weapon}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_power_${ship.power}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_armor_${ship.armor}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_sensor_${ship.sensor}`)}</span></div>`);
+            let row1 = $(`<div class="row1"><span class="name has-text-caution">${ship.name}</span> <span v-show="scrapAllowed(${i})">| </span><a class="scrap${i}" v-show="scrapAllowed(${i})" @click="scrap(${i})" role="button">${loc(`outer_shipyard_scrap`)}</a><span v-show="fleetAllowed(${i})"> | <a class="fleetToggle" @click="toggleFleet(${i})" role="button" v-html="fleetText(${i})"></a></span> | <span class="has-text-warning">${ship_class}</span> | <span class="has-text-danger">${loc(`outer_shipyard_weapon_${ship.weapon}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_power_${ship.power}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_armor_${ship.armor}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_sensor_${ship.sensor}`)}</span></div>`);
             let row2 = $(`<div class="row2"></div>`);
             let row3 = $(`<div class="row3"></div>`);
             let row4 = $(`<div class="location">${dispatch}</div>`);
 
-            row2.append(`<span class="has-text-warning">${loc(`crew`)}</span> <span class="pad" v-html="crewText(${i})"></span>`);
-            row2.append(`<span class="has-text-warning">${loc(`firepower`)}</span> <span class="pad" v-html="fireText(${i})"></span>`);
-            row2.append(`<span class="has-text-warning">${loc(`outer_shipyard_sensors`)}</span> <span class="pad" v-html="sensorText(${i})"></span>`);
-            row2.append(`<span class="has-text-warning">${loc(`speed`)}</span> <span class="pad" v-html="speedText(${i})"></span>`);
-            row2.append(`<span class="has-text-warning">${loc(`outer_shipyard_fuel`)}</span> <span class="pad" v-bind:class="{ 'has-text-danger': !fueled }" v-html="fuelText(${i})"></span>`);
-            row2.append(`<span class="has-text-warning">${loc(`outer_shipyard_hull`)}</span> <span class="pad" v-bind:class="hullDamage(${i})" v-html="hullText(${i})"></span>`);
+            row2.append(`<span class="shipStat"><span class="has-text-warning">${loc(`crew`)}</span> <span class="pad" v-html="crewText(${i})"></span></span><wbr>`);
+            row2.append(`<span class="shipStat"><span class="has-text-warning">${loc(`firepower`)}</span> <span class="pad" v-html="fireText(${i})"></span></span><wbr>`);
+            row2.append(`<span class="shipStat"><span class="has-text-warning">${loc(`outer_shipyard_sensors`)}</span> <span class="pad" v-html="sensorText(${i})"></span></span><wbr>`);
+            row2.append(`<span class="shipStat"><span class="has-text-warning">${loc(`speed`)}</span> <span class="pad" v-html="speedText(${i})"></span></span><wbr>`);
+            row2.append(`<span class="shipStat"><span class="has-text-warning">${loc(`outer_shipyard_fuel`)}</span> <span class="pad" v-bind:class="{ 'has-text-danger': !fueled }" v-html="fuelText(${i})"></span></span><wbr>`);
+            row2.append(`<span class="shipStat" v-show="hullShow(${i})"><span class="has-text-warning">${loc(`outer_shipyard_hull`)}</span> <span class="pad" v-bind:class="hullDamage(${i})" v-html="hullText(${i})"></span></span><wbr>`);
 
             row3.append(`<span v-show="show(${i})" class="has-text-caution" v-html="dest(${i})"></span>`);
 
@@ -5445,12 +5697,12 @@ function drawShips(){
             let row3 = $(`<div class="row3"></div>`);
             let row4 = $(`<div class="location">${dispatch}</div>`);
 
-            row1.append(`<span class="name has-text-caution">${ship.name}</span> | `);
-            row1.append(`<span class="has-text-warning">${loc(`firepower`)}</span> <span class="pad" v-html="fireText(${i})"></span>`);
-            row1.append(`<span class="has-text-warning">${loc(`outer_shipyard_sensors`)}</span> <span class="pad" v-html="sensorText(${i})"></span>`);
-            row1.append(`<span class="has-text-warning">${loc(`speed`)}</span> <span class="pad" v-html="speedText(${i})"></span>`);
-            row1.append(`<span class="has-text-warning">${loc(`outer_shipyard_fuel`)}</span> <span class="pad" v-bind:class="{ 'has-text-danger': !fueled }" v-html="fuelText(${i})"></span>`);
-            row1.append(`<span class="has-text-warning">${loc(`outer_shipyard_hull`)}</span> <span class="pad" v-bind:class="hullDamage(${i})" v-html="hullText(${i})"></span>`);
+            row1.append(`<span class="name has-text-caution">${ship.name}</span><span v-show="fleetAllowed(${i})"> | <a class="fleetToggle" @click="toggleFleet(${i})" role="button" v-html="fleetText(${i})"></a></span> | `);
+            row1.append(`<span class="shipStat"><span class="has-text-warning">${loc(`firepower`)}</span> <span class="pad" v-html="fireText(${i})"></span></span><wbr>`);
+            row1.append(`<span class="shipStat"><span class="has-text-warning">${loc(`outer_shipyard_sensors`)}</span> <span class="pad" v-html="sensorText(${i})"></span></span><wbr>`);
+            row1.append(`<span class="shipStat"><span class="has-text-warning">${loc(`speed`)}</span> <span class="pad" v-html="speedText(${i})"></span></span><wbr>`);
+            row1.append(`<span class="shipStat"><span class="has-text-warning">${loc(`outer_shipyard_fuel`)}</span> <span class="pad" v-bind:class="{ 'has-text-danger': !fueled }" v-html="fuelText(${i})"></span></span><wbr>`);
+            row1.append(`<span class="shipStat" v-show="hullShow(${i})"><span class="has-text-warning">${loc(`outer_shipyard_hull`)}</span> <span class="pad" v-bind:class="hullDamage(${i})" v-html="hullText(${i})"></span></span><wbr>`);
 
             row3.append(`<span v-show="show(${i})" class="has-text-caution" v-html="dest(${i})"></span>`);
 
@@ -5476,6 +5728,25 @@ function drawShips(){
                         return true;
                     }
                     return false;
+                },
+                // Fleets need the fleet_command tech, and a ship can only be shuffled in or out of
+                // one while it is actually sitting somewhere rather than crossing between places.
+                // There also has to be something to fleet with, so the option stays hidden while a
+                // ship is the only one where it is.
+                fleetAllowed(id){
+                    let s = global.space.shipyard.ships[id];
+                    if (!global.tech['syard_fleet'] || !s || s.transit > 0){ return false; }
+                    return global.space.shipyard.ships.some(o => o !== s && o.location === s.location && o.transit === s.transit);
+                },
+                fleetText(id){
+                    let s = global.space.shipyard.ships[id];
+                    return s && s.fleet ? loc('outer_shipyard_fleet_leave') : loc('outer_shipyard_fleet_join');
+                },
+                toggleFleet(id){
+                    let s = global.space.shipyard.ships[id];
+                    if (!global.tech['syard_fleet'] || !s || s.transit > 0){ return; }
+                    s.fleet = !s.fleet;
+                    drawShips();
                 },
                 pickDest(id){
                     let modal = this.$buefy.modal.open({
@@ -5514,6 +5785,11 @@ function drawShips(){
                 },
                 hullText(id){
                     return `${100 - global.space.shipyard.ships[id].damage}%`;
+                },
+                // An undamaged hull is the norm and says nothing worth the space, so the readout only
+                // appears once a ship has taken damage.
+                hullShow(id){
+                    return global.space.shipyard.ships[id].damage > 0;
                 },
                 hullDamage(id){
                     if (global.space.shipyard.ships[id].damage <= 10){
@@ -5564,6 +5840,8 @@ function tauEnableSoldiers(){
 }
 
 function calcLandingPoint(ship, planet) {
+    // A temp point sits still, so there is no orbit to lead — the landing point is the point itself.
+    if (tempCoord(planet) || !spacePlanetStats[planet]) { return genXYcoord(planet); }
     if (spacePlanetStats[planet].startype) { return genXYcoord(planet); }
     // Tau Ceti bodies orbit their star, which sits far from the home-system origin.
     // Mirror genXYcoord so the orbit center and eccentricity match the body's actual
@@ -6442,7 +6720,43 @@ export function orbitPoint(planet, deg){
     return { x: origin.x + u, y: origin.y + v * Math.cos(inc), z: origin.z + v * Math.sin(inc) };
 }
 
+// How far out of the plane a random point may stray by default, as a fraction of its distance from
+// the target. A twentieth is a couple of degrees — enough to look scattered rather than perfectly
+// flat, without lifting the point clear of the system it belongs to.
+const RANDOM_COORD_SPREAD = 0.05;
+
+// A random point lying between minAU and maxAU from a target, kept near that target's plane.
+//
+// `target` is either a spacePlanetStats id or any {x,y,z} point. Bearing around the target is
+// uniform, and the radius is drawn through a square root so points spread evenly across the annulus
+// instead of bunching against its inner edge.
+//
+// The out-of-plane axis is z. Bodies orbit in x/y and are tilted about x by their inclination (see
+// orbitPoint), so z is the normal to the orbital plane and the one to hold near zero — spreading in
+// x/y with a small z gives a point scattered across the system's disc, which is what staying "in the
+// plane" means here. Pass `spreadAU` to set that deviation explicitly in AU.
+export function randomCoord(target, minAU, maxAU, spreadAU){
+    let origin = typeof target === 'string' ? genXYcoord(target) : target;
+    let min = Math.min(minAU, maxAU);
+    let max = Math.max(minAU, maxAU);
+    let dist = Math.sqrt(Math.random() * (max * max - min * min) + min * min);
+    let bearing = Math.random() * Math.PI * 2;
+    let spread = spreadAU === undefined ? dist * RANDOM_COORD_SPREAD : Math.abs(spreadAU);
+    return {
+        x: origin.x + Math.cos(bearing) * dist,
+        y: origin.y + Math.sin(bearing) * dist,
+        z: (origin.z || 0) + (Math.random() * 2 - 1) * spread
+    };
+}
+
 export function genXYcoord(planet){
+    // Temporary coordinates are fixed points held outside the table.
+    let temp = tempCoord(planet);
+    if (temp){ return { x: temp.x, y: temp.y, z: temp.z || 0 }; }
+    // A location that is neither in the table nor a live temp point — a signal that expired while a
+    // ship sat on it, say. Fall back to the origin rather than throwing, which would take the map
+    // and the tick loop down with it.
+    if (!spacePlanetStats[planet]){ return { x: 0, y: 0, z: 0 }; }
     // Stars have fixed coordinates and are not positioned by distance/angle from the Sun.
     if (spacePlanetStats[planet].startype){
         return { x: spacePlanetStats[planet].x, y: spacePlanetStats[planet].y, z: spacePlanetStats[planet].z || 0 };
@@ -6511,9 +6825,47 @@ const jumpLinks = [
 
 // Which star system a location belongs to. Tau Ceti bodies carry star:'tauceti'; everything else
 // (including the Tau Ceti star region itself) resolves explicitly, defaulting to the Sun system.
+// --- Temporary coordinates ------------------------------------------------------------------
+// global.race.tempCoordinates holds ad-hoc points a ship can be sent to — detected signals and the
+// like — keyed by an id, each { n: display name, a: active, s: spacePlanetStats key of the star it
+// sits at, x, y, z }. They are fixed points rather than table entries, so they neither orbit nor appear in
+// spacePlanetStats, and every place that resolves a location has to know about them.
+//
+// `a` only gates whether the point is offered as a destination; a ship already sitting on an
+// inactive one still has to resolve, so this ignores it.
+function tempCoord(location){
+    let temps = global.race['tempCoordinates'];
+    return temps && typeof location === 'string' && temps.hasOwnProperty(location) ? temps[location] : false;
+}
+
+// The system a temp point belongs to, normalised to the keys locSystem hands out: 'sun' for the home
+// system, otherwise the star's own id. `s` is a spacePlanetStats key, so this is mostly a pass
+// through — it also tolerates `s` naming a body rather than its star, and falls back to the home
+// system for anything unrecognised, which at worst costs a wormhole shortcut rather than the trip.
+function tempSystem(entry){
+    let body = entry.s ? spacePlanetStats[entry.s] : false;
+    if (!body || entry.s === 'spc_sun'){ return 'sun'; }
+    if (body.star){ return body.star; }
+    return body.startype ? entry.s : 'sun';
+}
+
 function locSystem(loc){
+    let temp = tempCoord(loc);
+    if (temp){ return tempSystem(temp); }
     if (loc === 'tauceti'){ return 'tauceti'; }
     return spacePlanetStats[loc] && spacePlanetStats[loc].star ? spacePlanetStats[loc].star : 'sun';
+}
+
+// Display name of the star a location orbits. Empty when the location IS that star, so a destination
+// like Tau Ceti itself isn't labelled with its own name twice. locSystem returns a system key rather
+// than a table id, and the Sun's is 'sun' while its entry is spc_sun, hence the step across.
+function locSystemName(location){
+    // Temp points need no special case: their `s` is a table key, so locSystem resolves them to the
+    // same system keys everything else uses and the label lookup below covers them.
+    let sys = locSystem(location);
+    if (location === sys){ return ''; }
+    let star = sys === 'sun' ? spacePlanetStats.spc_sun : spacePlanetStats[sys];
+    return star && star.label ? star.label : '';
 }
 
 // Find an active wormhole route (entry + exit gate) connecting fromLoc's system to toLoc's system,
@@ -7387,6 +7739,9 @@ const ORBIT_STEPS = 96;
 // than its projected extent, so tilting the camera edge-on — which squashes a ring to a line but
 // leaves it perfectly visible — doesn't make orbits disappear.
 const ORBIT_MIN_PX = 3;
+// Ship markers are drawn at a constant size on screen, in pixels.
+const SHIP_DOT_PX = 3;
+const SHIP_LABEL_PX = 5;
 
 // How close an orbit comes to its primary, sampled from the same orbitPoint the body travels so the
 // eccentricity and off-centre focus are taken into account rather than assumed.
@@ -7822,38 +8177,57 @@ export function drawMap() {
     }
     ctx.setLineDash([]);
 
+    // Ships under way, collapsed into what actually gets drawn. A fleet flies as one unit on identical
+    // trip data (see sendShipTo), so every member would otherwise stack a dot, a trail and a name on the
+    // exact same pixel; it draws once instead, labelled with its size. Ships not in a fleet, and a fleet
+    // that is down to a single ship, keep their own dot and name.
+    let shipMarks = [];
+    {
+        let fleets = {};
+        for (let ship of global.space.shipyard.ships) {
+            if (ship.transit <= 0){ continue; }
+            if (global.tech['syard_fleet'] && ship.fleet){
+                let key = `${ship.location}|${ship.transit}`;
+                if (fleets[key]){ fleets[key].count++; continue; }
+                fleets[key] = { ship, count: 1 };
+                shipMarks.push(fleets[key]);
+            }
+            else {
+                shipMarks.push({ ship, count: 1 });
+            }
+        }
+    }
+
     // Ship trail
     ctx.fillStyle = "#0000ff";
     ctx.strokeStyle = "#0000ff";
-    for (let ship of global.space.shipyard.ships) {
-        if (ship.transit > 0) {
-            // Draw in the ship's reference-star frame (see shipRefStar): a pure translation of every
-            // point, so the trail geometry is unchanged but the coordinates near the ship stay small.
-            let ref = shipRefStar(ship);
-            ctx.save();
-            ctx.translate(pX(ref), pY(ref));
-            ctx.beginPath();
-            ctx.setLineDash([0.1, 0.4]);
-            let here = rel(ship.xy, ref);
-            ctx.moveTo(pX(here), pY(here));
-            if (ship.path){
-                // Multi-leg wormhole route: draw the full remaining flight path through each
-                // waypoint still ahead of the ship (entry gate -> exit gate -> destination).
-                let trip = ship.dist > 0 ? 1 - (ship.transit / ship.dist) : 0;
-                for (let i=0; i<ship.path.length; i++){
-                    if (ship.path[i].tn > trip){
-                        let q = rel(ship.path[i], ref);
-                        ctx.lineTo(pX(q), pY(q));
-                    }
+    for (let { ship } of shipMarks) {
+        // Draw in the ship's reference-star frame (see shipRefStar): a pure translation of every
+        // point, so the trail geometry is unchanged but the coordinates near the ship stay small.
+        let ref = shipRefStar(ship);
+        ctx.save();
+        ctx.translate(pX(ref), pY(ref));
+        ctx.beginPath();
+        ctx.setLineDash([0.1, 0.4]);
+        let here = rel(ship.xy, ref);
+        ctx.moveTo(pX(here), pY(here));
+        if (ship.path){
+            // Multi-leg wormhole route: draw the full remaining flight path through each
+            // waypoint still ahead of the ship (entry gate -> exit gate -> destination).
+            let trip = ship.dist > 0 ? 1 - (ship.transit / ship.dist) : 0;
+            for (let i=0; i<ship.path.length; i++){
+                if (ship.path[i].tn > trip){
+                    let q = rel(ship.path[i], ref);
+                    ctx.lineTo(pX(q), pY(q));
                 }
             }
-            else {
-                let q = rel(ship.destination, ref);
-                ctx.lineTo(pX(q), pY(q));
-            }
-            ctx.stroke();
-            ctx.restore();
         }
+        else {
+            let q = rel(ship.destination, ref);
+            ctx.lineTo(pX(q), pY(q));
+        }
+        ctx.stroke();
+        ctx.restore();
     }
 
     let setColor = function(id){
@@ -7956,17 +8330,18 @@ export function drawMap() {
     // Ships
     ctx.fillStyle = "#0000ff";
     ctx.strokeStyle = "#0000ff";
-    for (let ship of global.space.shipyard.ships) {
-        if (ship.transit > 0) {
-            let ref = shipRefStar(ship);
-            let here = rel(ship.xy, ref);
-            ctx.save();
-            ctx.translate(pX(ref), pY(ref));
-            ctx.beginPath();
-            ctx.arc(pX(here), pY(here), 0.1, 0, Math.PI * 2, true);
-            ctx.fill();
-            ctx.restore();
-        }
+    for (let { ship } of shipMarks) {
+        let ref = shipRefStar(ship);
+        let here = rel(ship.xy, ref);
+        ctx.save();
+        ctx.translate(pX(ref), pY(ref));
+        ctx.beginPath();
+        // A marker, not a body: sized in screen pixels rather than AU. The old fixed 0.1 map
+        // units was reasonable while planets were drawn at arbitrary sizes, but against real
+        // radii it is five times Earth and half the Sun.
+        ctx.arc(pX(here), pY(here), SHIP_DOT_PX / mapScale, 0, Math.PI * 2, true);
+        ctx.fill();
+        ctx.restore();
     }
 
     ctx.shadowOffsetX = 2;
@@ -7976,16 +8351,18 @@ export function drawMap() {
 
     ctx.fillStyle = "#009aff";
     ctx.font = `${20 / mapScale}px serif`;
-    // Ship names
-    for (let ship of global.space.shipyard.ships) {
-        if (ship.transit > 0) {
-            let ref = shipRefStar(ship);
-            let here = rel(ship.xy, ref);
-            ctx.save();
-            ctx.translate(pX(ref), pY(ref));
-            ctx.fillText(ship.name, pX(here) + 0.15, pY(here) - 0.15);
-            ctx.restore();
-        }
+    // Ship names — a fleet is labelled by its size rather than by whichever member happens to be first.
+    for (let mark of shipMarks) {
+        let ship = mark.ship;
+        let ref = shipRefStar(ship);
+        let here = rel(ship.xy, ref);
+        ctx.save();
+        ctx.translate(pX(ref), pY(ref));
+        // Offset in screen pixels too, so the name sits by the dot at every zoom instead of
+        // drifting further out the further you zoom in.
+        let label = mark.count > 1 ? loc('outer_shipyard_fleet_map',[mark.count]) : ship.name;
+        ctx.fillText(label, pX(here) + SHIP_LABEL_PX / mapScale, pY(here) - SHIP_LABEL_PX / mapScale);
+        ctx.restore();
     }
 
     ctx.fillStyle = "#ffa500";
@@ -8346,68 +8723,104 @@ function solarModal(){
 }
 
 // Populate the ship dispatch modal with a button for each valid destination.
-function shipDispatchModal(id, modal){
-    let ship = global.space.shipyard.ships[id];
-    if (!ship){ return; }
+// Active temporary coordinates, as destinations. Offered to every ship regardless of class — an
+// explorer is barred from the ordinary regions by its drive, not from a set of coordinates.
+function tempDestinations(ship){
+    let temps = global.race['tempCoordinates'];
+    if (!temps){ return []; }
+    return Object.keys(temps)
+        .filter(key => temps[key] && temps[key].a && ship.location !== key)
+        .map(key => ({ region: key, name: temps[key].n }));
+}
 
-    $('#modalBox').append($(`<p id="modalBoxTitle" class="has-text-warning modalTitle">${loc('outer_shipyard_dispatch',[ship.name])}</p>`));
-
-    // Ship stats — mirrors the fleet row readout so the player can weigh the ship before dispatching it.
-    let fuel = shipFuelUse(ship);
-    let fuelText = fuel.res ? `${fuel.burn} ${global.resource[fuel.res].name}/s` : `N/A`;
-    let speed = Math.round((149597870.7/225/24/3600) * shipSpeed(ship));
-    let hullClass = ship.damage <= 10 ? `has-text-success` : (ship.damage >= 65 ? `has-text-danger` : (ship.damage >= 40 ? `has-text-caution` : ``));
-    let stats = $(`<div class="shipDispatchStats"></div>`);
-    stats.append(`<span><span class="has-text-warning">${loc('crew')}</span> <span class="pad">${shipCrewSize(ship)}</span></span>`);
-    stats.append(`<span><span class="has-text-warning">${loc('firepower')}</span> <span class="pad">${shipAttackPower(ship)}</span></span>`);
-    stats.append(`<span><span class="has-text-warning">${loc('outer_shipyard_sensors')}</span> <span class="pad">${sensorRange(ship)}km</span></span>`);
-    stats.append(`<span><span class="has-text-warning">${loc('speed')}</span> <span class="pad">${speed}km/s</span></span>`);
-    stats.append(`<span><span class="has-text-warning">${loc('outer_shipyard_fuel')}</span> <span class="pad">${fuelText}</span></span>`);
-    stats.append(`<span><span class="has-text-warning">${loc('outer_shipyard_hull')}</span> <span class="pad ${hullClass}">${100 - ship.damage}%</span></span>`);
-    $('#modalBox').append(stats);
-
-    let list = $(`<div class="shipDispatch"></div>`);
-    $('#modalBox').append(list);
-
+// Everywhere a single ship could be sent.
+function shipDestinations(ship){
     const spaceRegions = spaceTech();
     let dests = [];
     if (ship.class === 'explorer'){
         if (ship.location !== 'tauceti'){
             dests.push({ region: 'tauceti', name: loc('tech_era_tauceti') });
         }
+        return dests.concat(tempDestinations(ship));
     }
-    else {
-        Object.keys(spaceRegions).forEach(function(region){
-            if (ship.location !== region){
-                if (spaceRegions[region].info.nav()){
-                    if (region === 'spc_sun_gate'){
-                        let name = typeof spaceRegions.spc_sun_gate.info.desc === 'string' ? spaceRegions.spc_sun_gate.info.desc : spaceRegions.spc_sun_gate.info.desc();
-                        dests.push({ region: region, name: name });
-                    }
-                    else if (!global.race['orbit_decayed'] || (global.race['orbit_decayed'] && region !== 'spc_moon')){
-                        let name = typeof spaceRegions[region].info.name === 'string' ? spaceRegions[region].info.name : spaceRegions[region].info.name();
-                        dests.push({ region: region, name: name });
-                    }
+    Object.keys(spaceRegions).forEach(function(region){
+        if (ship.location !== region){
+            if (spaceRegions[region].info.nav()){
+                if (region === 'spc_sun_gate'){
+                    let name = typeof spaceRegions.spc_sun_gate.info.desc === 'string' ? spaceRegions.spc_sun_gate.info.desc : spaceRegions.spc_sun_gate.info.desc();
+                    dests.push({ region: region, name: name });
                 }
-            }
-        });
-        Object.keys(tauCetiModules).forEach(function(region){
-            if (ship.location !== region){
-                if (tauCetiModules[region].info.nav()){
-                    let name = typeof tauCetiModules[region].info.name === 'string' ? tauCetiModules[region].info.name : tauCetiModules[region].info.name();
+                else if (!global.race['orbit_decayed'] || (global.race['orbit_decayed'] && region !== 'spc_moon')){
+                    let name = typeof spaceRegions[region].info.name === 'string' ? spaceRegions[region].info.name : spaceRegions[region].info.name();
                     dests.push({ region: region, name: name });
                 }
             }
-        });
+        }
+    });
+    Object.keys(tauCetiModules).forEach(function(region){
+        if (ship.location !== region){
+            if (tauCetiModules[region].info.nav()){
+                let name = typeof tauCetiModules[region].info.name === 'string' ? tauCetiModules[region].info.name : tauCetiModules[region].info.name();
+                dests.push({ region: region, name: name });
+            }
+        }
+    });
+    return dests.concat(tempDestinations(ship));
+}
+
+function shipDispatchModal(id, modal){
+    let ship = global.space.shipyard.ships[id];
+    if (!ship){ return; }
+
+    // Dispatching any member of a fleet moves the whole fleet, so the modal describes the group.
+    let crew = shipFleet(ship);
+    let group = crew.length ? crew : [ship];
+    let isFleet = crew.length > 1;
+
+    $('#modalBox').append($(`<p id="modalBoxTitle" class="has-text-warning modalTitle">${isFleet ? loc('outer_shipyard_dispatch_fleet',[group.length]) : loc('outer_shipyard_dispatch',[ship.name])}</p>`));
+
+    // Stats — mirrors the fleet row readout so the player can weigh what is being sent. For a fleet
+    // the numbers that combine are summed, and the ones that gate the group are its worst: the
+    // slowest engine sets the pace and the most battered hull is what will fail first.
+    let slowest = fleetPace(group);
+    let fuel = shipFuelUse(slowest);
+    let fuelText = fuel.res ? `${fuel.burn} ${global.resource[fuel.res].name}/s` : `N/A`;
+    let speed = Math.round((149597870.7/225/24/3600) * shipSpeed(slowest));
+    let damage = Math.max(...group.map(s => s.damage));
+    let hullClass = damage <= 10 ? `has-text-success` : (damage >= 65 ? `has-text-danger` : (damage >= 40 ? `has-text-caution` : ``));
+    let sum = fn => group.reduce((t,s) => t + fn(s), 0);
+    let stats = $(`<div class="shipDispatchStats"></div>`);
+    stats.append(`<span><span class="has-text-warning">${loc('crew')}</span> <span class="pad">${sum(shipCrewSize)}</span></span>`);
+    stats.append(`<span><span class="has-text-warning">${loc('firepower')}</span> <span class="pad">${sum(shipAttackPower)}</span></span>`);
+    stats.append(`<span><span class="has-text-warning">${loc('outer_shipyard_sensors')}</span> <span class="pad">${Math.max(...group.map(sensorRange))}km</span></span>`);
+    stats.append(`<span><span class="has-text-warning">${loc('speed')}</span> <span class="pad">${speed}km/s</span></span>`);
+    stats.append(`<span><span class="has-text-warning">${loc('outer_shipyard_fuel')}</span> <span class="pad">${fuelText}</span></span>`);
+    stats.append(`<span><span class="has-text-warning">${loc('outer_shipyard_hull')}</span> <span class="pad ${hullClass}">${100 - damage}%</span></span>`);
+    $('#modalBox').append(stats);
+
+    let list = $(`<div class="shipDispatch"></div>`);
+    $('#modalBox').append(list);
+
+    // A fleet can only go where every one of its ships can go, or it would not arrive as a unit —
+    // an explorer, for instance, can only ever make for Tau Ceti.
+    let dests = shipDestinations(group[0]);
+    for (let i=1; i<group.length; i++){
+        let reachable = new Set(shipDestinations(group[i]).map(d => d.region));
+        dests = dests.filter(d => reachable.has(d.region));
     }
 
     if (dests.length === 0){
         list.append(`<span class="has-text-caution">${loc('outer_shipyard_dispatch_none')}</span>`);
     }
     else {
+        // Once the jump gates are running a ship can cross between systems, so the list spans more
+        // than one star and each destination says which it belongs to.
+        let showSystem = global.tech['resettle'] && global.tech.resettle >= 3;
         dests.forEach(function(d){
-            let days = planShipTrip(ship, d.region).transit;
-            $(`<button class="button is-info ${d.region}"><span class="dispatchName">${d.name}</span><span class="dispatchDays has-text-caution">${loc('transit_time',[days])}</span></button>`)
+            let days = planShipTrip(slowest, d.region).transit;
+            let sysName = showSystem ? locSystemName(d.region) : '';
+            let sys = sysName ? `<span class="dispatchSystem has-text-info">${sysName}</span>` : ``;
+            $(`<button class="button is-info ${d.region}"><span class="dispatchName">${d.name}</span>${sys}<span class="dispatchDays has-text-caution">${loc('transit_time',[days])}</span></button>`)
                 .on('click', function(){
                     sendShipTo(id, d.region);
                     if (modal && modal.close){ modal.close(); }
@@ -8417,23 +8830,50 @@ function shipDispatchModal(id, modal){
     }
 }
 
-// Send a ship to a destination region.
+// --- Fleets ---------------------------------------------------------------------------------
+// A fleet is not a stored object: it is every ship flagged `fleet` that shares a location, so
+// membership needs no bookkeeping when ships are built, scrapped or arrive somewhere. Ships already
+// under way are matched on their transit too — a ship inbound to a place has its location set to
+// that destination the moment it leaves, and it should not be swept up by a fleet sitting there.
+// Requires the fleet_command tech (syard_fleet).
+export function shipFleet(ship){
+    if (!global.tech['syard_fleet'] || !ship || !ship.fleet){ return []; }
+    return global.space.shipyard.ships.filter(s => s.fleet && s.location === ship.location && s.transit === ship.transit);
+}
+
+// A fleet keeps pace with its slowest ship, so that is the one every trip is planned on.
+function fleetPace(group){
+    return group.reduce((a,b) => shipSpeed(a) <= shipSpeed(b) ? a : b);
+}
+
+// Ships parked at a shipyard are unmanned and draw a crew on departure; anywhere else, or already
+// under way, they are crewed.
+function shipManned(ship){
+    return ship.transit > 0 || (ship.location !== 'spc_dwarf' && ship.location !== 'tau_gas2');
+}
+
+// Send a ship to a destination region, or its whole fleet if it belongs to one. Every ship takes the
+// identical trip computed for the slowest, so the group stays together the whole way and arrives at
+// the same tick rather than trickling in.
 function sendShipTo(id, l){
     let ship = global.space.shipyard.ships[id];
     if (!ship || l === ship.location){ return; }
-    let crew = shipCrewSize(ship);
-    let manned = ship.transit > 0 || (ship.location !== 'spc_dwarf' && ship.location !== 'tau_gas2');
-    if (manned || global.civic.garrison.workers - global.civic.garrison.crew >= crew){
-        let trip = planShipTrip(ship, l);
-        ship.location = l;
-        ship.transit = trip.transit;
-        ship.dist = trip.dist;
-        ship.origin = trip.origin;
-        ship.destination = trip.destination;
-        ship.path = trip.path;
-        if (!manned){
-            global.civic.garrison.crew += crew;
-        }
-        drawShips();
+    let group = shipFleet(ship);
+    if (!group.length){ group = [ship]; }
+
+    // Crew for every unmanned ship has to be on hand up front — a fleet leaves together or not at all.
+    let need = group.reduce((t,s) => t + (shipManned(s) ? 0 : shipCrewSize(s)), 0);
+    if (need > global.civic.garrison.workers - global.civic.garrison.crew){ return; }
+
+    let trip = planShipTrip(fleetPace(group), l);
+    for (let s of group){
+        if (!shipManned(s)){ global.civic.garrison.crew += shipCrewSize(s); }
+        s.location = l;
+        s.transit = trip.transit;
+        s.dist = trip.dist;
+        s.origin = deepClone(trip.origin);
+        s.destination = deepClone(trip.destination);
+        s.path = trip.path ? deepClone(trip.path) : false;
     }
+    drawShips();
 }

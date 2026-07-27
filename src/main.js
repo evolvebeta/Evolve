@@ -11,7 +11,7 @@ import { actions, updateDesc, checkTechRequirements, drawEvolution, BHStorageMul
 import { renderSpace, convertSpaceSector, fuel_adjust, int_fuel_adjust, zigguratBonus, planetName, genPlanets, setUniverse, universe_types, gatewayStorage, piracy, spaceTech, universe_affixes, galaxyRegions, gatewayArmada, galaxy_ship_types } from './space.js';
 import { renderFortress, bloodwar, soulForgeSoldiers, hellSupression, genSpireFloor, mechRating, mechCollect, updateMechbay, hellguard, buildMechQueue, mechCost } from './portal.js';
 import { asphodelResist, mechStationEffect, renderEdenic } from './edenic.js';
-import { renderTauCeti, syndicate, shipFuelUse, spacePlanetStats, genXYcoord, shipCrewSize, tpStorageMultiplier, tritonWar, sensorRange, erisWar, calcAIDrift, drawMap, tauEnabled, shipCosts, buildTPShipQueue } from './truepath.js';
+import { renderTauCeti, syndicate, shipFuelUse, spacePlanetStats, genXYcoord, shipCrewSize, tpStorageMultiplier, tritonWar, sensorRange, erisWar, calcAIDrift, drawMap, tauEnabled, shipCosts, buildTPShipQueue, trackInfestation, salvageShip, randomCoord } from './truepath.js';
 import { arpa, buildArpa, sequenceLabs } from './arpa.js';
 import { events, eventList } from './events.js';
 import { defineGovernor, govern, govActive, removeTask } from './governor.js';
@@ -3033,13 +3033,6 @@ function fastLoop(){
             }
         }
 
-        // Graphene Hack
-        if (global.tech['isolation'] && global.race['truepath']){
-            support_on['g_factory'] = p_on['refueling_station'];
-            global.space.g_factory.count = global.tauceti.refueling_station.count;
-            global.space.g_factory.on = global.tauceti.refueling_station.on;
-        }
-
         if (global.race['replicator'] && p_on['replicator']){
             let res = global.race.replicator.res;
             if (!['Asphodel_Powder','Elysanite'].includes(res)){
@@ -5392,111 +5385,143 @@ function fastLoop(){
             }
         }
 
-        // Graphene
-        let graph_source = global.race['truepath'] ? 'space' : 'interstellar';
-        let graph_struct = 'g_factory';
+        // Graphene. Every plant keeps its own fuel allocation, production rate and bonuses, and they all
+        // run at once — once the jump gate reopens, Titan's factory and the Tau Ceti refueling station
+        // both produce. Ziggurats are a Sol bonus and do not reach Tau Ceti; womling technicians are a
+        // Tau Ceti bonus and do not reach Titan.
+        let graph_plants = [];
         if (global.race['warlord']){
-            graph_source = 'portal'; graph_struct = 'twisted_lab';
+            graph_plants.push({ s: 'portal', k: 'twisted_lab', active: p_on['twisted_lab'], rate: 'g_factory', bd: loc('portal_twisted_lab_title'), zig: true, incin: true });
         }
-        if (global[graph_source][graph_struct] && global[graph_source][graph_struct].count > 0){
-            let on_graph = global.race['truepath'] ? support_on['g_factory'] : (global.race['warlord'] ? p_on['twisted_lab'] : int_on['g_factory']);
-            let max_graph = global[graph_source][graph_struct].on;
-            let eff = max_graph > 0 ? on_graph / max_graph : 0;
+        else if (global.race['truepath']){
+            graph_plants.push({ s: 'space', k: 'g_factory', active: support_on['g_factory'], rate: 'g_factory', bd: loc('interstellar_g_factory_bd'), zig: true, synd: 'spc_titan' });
+            if (global.tech['isolation']){
+                graph_plants.push({ s: 'tauceti', k: 'refueling_station', active: p_on['refueling_station'], rate: 'refueling_station_graphene', bd: loc('tau_gas_refueling_station_title'), womling: true });
+            }
+        }
+        else {
+            graph_plants.push({ s: 'interstellar', k: 'g_factory', active: int_on['g_factory'], rate: 'g_factory', bd: loc('interstellar_g_factory_bd'), zig: true });
+        }
+
+        let graph_built = false;
+        let graph_fueled = false;
+        graph_plants.forEach(function(plant){
+            let struct = global[plant.s] ? global[plant.s][plant.k] : false;
+            if (!struct || struct.count <= 0){ return; }
+            graph_built = true;
+
+            // A plant that predates its own fuel fields (the refueling station borrowed the factory's)
+            // would otherwise poison the allocation math with NaN.
+            ['Lumber','Coal','Oil'].forEach(function(res){
+                if (typeof struct[res] !== 'number'){ struct[res] = 0; }
+            });
+
+            let max_graph = struct.on;
+            let eff = max_graph > 0 ? (plant.active || 0) / max_graph : 0;
             let remaining = max_graph;
 
             if (global.race['kindling_kindred'] || global.race['smoldering']){
-                global[graph_source][graph_struct].Lumber = 0;
+                struct.Lumber = 0;
             }
 
             ['Oil','Coal','Lumber'].forEach(function(res){
-                remaining -= global[graph_source][graph_struct][res];
+                remaining -= struct[res];
                 if (remaining < 0) {
-                    global[graph_source][graph_struct][res] += remaining;
+                    struct[res] += remaining;
                     remaining = 0;
                 }
             });
 
-            let graphene_production = global[graph_source][graph_struct].Lumber + global[graph_source][graph_struct].Coal + global[graph_source][graph_struct].Oil;
+            let graphene_production = struct.Lumber + struct.Coal + struct.Oil;
+            if (graphene_production <= 0){ return; }
+            graph_fueled = true;
+
+            let consume_wood = struct.Lumber * 350 * eff;
+            let consume_coal = struct.Coal * 25 * eff;
+            let consume_oil = struct.Oil * 15 * eff;
+
+            while (consume_wood * time_multiplier > global.resource.Lumber.amount && consume_wood > 0){
+                consume_wood -= 350 * eff;
+                graphene_production--;
+            }
+            while (consume_coal * time_multiplier > global.resource.Coal.amount && consume_coal > 0){
+                consume_coal -= 25 * eff;
+                graphene_production--;
+            }
+            while (consume_oil * time_multiplier > global.resource.Oil.amount && consume_oil > 0){
+                consume_oil -= 15 * eff;
+                graphene_production--;
+            }
+
+            graphene_production *= production(plant.rate) * production('psychic_boost','Graphene');
+
+            breakdown.p.consume.Lumber[plant.bd] = -(consume_wood);
+            breakdown.p.consume.Coal[plant.bd] = -(consume_coal);
+            breakdown.p.consume.Oil[plant.bd] = -(consume_oil);
+
+            modRes('Lumber', -(consume_wood * time_multiplier));
+            modRes('Coal', -(consume_coal * time_multiplier));
+            modRes('Oil', -(consume_oil * time_multiplier));
+
+            if (global.civic.govern.type === 'corpocracy'){
+                graphene_production *= 1 + (govEffect.corpocracy()[4] / 100);
+            }
+            if (global.civic.govern.type === 'socialist'){
+                graphene_production *= 1 + (govEffect.socialist()[1] / 100);
+            }
+
+            let ai = 1;
+            if (global.tech['ai_core'] >= 3){
+                let graph = +(quantum_level / 5).toFixed(1) / 100;
+                ai += graph * p_on['citadel'];
+            }
+
+            let incinerator = 1;
+            if (plant.incin && global.portal.hasOwnProperty('incinerator') && global.portal.incinerator.rank > 1){
+                let rank = global.portal.incinerator.rank - 1;
+                incinerator += rank * 15 * global.portal.incinerator.on / 100;
+            }
+
+            let zig = plant.zig ? zigVal : 1;
+            let synd = plant.synd ? syndicate(plant.synd) : 1;
+            let delta = graphene_production * ai * zig * hunger * global_multiplier * synd * eff * incinerator;
+            breakdown.p['Graphene'][plant.bd] = (graphene_production) + 'v';
+
+            if (plant.womling && graphene_production > 0){
+                delta *= womling_technician;
+                if (womling_technician > 1){
+                    breakdown.p['Graphene'][`ᄂ${loc('tau_red_womlings')}+0`] = ((womling_technician - 1) * 100) + '%';
+                }
+            }
+
+            if (incinerator > 1){
+                breakdown.p['Graphene'][`ᄂ${loc('portal_incinerator_title')}`] = ((incinerator - 1) * 100) + '%';
+            }
+
             if (graphene_production > 0){
-                let consume_wood = global[graph_source][graph_struct].Lumber * 350 * eff;
-                let consume_coal = global[graph_source][graph_struct].Coal * 25 * eff;
-                let consume_oil = global[graph_source][graph_struct].Oil * 15 * eff;
-
-                while (consume_wood * time_multiplier > global.resource.Lumber.amount && consume_wood > 0){
-                    consume_wood -= 350 * eff;
-                    graphene_production--;
-                }
-                while (consume_coal * time_multiplier > global.resource.Coal.amount && consume_coal > 0){
-                    consume_coal -= 25 * eff;
-                    graphene_production--;
-                }
-                while (consume_oil * time_multiplier > global.resource.Oil.amount && consume_oil > 0){
-                    consume_oil -= 15 * eff;
-                    graphene_production--;
-                }
-
-                graphene_production *= production('g_factory') * production('psychic_boost','Graphene');
-
-                breakdown.p.consume.Lumber[global.race['warlord'] ? loc('portal_twisted_lab_title') : loc('interstellar_g_factory_bd')] = -(consume_wood);
-                breakdown.p.consume.Coal[global.race['warlord'] ? loc('portal_twisted_lab_title') : loc('interstellar_g_factory_bd')] = -(consume_coal);
-                breakdown.p.consume.Oil[global.race['warlord'] ? loc('portal_twisted_lab_title') : loc('interstellar_g_factory_bd')] = -(consume_oil);
-
-                modRes('Lumber', -(consume_wood * time_multiplier));
-                modRes('Coal', -(consume_coal * time_multiplier));
-                modRes('Oil', -(consume_oil * time_multiplier));
-
-                if (global.civic.govern.type === 'corpocracy'){
-                    graphene_production *= 1 + (govEffect.corpocracy()[4] / 100);
-                }
-                if (global.civic.govern.type === 'socialist'){
-                    graphene_production *= 1 + (govEffect.socialist()[1] / 100);
-                }
-
-                let ai = 1;
-                if (global.tech['ai_core'] >= 3){
-                    let graph = +(quantum_level / 5).toFixed(1) / 100;
-                    ai += graph * p_on['citadel'];
-                }
-
-                let incinerator = 1;
-                if (global.race['warlord'] && global.portal.hasOwnProperty('incinerator') && global.portal.incinerator.rank > 1){
-                    let rank = global.portal.incinerator.rank - 1;
-                    incinerator += rank * 15 * global.portal.incinerator.on / 100;
-                }
-
-                let synd = global.race['truepath'] ? syndicate('spc_titan') : 1;
-                let delta = graphene_production * ai * zigVal * hunger * global_multiplier * synd * eff * incinerator;
-                breakdown.p['Graphene'][global.race['warlord'] ? loc('portal_twisted_lab_title') : loc('interstellar_g_factory_bd')] = (graphene_production) + 'v';
-                if (global.tech['isolation'] && graphene_production > 0){
-                    delta *= womling_technician;
-                    if (womling_technician > 1){
-                        breakdown.p['Graphene'][`ᄂ${loc('tau_red_womlings')}+0`] = ((womling_technician - 1) * 100) + '%';
-                    }
-                }
-
-                if (incinerator > 1){
-                    breakdown.p['Graphene'][`ᄂ${loc('portal_incinerator_title')}`] = ((incinerator - 1) * 100) + '%';
-                }
-
-                if (graphene_production > 0){
+                if (plant.synd){
                     breakdown.p['Graphene'][`ᄂ${loc('space_syndicate')}`] = -((1 - synd) * 100) + '%';
-                    breakdown.p['Graphene'][`ᄂ${loc('space_red_ziggurat_title')}`] = ((zigVal - 1) * 100) + '%';
                 }
-
-                if (global.race['discharge'] && global.race['discharge'] > 0){
-                    delta *= 0.5;
-                    breakdown.p['Graphene'][`ᄂ${loc('evo_challenge_discharge')}`] = '-50%';
+                if (plant.zig){
+                    breakdown.p['Graphene'][`ᄂ${loc('space_red_ziggurat_title')}`] = ((zig - 1) * 100) + '%';
                 }
-
-                if (p_on['citadel'] > 0){
-                    breakdown.p['Graphene'][loc('interstellar_citadel_effect_bd')] = ((ai - 1) * 100) + '%';
-                }
-                breakdown.p['Graphene'][loc('hunger')] = ((hunger - 1) * 100) + '%';
-                modRes('Graphene', delta * time_multiplier);
             }
-            else {
-                breakdown.p['Graphene'] = 0;
+
+            if (global.race['discharge'] && global.race['discharge'] > 0){
+                delta *= 0.5;
+                breakdown.p['Graphene'][`ᄂ${loc('evo_challenge_discharge')}`] = '-50%';
             }
+
+            if (p_on['citadel'] > 0){
+                breakdown.p['Graphene'][loc('interstellar_citadel_effect_bd')] = ((ai - 1) * 100) + '%';
+            }
+            breakdown.p['Graphene'][loc('hunger')] = ((hunger - 1) * 100) + '%';
+            modRes('Graphene', delta * time_multiplier);
+        });
+
+        // Plants standing but not one of them fueled: report a flat zero rather than a stale breakdown.
+        if (graph_built && !graph_fueled){
+            breakdown.p['Graphene'] = 0;
         }
 
         // Vitreloy
@@ -9946,8 +9971,8 @@ function midLoop(){
                 }
                 sci += p_on['mass_driver'] * brain;
             }
-            if (global.race['cataclysm'] && support_on['observatory']){
-                sci *= 1 + (support_on['observatory'] * 0.25);
+            if ((global.race['cataclysm'] || global.tech['resettle']) && support_on['observatory']){
+                sci *= 1 + (support_on['observatory'] * (global.tech['resettle'] ? 0.02 : 0.25));
             }
             if ((global.race['cataclysm'] || global.race['orbit_decayed']) && global.portal['sensor_drone'] && global.tech['science'] >= 14){
                 sci *= 1 + (p_on['sensor_drone'] * 0.02);
@@ -9962,7 +9987,7 @@ function midLoop(){
             caps['Knowledge'] += gain;
             breakdown.c.Knowledge[loc('tech_exotic_bd')] = gain+'v';
 
-            if (global.race['cataclysm'] || global.race['orbit_decayed']){
+            if (global.race['cataclysm'] || global.tech['resettle'] || global.race['orbit_decayed']){
                 lCaps['scientist'] += jobScale(support_on['exotic_lab']);
             }
         }
@@ -12940,13 +12965,67 @@ function longLoop(){
             global.tech['plague'] = 5;
         }
 
-        if (global.space['shipyard'] && global.tech['resettle'] && global.tech.resettle === 3){
-            if (global.space.shipyard.ships.some(s => s.location === 'spc_sun_gate' && s.transit === 0)){
+        if (global.space['shipyard'] && global.tech['resettle'] && global.tech.resettle >= 3){
+            trackInfestation();
+
+            // Scout Sun Gate
+            if (global.tech.resettle === 3 && global.space.shipyard.ships.some(s => s.location === 'spc_sun_gate' && s.transit === 0)){
                 global.tech.resettle = 4;
                 global.settings.showSpace = true;
                 global.settings.spaceTabs = 1;
                 renderSpace();
                 messageQueue(loc('scout_sun_gate'),'info',false,['progress']);
+            }
+
+            // Scout Earth
+            if (global.tech.resettle === 7 && global.space.shipyard.ships.some(s => s.location === 'spc_home' && s.transit === 0)){
+                global.tech.resettle = 8;
+                global.settings.space.home = true;
+                renderSpace();
+                messageQueue(loc(global.race['orbit_decayed'] ? 'scout_spc_home_moonless' : 'scout_spc_home',[planetName().home]),'info',false,['progress']);
+            }
+
+            // Scout Moon
+            if (!global.race['orbit_decayed'] && global.tech.luna === 2 && global.space.shipyard.ships.some(s => s.location === 'spc_moon' && s.transit === 0)){
+                global.tech.luna = 3;
+                global.settings.space.moon = true;
+                renderSpace();
+                messageQueue(loc('scout_spc_moon'),'info',false,['progress']);
+            }
+
+            // Scout Mars
+            if (global.tech['mars'] && global.tech.mars === 5 && global.space.shipyard.ships.some(s => s.location === 'spc_red' && s.transit === 0)){
+                global.tech.mars = 6;
+                global.settings.space.red = true;
+                renderSpace();
+                messageQueue(loc('scout_spc_red',[planetName().red]),'info',false,['progress']);
+
+                if (global.space.hasOwnProperty('wonder_statue')){
+                    global.space.wonder_statue.count = 1;
+                    global.space.wonder_statue.razed = 0;
+                }
+
+                salvageShip(2,planetName().red,'tau_gas2');
+            }
+
+            // Detect Signals
+            if (global.tech.mars >= 6 && global.tech.resettle === 8 && Math.rand(0,5) === 0){
+                global.tech.resettle = 9;
+                global.race['tempCoordinates'] = {};
+                for (let i=1; i<=5; i++){
+                    let c = randomCoord('spc_sun',0.4,5);
+                    global.race.tempCoordinates[`beacon${i}`] = {n: loc(`scout_beacon`,[i]), a: true, s: 'spc_sun', x: c.x, y: c.y, z: c.z};
+                }
+                messageQueue(loc('scout_signal_found'),'info',false,['progress']);
+                renderSpace();
+            }
+            else if (global.tech.resettle >= 9 && global.space.shipyard.ships.some(s => s.location.startsWith('beacon') && s.transit === 0 && global.race.tempCoordinates.hasOwnProperty(s.location) && global.race.tempCoordinates[s.location].a)){
+                global.space.shipyard.ships.forEach(s => {
+                    if (s.location.startsWith('beacon') && s.transit === 0 && global.race.tempCoordinates.hasOwnProperty(s.location) && global.race.tempCoordinates[s.location].a){
+                        global.race.tempCoordinates[s.location].a = false;
+                        salvageShip(1,global.race.tempCoordinates[s.location].n,'tau_gas2',true);
+                    }
+                });
             }
         }
 
