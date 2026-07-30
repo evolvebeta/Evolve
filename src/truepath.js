@@ -4488,6 +4488,14 @@ const hiddenInfestation = ['spc_red','spc_titan'];
 // billions are a fact of the setting rather than something a fleet can work on.
 const inertInfestation = ['spc_home'];
 
+// The war's day-to-day traffic — hulls engaging, raiders going down, landings, buildings lost. It runs
+// every game day on every front at once, so it is the one thing worth being able to turn off. Anything
+// that moves the arc forward calls messageQueue directly instead and is announced either way.
+function zMessage(msg,type){
+    if (fleetCmd()['zquiet']){ return; }
+    messageQueue(msg,type,false,['combat']);
+}
+
 // True once a region's horde is known about, which for everywhere but hiddenInfestation is immediately.
 function infestationFound(region){
     return !hiddenInfestation.includes(region) || (global.race['zfound'] ? global.race.zfound[region] : false);
@@ -4598,11 +4606,11 @@ function zFleetTargets(){
 // condition to be dropped in where the false is.
 const zFleetHulls = {
     corvette:      { avail(){ return true; },  horde(){ return 250; } },
-    frigate:       { avail(){ return true; },  horde(){ return 500; } },
-    destroyer:     { avail(){ return global.tech['resettle'] && global.tech.resettle >= 11 ? true : false; }, horde(){ return 1200; } },
-    cruiser:       { avail(){ return false; }, horde(){ return 2500; } },
-    battlecruiser: { avail(){ return false; }, horde(){ return 5000; } },
-    dreadnought:   { avail(){ return false; }, horde(){ return 10000; } }
+    frigate:       { avail(){ return true; },  horde(){ return 600; } },
+    destroyer:     { avail(){ return global.tech['resettle'] && global.tech.resettle >= 11 ? true : false; }, horde(){ return 1250; } },
+    cruiser:       { avail(){ return false; }, horde(){ return 3000; } },
+    battlecruiser: { avail(){ return false; }, horde(){ return 7500; } },
+    dreadnought:   { avail(){ return false; }, horde(){ return 18000; } }
 };
 
 // The classes cleared to fly right now.
@@ -4628,6 +4636,14 @@ const zFleetRampDays = 150;     // days of raiding before launches and cargoes r
 const zFleetOddsStart = 0.08;   // chance of a launch on the first day
 const zFleetOddsEnd = 0.55;     // ...and once the ramp is complete
 const zFleetLoadStart = 0.25;   // share of a hull's cargo that lands on the first day
+
+// The one scripted sortie: days after Titan comes under threat, then where it goes and what flies it.
+const zTauStrikeDay = 100;
+const zTauStrikeTarget = 'tau_home';
+const zTauStrikeHulls = ['cruiser','frigate','frigate'];
+// Having managed that once, the horde starts sending some of its ordinary raids out in company.
+const zPairOdds = 0.25;
+const zPairSize = 2;
 
 // One day of the infested fleet: arm the countdown when the conditions are met, advance anything under
 // way, then decide whether another hull lifts.
@@ -4662,6 +4678,7 @@ function zFleetDay(){
     }
 
     fleet.d++;
+    zTauStrike(fleet);
     let ramp = Math.min(fleet.d / zFleetRampDays, 1);
     if (seededRandom(0,1,true) < zFleetOddsStart + (zFleetOddsEnd - zFleetOddsStart) * ramp){
         zFleetLaunch(fleet,ramp);
@@ -4804,10 +4821,10 @@ function zEngage(location,foes){
         }
     });
 
-    messageQueue(loc('zcombat_engage',[guards.length,foes.length,regionName(location)]),'warning',false,['combat']);
+    zMessage(loc('zcombat_engage',[guards.length,foes.length,regionName(location)]),'warning');
     lost.forEach(function(ship){ destroyPlayerShip(ship,location); });
     downed.forEach(function(foe){
-        messageQueue(loc('zcombat_foe_destroyed',[foe.name,regionName(location)]),'success',false,['combat']);
+        zMessage(loc('zcombat_foe_destroyed',[foe.name,regionName(location)]),'success');
     });
 
     return downed.length > 0;
@@ -4836,6 +4853,8 @@ export function zWarfareVars(){
         oddsStart: zFleetOddsStart,
         oddsEnd: zFleetOddsEnd,
         loadStart: zFleetLoadStart,
+        pairOdds: zPairOdds,
+        pairSize: zPairSize,
         hulls: zFleetHulls,
         parts: zFleetParts,
         classOrder: shipClassSizes,
@@ -4902,7 +4921,7 @@ function zFleetMove(fleet){
             let load = Math.max(0,Math.round(ship.load * (1 - ship.damage / 200)));
             if (load <= 0){ return; }
             global.race.zhorde[ship.location] += load;
-            messageQueue(loc('zfleet_landing',[ship.name,regionName(ship.location),load.toLocaleString()]),'danger',false,['combat']);
+            zMessage(loc('zfleet_landing',[ship.name,regionName(ship.location),load.toLocaleString()]),'danger');
             // A landing on a region whose horde was a secret gives the game away.
             if (!global.race['zfound']){ global.race['zfound'] = {}; }
             global.race.zfound[ship.location] = true;
@@ -4975,24 +4994,9 @@ function outerBeacons(){
     drawShipYard();
 }
 
-// Send one hull, drawn from whichever classes are cleared to fly. Early raids still land lighter than
-// late ones: the cargo ramp scales whatever the hull would otherwise deliver.
-function zFleetLaunch(fleet,ramp){
-    let targets = zFleetTargets();
-    if (targets.length === 0){ return; }
-    let target = targets[Math.floor(seededRandom(0,targets.length,true))];
-
-    let classes = zFleetClasses();
-    if (classes.length === 0){ return; }
-    let cls = classes[Math.floor(seededRandom(0,classes.length,true))];
-    let hull = zFleetHulls[cls];
-
-    // The first hull heavier than a frigate triggers expansion of progression
-    if (cls === 'destroyer' && !fleet.dz){
-        fleet.dz = true;
-        outerBeacons();
-    }
-
+// One raider hull of a given class, fitted out and sitting over Earth. Not yet under way: a sortie
+// wants its whole group built before any of it is shot at.
+function zFleetHull(cls){
     let ship = {
         class: cls,
         name: `${loc(`outer_shipyard_class_${cls}`)} ${Math.floor(seededRandom(100,10000,true))}`,
@@ -5003,11 +5007,14 @@ function zFleetLaunch(fleet,ramp){
     Object.keys(zFleetParts).forEach(function(part){
         ship[part] = zFleetParts[part][Math.floor(seededRandom(0,zFleetParts[part].length,true))];
     });
+    return ship;
+}
 
-    let trip = planShipTrip(ship,target);
-
-    // Anything you have parked over Earth gets a shot at the raider as it climbs out.
-    if (zEngage('spc_home',[ship])){ return; }
+// Put a built hull on course and add it to the fleet. Early raids still land lighter than late ones:
+// the cargo ramp scales whatever the hull would otherwise deliver. The trip is passed in so a whole
+// sortie can share one, rather than each hull flying its own.
+function zFleetDispatch(fleet,ship,target,ramp,trip){
+    let hull = zFleetHulls[ship.class];
 
     // The location is the destination the moment it leaves, matching how the player's ships track a
     // journey, so the arrival check reads the same field either way.
@@ -5041,6 +5048,81 @@ function zFleetLaunch(fleet,ramp){
     // Remember the day the first hull ever lifted; the surface batteries wake a while after it.
     if (typeof fleet.l !== 'number'){ fleet.l = fleet.d; }
     //messageQueue(loc('zfleet_launch',[ship.name,regionName(target),ship.transit]),'warning',false,['combat']);
+}
+
+// Lift a group of hulls together for one target. Whatever you have parked over Earth gets a single
+// shot at the sortie as it climbs out, however many hulls are in it, and only what survives that flies.
+// Returns the number that got away.
+function zFleetSortie(fleet,classes,target,ramp){
+    let ships = classes.map(cls => zFleetHull(cls));
+    zEngage('spc_home',ships);
+    let flying = zCullDowned(ships);
+    if (flying.length === 0){ return 0; }
+
+    // One trip for the whole sortie, planned on its slowest hull exactly as sendShipTo does for a fleet
+    // of yours. Planned per ship instead, hulls drawing different engines would arrive days apart and
+    // fly as a group in name only.
+    let trip = planShipTrip(fleetPace(flying),target);
+
+    // Stamp the sortie on anything that lifted in company. Two raiders on the same leg would otherwise
+    // be indistinguishable from two that merely happen to read the same remaining transit — and once a
+    // launch matches a hull already under way they tick down together and stay matched for good. A lone
+    // raider gets no stamp and keeps its own name and mark.
+    if (flying.length > 1){
+        fleet.n = (fleet.n || 0) + 1;
+        flying.forEach(function(ship){ ship.zf = fleet.n; });
+    }
+
+    flying.forEach(function(ship){ zFleetDispatch(fleet,ship,target,ramp,trip); });
+    return flying.length;
+}
+
+// The ordinary raid: a target and a hull drawn from whatever is cleared to fly. Once the horde has
+// managed a strike on another star it starts sending some of them out in company instead — the pair
+// flies as one sortie against one target, but each hull is rolled on its own.
+function zFleetLaunch(fleet,ramp){
+    let targets = zFleetTargets();
+    if (targets.length === 0){ return; }
+    let target = targets[Math.floor(seededRandom(0,targets.length,true))];
+
+    let avail = zFleetClasses();
+    if (avail.length === 0){ return; }
+
+    let count = fleet.tw && seededRandom(0,1,true) < zPairOdds ? zPairSize : 1;
+    let classes = [];
+    for (let i=0; i<count; i++){
+        let cls = avail[Math.floor(seededRandom(0,avail.length,true))];
+        classes.push(cls);
+        // The first hull heavier than a frigate triggers expansion of progression
+        if (cls === 'destroyer' && !fleet.dz){
+            fleet.dz = true;
+            outerBeacons();
+        }
+    }
+
+    zFleetSortie(fleet,classes,target,ramp);
+}
+
+// The strike on the colony at Tau Ceti: a hundred days after Titan comes under threat the horde puts
+// together something heavier than a raid and sends it across. Scripted rather than rolled — the target
+// is not on its ordinary list and the cruiser is not a class it builds for itself, and neither becomes
+// generally available for having been used here. Armed lazily rather than in zTitanWatch so a save that
+// was already past that point still gets its clock started.
+function zTauStrike(fleet){
+    if (!titanReclaimed()){ return; }
+    if (typeof fleet.tz !== 'number'){
+        fleet.tz = fleet.d;
+        return;
+    }
+    if (fleet.tw || fleet.d - fleet.tz < zTauStrikeDay){ return; }
+
+    // Marked as spent whether or not anything gets away: stopping it over Earth is a win, not a reason
+    // for the horde to try the same thing again.
+    fleet.tw = true;
+    let sent = zFleetSortie(fleet,zTauStrikeHulls.slice(),zTauStrikeTarget,1);
+    if (sent > 0){
+        //messageQueue(loc('zfleet_tau_strike',[sent,regionName(zTauStrikeTarget)]),'danger',false,['combat','progress']);
+    }
 }
 
 // One day of fighting in a single infested region: the fleet in orbit kills what it can, then whatever
@@ -5113,7 +5195,7 @@ function razeStructures(region,razings){
         if (global[cat][s].hasOwnProperty('on') && global[cat][s].on > global[cat][s].count){
             global[cat][s].on = global[cat][s].count;
         }
-        messageQueue(loc('infestation_razed',[lost,structTitle(cat,region,s),regionName(region)]),'danger',false,['combat']);
+        zMessage(loc('infestation_razed',[lost,structTitle(cat,region,s),regionName(region)]),'danger');
     });
 
     // A hidden horde that just leveled something has announced itself: report the ambush once, then
@@ -5467,6 +5549,24 @@ export function drawShipYard(){
         assemble.append(`<span><b-checkbox class="patrol" v-model="s.expand" @change="redraw()">${loc('outer_shipyard_fleet_details')}</b-checkbox></span>`);
         assemble.append(`<span><b-checkbox class="patrol" v-model="s.sort" @change="redraw()">${loc('outer_shipyard_fleet_sort')}</b-checkbox></span>`);
 
+        // Two star systems and dozens of locations make the flat list hard to read, so it can be
+        // narrowed to one system and folded up by location. Built from shipyardSystems(), which is
+        // stable, so these items do not need rebuilding as the campaign runs.
+        if (shipyardViewUnlocked()){
+            let systems = `<b-dropdown-item aria-role="listitem" class="sysAll" @click="setSys('all')">${systemLabel('all')}</b-dropdown-item>`;
+            shipyardSystems().forEach(function(sys){
+                systems += `<b-dropdown-item aria-role="listitem" class="sys_${sys}" @click="setSys('${sys}')">${systemLabel(sys)}</b-dropdown-item>`;
+            });
+            assemble.append(`<span class="shipView"><b-dropdown :triggers="['hover', 'click']" aria-role="list">
+                <template #trigger>
+                    <button class="button is-info">
+                        <span>${loc('outer_shipyard_view_system')}: {{ sysLabel() }}</span>
+                    </button>
+                </template>${systems}
+            </b-dropdown></span>`);
+            assemble.append(`<span><b-checkbox class="patrol" v-model="v.group" @change="redraw()">${loc('outer_shipyard_view_group')}</b-checkbox></span>`);
+        }
+
         plans.append(assemble);
         assemble.append(`<div><span>${loc(`outer_shipyard_park`,[global.tech['resettle'] ? tauCetiModules.tau_gas2.info.name() : planetName().dwarf])}</span><a href="#" class="solarMap" @click="trigModal">${loc(`outer_shipyard_map`)}</span></a>`);
 
@@ -5476,9 +5576,18 @@ export function drawShipYard(){
             el: '#shipPlans',
             data: {
                 b: global.space.shipyard.blueprint,
-                s: global.space.shipyard
+                s: global.space.shipyard,
+                v: shipyardView()
             },
             methods: {
+                sysLabel(){
+                    return systemLabel(shipyardView().sys);
+                },
+                setSys(sys){
+                    shipyardView().sys = sys;
+                    vBind({el: `#shipPlans`},'update');
+                    drawShips();
+                },
                 setVal(b,v){
                     if (b === 'class' && v === 'explorer'){
                         global.space.shipyard.blueprint.engine = 'emdrive';
@@ -6255,6 +6364,48 @@ function dragShipList(){
     }
 }
 
+// --- Ship list view options ---------------------------------------------------------------------
+// Filtering and grouping only earn their keep once the resettlement arc puts the fleet across two star
+// systems and dozens of locations. Before that every ship is within a few rows of every other and the
+// controls would be clutter.
+export function shipyardViewUnlocked(){
+    return global.tech['resettle'] ? true : false;
+}
+
+// Held under global.space.shipyard so it saves with the yard. Created and backfilled on read rather
+// than migrated, so an older save picks it up the first time the tab is drawn.
+export function shipyardView(){
+    let yard = global.space.shipyard;
+    if (!yard['view'] || typeof yard.view !== 'object'){ yard['view'] = {}; }
+    let v = yard.view;
+    if (typeof v['sys'] !== 'string'){ v['sys'] = 'all'; }
+    if (typeof v['group'] !== 'boolean'){ v['group'] = false; }
+    if (!v['fold'] || typeof v.fold !== 'object'){ v['fold'] = {}; }
+    return v;
+}
+
+// The view as it should actually be applied. Locked, it is the plain ungrouped list however the options
+// were last left — so a reset that takes the tech away cannot leave the list filtered with no way back.
+function activeShipyardView(){
+    return shipyardViewUnlocked() ? shipyardView() : { sys: 'all', group: false, fold: {} };
+}
+
+// Systems the fleet can be spread across: home, plus wherever the jump gate network reaches. Driven off
+// jumpGates so extending the network extends the filter with it, and stable enough to build the
+// dropdown from once when the tab is assembled.
+function shipyardSystems(){
+    let seen = { sun: true };
+    Object.keys(jumpGates).forEach(function(gate){ seen[jumpGates[gate].system] = true; });
+    return Object.keys(seen);
+}
+
+// Display name of a system key, the same label locSystemName puts on a location.
+function systemLabel(sys){
+    if (sys === 'all'){ return loc('outer_shipyard_system_all'); }
+    let star = sys === 'sun' ? spacePlanetStats.spc_sun : spacePlanetStats[sys];
+    return star && star.label ? star.label : sys;
+}
+
 const shipyardRanks = {
     // Lower number -> higher in the auto-sorted list
     location: {
@@ -6305,9 +6456,15 @@ const shipyardRanks = {
     }
 };
 
-function shipyardShipCompare(a,b){
+// A ship at a yard that can currently take it in comes first, whatever the location table says: those
+// are the ones being worked on, and they are what you came to the list to look at. Passed the yard list
+// rather than reading it per comparison, since a sort asks this O(n log n) times. Within the group the
+// existing tie-breakers still apply, so a docked ship sits above one still crossing to the same yard.
+function shipyardShipCompare(a,b,yards){
+    yards = yards || activeRepairYards();
     return (
-        (shipyardRanks.location[a.location] ?? 0) - (shipyardRanks.location[b.location] ?? 0)
+        (yards.includes(a.location) ? 0 : 1) - (yards.includes(b.location) ? 0 : 1)
+        || (shipyardRanks.location[a.location] ?? 0) - (shipyardRanks.location[b.location] ?? 0)
         || a.transit - b.transit
         || (shipyardRanks.class[a.class] ?? 0) - (shipyardRanks.class[b.class] ?? 0)
         || (shipyardRanks.engine[a.engine] ?? 0) - (shipyardRanks.engine[b.engine] ?? 0)
@@ -6328,8 +6485,9 @@ function drawShips(){
 
     let list = $('#shipList');
 
+    let repairYards = activeRepairYards();
     if (global.space.shipyard.sort){
-        global.space.shipyard.ships = global.space.shipyard.ships.sort(shipyardShipCompare);
+        global.space.shipyard.ships = global.space.shipyard.ships.sort(function(a,b){ return shipyardShipCompare(a,b,repairYards); });
     }
 
 
@@ -6357,8 +6515,107 @@ function drawShips(){
         });
     }
 
-    for (let i=0; i<global.space.shipyard.ships.length; i++){
-        let ship = global.space.shipyard.ships[i];
+    let view = activeShipyardView();
+
+    // What to draw and in what order, as [index, ship] pairs. The index is the ship's real place in the
+    // array — a row binds and acts on that, so it stays correct however the list is arranged on screen.
+    let entries = [];
+    global.space.shipyard.ships.forEach(function(ship,i){
+        if (view.sys !== 'all' && locSystem(ship.location) !== view.sys){ return; }
+        entries.push({ i: i, ship: ship });
+    });
+
+    if (view.group){
+        // One header per location, in the order the locations first come up in the list — so with Auto
+        // Sort on the groups follow the same ranking the ships do.
+        let order = [];
+        let byLoc = {};
+        entries.forEach(function(e){
+            if (!byLoc.hasOwnProperty(e.ship.location)){
+                byLoc[e.ship.location] = [];
+                order.push(e.ship.location);
+            }
+            byLoc[e.ship.location].push(e);
+        });
+        order.forEach(function(location,g){
+            drawShipGroup(list,g,location,regionNames,repairYards);
+            if (!view.fold[location]){
+                byLoc[location].forEach(function(e){ drawShipRow(list,e.i,e.ship,regionNames); });
+            }
+        });
+    }
+    else {
+        entries.forEach(function(e){ drawShipRow(list,e.i,e.ship,regionNames); });
+    }
+
+    // Hand-ordering moves a ship by its position in the list, which only means anything while the list
+    // and the array agree. Filtered or grouped they do not, so dragging is off until the view is plain.
+    if (view.sys === 'all' && !view.group){
+        dragShipList();
+    }
+}
+
+// The collapsed summary for one location: what is there, without the detail. Bound to the yard so the
+// figures track the ships themselves — a hull taking damage or a raid arriving updates the header even
+// while the group is shut.
+function drawShipGroup(list,g,location,regionNames,repairYards){
+    let yard = repairYards.includes(location)
+        ? `<span class="dispatchYard" title="${loc('outer_shipyard_repair_yard')}" aria-label="${loc('outer_shipyard_repair_yard')}">🛠️</span>`
+        : ``;
+    // The toggle has to be an inner element: Vue treats the element it mounts on as an inert container
+    // and never compiles directives written on it.
+    let head = $(`<div id="shipGrp${g}" class="shipGroup"></div>`);
+    head.append(`<a class="groupFold" @click="fold()" role="button" :aria-expanded="folded() ? 'false' : 'true'"><span class="groupArrow" v-html="arrow()"></span> <span class="name has-text-caution">${regionNames[location] || location}</span>${yard}</a>`);
+    head.append(`<span class="shipStat"><span class="has-text-warning">${loc('outer_shipyard_group_ships')}</span> <span class="pad" v-html="count()"></span></span><wbr>`);
+    head.append(`<span class="shipStat"><span class="has-text-warning">${loc('firepower')}</span> <span class="pad" v-html="fire()"></span></span><wbr>`);
+    head.append(`<span class="shipStat"><span class="has-text-warning">${loc('crew')}</span> <span class="pad" v-html="crew()"></span></span><wbr>`);
+    head.append(`<span class="shipStat" v-show="transit() > 0"><span class="has-text-warning">${loc('outer_shipyard_group_transit')}</span> <span class="pad" v-html="transit()"></span></span><wbr>`);
+    list.append(head);
+
+    // Ships of this group, read fresh on every render so the summary cannot go stale.
+    let here = function(){
+        return global.space.shipyard.ships.filter(function(s){ return s.location === location; });
+    };
+
+    // Bound to the view options behind a wrapper key rather than to the yard itself. Vue merges data
+    // onto the same instance as methods and data wins, so binding the yard would have let its own
+    // `count` (the number of yard structures) shadow the summary's count() and take the render down
+    // with it. The figures come from methods reading the reactive global, so they track the ships
+    // regardless of what is bound here.
+    vBind({
+        el: `#shipGrp${g}`,
+        data: { v: shipyardView() },
+        methods: {
+            folded(){
+                return shipyardView().fold[location] ? true : false;
+            },
+            arrow(){
+                return shipyardView().fold[location] ? `&#9656;` : `&#9662;`;
+            },
+            fold(){
+                let fold = shipyardView().fold;
+                if (fold[location]){ delete fold[location]; }
+                else { fold[location] = true; }
+                drawShips();
+            },
+            count(){
+                return here().length;
+            },
+            fire(){
+                return here().reduce(function(t,s){ return t + shipAttackPower(s); },0);
+            },
+            crew(){
+                return here().reduce(function(t,s){ return t + shipCrewSize(s); },0);
+            },
+            transit(){
+                return here().filter(function(s){ return s.transit > 0; }).length;
+            }
+        }
+    });
+}
+
+function drawShipRow(list,i,ship,regionNames){
+    {
         if (!ship['xy']){ ship['xy'] = genXYcoord(ship.location); }
         if (!ship.hasOwnProperty('dist')){ ship['dist'] = ship['transit']; }
         if (!ship.hasOwnProperty('origin')){ ship['origin'] = ship['xy']; }
@@ -6538,8 +6795,6 @@ function drawShips(){
         });
 
     }
-
-    dragShipList();
 }
 
 // The first Tau Ceti soldier building (marine barracks / womling rangers) re-enables the soldier
@@ -8452,6 +8707,25 @@ const ORBIT_MIN_PX = 3;
 const SHIP_DOT_PX = 3;
 const SHIP_LABEL_PX = 5;
 
+// Unanswered distress signals, also sized in screen pixels: they are points in space with no radius
+// to draw, and the pulse is what tells a live signal apart from the scenery around it.
+const BEACON_DOT_PX = 3;
+const BEACON_HALO_PX = 11;
+const BEACON_LABEL_PX = 6;
+const BEACON_PULSE_MS = 1600;
+const BEACON_COLOR = '0, 255, 102';
+// 0 at the trough of the swell, 1 at its peak. A cosine so the pulse has no corners in it.
+function beaconPulse(){
+    return (1 - Math.cos(Date.now() / BEACON_PULSE_MS * Math.PI * 2)) / 2;
+}
+// Signals still waiting on an answer. A beacon a ship has reached keeps its coordinates — a ship
+// parked on one still has to resolve — but stops advertising itself, so it stops pulsing as well.
+function liveBeacons(){
+    let temps = global.race['tempCoordinates'];
+    if (!temps){ return []; }
+    return Object.keys(temps).filter(k => temps[k] && temps[k].a).map(k => temps[k]);
+}
+
 // How close an orbit comes to its primary, sampled from the same orbitPoint the body travels so the
 // eccentricity and off-centre focus are taken into account rather than assumed.
 function orbitMinRadius(id, origin){
@@ -8908,8 +9182,19 @@ export function drawMap() {
         // Infested hulls inbound from Earth. They never fleet up, and they are drawn in red so a raid
         // reads as a threat at a glance rather than as one more ship of yours.
         if (global.race['zfleet'] && global.race.zfleet.s){
+            // Raiders that lifted as one sortie carry its id and fly identical trips, so they are
+            // collapsed the same way a fleet of yours is rather than stacking dot, trail and name on the
+            // one pixel. Anything that flew alone has no id and keeps its own mark.
+            let raids = {};
             for (let ship of global.race.zfleet.s){
-                if (ship.transit > 0){ shipMarks.push({ ship, count: 1, foe: true }); }
+                if (ship.transit <= 0){ continue; }
+                if (!ship.zf){
+                    shipMarks.push({ ship, count: 1, foe: true });
+                    continue;
+                }
+                if (raids[ship.zf]){ raids[ship.zf].count++; continue; }
+                raids[ship.zf] = { ship, count: 1, foe: true };
+                shipMarks.push(raids[ship.zf]);
             }
         }
     }
@@ -9043,6 +9328,31 @@ export function drawMap() {
         }
     }
 
+    // Distress signals. Drawn in their own star's frame for the same precision reasons as the ships,
+    // and ahead of the ship markers so a ship that has flown out to one reads as sitting on top of it.
+    {
+        let pulse = beaconPulse();
+        for (let beacon of liveBeacons()){
+            let ref = genXYcoord(beacon.s || 'spc_sun');
+            if (starCulled(ref)){ continue; }
+            let here = rel({ x: beacon.x, y: beacon.y, z: beacon.z || 0 }, ref);
+            ctx.save();
+            ctx.translate(pX(ref), pY(ref));
+            let bx = pX(here), by = pY(here);
+            // A ring that swells outward and fades as it goes, so the mark reads as flaring rather
+            // than merely changing size.
+            ctx.beginPath();
+            ctx.fillStyle = `rgba(${BEACON_COLOR}, ${0.3 * (1 - pulse)})`;
+            ctx.arc(bx, by, (BEACON_DOT_PX + (BEACON_HALO_PX - BEACON_DOT_PX) * pulse) / mapScale, 0, Math.PI * 2, true);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.fillStyle = `rgba(${BEACON_COLOR}, ${0.55 + 0.45 * pulse})`;
+            ctx.arc(bx, by, BEACON_DOT_PX / mapScale, 0, Math.PI * 2, true);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
     // Ships
     for (let { ship, foe } of shipMarks) {
         ctx.fillStyle = foe ? "#ff0000" : "#0000ff";
@@ -9079,6 +9389,20 @@ export function drawMap() {
         let label = mark.count > 1 ? loc('outer_shipyard_fleet_map',[mark.count]) : ship.name;
         ctx.fillText(label, pX(here) + SHIP_LABEL_PX / mapScale, pY(here) - SHIP_LABEL_PX / mapScale);
         ctx.restore();
+    }
+
+    // Signal names, in the same green as their dots and offset the same way the ship names are.
+    {
+        ctx.fillStyle = `rgb(${BEACON_COLOR})`;
+        for (let beacon of liveBeacons()){
+            let ref = genXYcoord(beacon.s || 'spc_sun');
+            if (starCulled(ref)){ continue; }
+            let here = rel({ x: beacon.x, y: beacon.y, z: beacon.z || 0 }, ref);
+            ctx.save();
+            ctx.translate(pX(ref), pY(ref));
+            ctx.fillText(beacon.n, pX(here) + BEACON_LABEL_PX / mapScale, pY(here) - BEACON_LABEL_PX / mapScale);
+            ctx.restore();
+        }
     }
 
     ctx.fillStyle = "#ffa500";
@@ -9226,6 +9550,28 @@ export function drawMap() {
     }
 
     ctx.restore();
+}
+
+// Left to itself the map only repaints on the long loop, which is far too slow for the beacon pulse
+// to read as one, so while it is open an animation timer drives its own repaints. It stops itself the
+// moment the canvas leaves the DOM (the modal was closed) or the last signal goes quiet, so a map
+// with nothing pulsing on it costs nothing.
+const BEACON_FPS = 12;
+var beaconTimer = false;
+function beaconAnimate(){
+    if (beaconTimer){
+        clearInterval(beaconTimer);
+        beaconTimer = false;
+    }
+    if (liveBeacons().length === 0){ return; }
+    beaconTimer = setInterval(function(){
+        if (!document.getElementById('mapCanvas') || liveBeacons().length === 0){
+            clearInterval(beaconTimer);
+            beaconTimer = false;
+            return;
+        }
+        drawMap();
+    }, Math.round(1000 / BEACON_FPS));
 }
 
 function buildSolarMap(parentNode) {
@@ -9432,6 +9778,7 @@ function buildSolarMap(parentNode) {
     recenterOn(genXYcoord(global.tech['resettle'] && global.tech.resettle < 9 ? 'tauceti' : 'spc_sun'));
 
     drawMap();
+    beaconAnimate();
 }
 
 function solarModal(){
@@ -9538,11 +9885,14 @@ function shipDispatchModal(id, modal){
         // Once the jump gates are running a ship can cross between systems, so the list spans more
         // than one star and each destination says which it belongs to.
         let showSystem = global.tech['resettle'] && global.tech.resettle >= 3;
+        // Somewhere a battered hull can actually be put back together is worth picking out of the list.
+        let yards = activeRepairYards();
         dests.forEach(function(d){
             let days = planShipTrip(slowest, d.region).transit;
             let sysName = showSystem ? locSystemName(d.region) : '';
             let sys = sysName ? `<span class="dispatchSystem has-text-info">${sysName}</span>` : ``;
-            $(`<button class="button is-info ${d.region}"><span class="dispatchName">${d.name}</span>${sys}<span class="dispatchDays has-text-caution">${loc('transit_time',[days])}</span></button>`)
+            let yard = yards.includes(d.region) ? `<span class="dispatchYard" title="${loc('outer_shipyard_repair_yard')}" aria-label="${loc('outer_shipyard_repair_yard')}">🛠️</span>` : ``;
+            $(`<button class="button is-info ${d.region}"><span class="dispatchName">${d.name}${yard}</span>${sys}<span class="dispatchDays has-text-caution">${loc('transit_time',[days])}</span></button>`)
                 .on('click', function(){
                     sendShipTo(id, d.region);
                     if (modal && modal.close){ modal.close(); }
@@ -9577,6 +9927,15 @@ const repairStations = {
 // Docking is about the place, not whether it is currently staffed, so this covers every station whether
 // or not its condition passes right now.
 const shipyardLocations = Object.keys(repairStations);
+
+// The yards that could take a ship in right now. Read fresh every time rather than cached: a station's
+// condition turns on whether it has been built, and that changes as the campaign runs.
+function activeRepairYards(){
+    return shipyardLocations.filter(function(yard){
+        try { return repairStations[yard].avail() ? true : false; }
+        catch (e){ return false; }
+    });
+}
 // Hull percentage a ship must have before it is cleared to leave for another destination.
 const minHullToLaunch = 75;
 
@@ -9604,12 +9963,13 @@ export const fleetCmdRange = {
 
 export function fleetCmd(){
     if (!global.settings['fleetCmd']){
-        global.settings['fleetCmd'] = { flee: 25, ret: true, retHull: 100, quiet: false };
+        global.settings['fleetCmd'] = { flee: 25, ret: true, retHull: 100, quiet: false, zquiet: false };
     }
     let cfg = global.settings.fleetCmd;
     // Backfill anything added after a save was written, so a new option is bound to a real value rather
     // than to undefined the first time the panel is drawn.
     if (typeof cfg.quiet === 'undefined'){ cfg['quiet'] = false; }
+    if (typeof cfg.zquiet === 'undefined'){ cfg['zquiet'] = false; }
     // Pull anything saved under an older, wider range back inside the current one.
     Object.keys(fleetCmdRange).forEach(function(key){
         let val = Math.round(Number(cfg[key]));
