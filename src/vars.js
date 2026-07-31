@@ -1355,7 +1355,7 @@ if (global['tauceti'] && global.tauceti['refueling_station'] && !global.tauceti.
 
 global['version'] = '1.5.0';
 delete global['revision'];
-global['beta'] = 15;
+global['beta'] = 16;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -1680,6 +1680,25 @@ export function setupStats(){
             b4: { l: false, h: false, a: false, e: false, m: false, mg: false }, 
             b5: { l: false, h: false, a: false, e: false, m: false, mg: false }
         };
+    }
+    if (!global.stats.hasOwnProperty('zombie_genocider')){
+        global.stats['zombie_genocider'] = {
+            z1: { l: false, h: false, a: false, e: false, m: false, mg: false },
+            z2: { l: false, h: false, a: false, e: false, m: false, mg: false },
+            z3: { l: false, h: false, a: false, e: false, m: false, mg: false },
+            z4: { l: false, h: false, a: false, e: false, m: false, mg: false },
+            z5: { l: false, h: false, a: false, e: false, m: false, mg: false }
+        };
+    }
+    else if (global.stats.zombie_genocider.hasOwnProperty('b1')){
+        // The tasks were keyed b1..b5 for a moment before settling on z1..z5; carry the progress over
+        // rather than leaving a save with keys nothing reads.
+        ['1','2','3','4','5'].forEach(function(n){
+            if (global.stats.zombie_genocider.hasOwnProperty('b' + n)){
+                global.stats.zombie_genocider['z' + n] = global.stats.zombie_genocider['b' + n];
+                delete global.stats.zombie_genocider['b' + n];
+            }
+        });
     }
     if (!global.stats.hasOwnProperty('endless_hunger')){
         global.stats['endless_hunger'] = {
