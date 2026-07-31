@@ -127,6 +127,10 @@ const outerTruth = {
                 return `${support}<div class="has-text-caution">${loc('space_electrolysis_use',[$(this)[0].support_fuel().a,global.resource.Water.name,$(this)[0].powered()])}</div>`;
             },
             support(wiki){
+                // Positronium electrolysis splits water harder than the AI core ever managed at it. Either
+                // upgrade takes the plant to three and they do not stack — which matters on the resettle
+                // path, where the AI cores are gone by the time this tech is reachable.
+                if (global.tech['titan'] && global.tech.titan >= 11){ return 3; }
                 return global.tech['titan_ai_core'] && global.tech.titan_ai_core >= 2 && (wiki ? global.space.ai_core2.on : p_on['ai_core2']) ? 3 : 2;
             },
             support_fuel(){ return { r: 'Water', a: 35 }; },
@@ -267,7 +271,16 @@ const outerTruth = {
                 let alum_val = production('titan_mine','aluminium');
                 let adamantite = +(adam_val).toFixed(3);
                 let aluminium = +(alum_val).toFixed(3);
-                return `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div><div>${loc('space_red_mine_effect',[adamantite,global.resource.Adamantite.name])}</div><div>${loc('space_red_mine_effect',[aluminium,global.resource.Aluminium.name])}</div>`;
+                let desc = `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div><div>${loc('space_red_mine_effect',[adamantite,global.resource.Adamantite.name])}</div><div>${loc('space_red_mine_effect',[aluminium,global.resource.Aluminium.name])}</div>`;
+                if (global.tech['resettle']){
+                    let stone = +(production('titan_mine','stone')).toFixed(4);
+                    desc += `<div>${loc('space_red_mine_effect',[stone,global.resource.Stone.name])}</div>`;
+                }
+                if (global.tech['resettle'] && global.resource.Chrysotile.display){
+                    let chrysotile = +(production('titan_mine','chrysotile')).toFixed(4);
+                    desc += `<div>${loc('space_red_mine_effect',[chrysotile,global.resource.Chrysotile.name])}</div>`;
+                }
+                return desc;
             },
             s_type: 'titan',
             support(){ return -1; },
@@ -472,6 +485,63 @@ const outerTruth = {
                 return {
                     d: { count: 0, on: 0, Lumber: 0, Coal: 0, Oil: 0 },
                     p: ['g_factory','space']
+                };
+            }
+        },
+        metalworks: {
+            id: 'space-metalworks',
+            title: loc('space_metalworks_title'),
+            desc(){ return `<div>${loc('space_metalworks_title')}</div><div class="has-text-special">${loc('space_support',[planetName().titan])}</div>`; },
+            type: 'industry',
+            reqs: { titan: 10 },
+            path: ['truepath'],
+            cost: {
+                Money(offset){ return spaceCostMultiplier('metalworks', offset, 425000000, 1.28); },
+                Coal(offset){ return spaceCostMultiplier('metalworks', offset, 4200000, 1.28); },
+                Graphene(offset){ return spaceCostMultiplier('metalworks', offset, 2600000, 1.28); },
+                Neutronium(offset){ return spaceCostMultiplier('metalworks', offset, 165000, 1.28); }
+            },
+            effect(wiki){
+                let desc = `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div>`;
+                desc += `<div>${loc('space_metalworks_effect',[1,planetName().titan])}</div>`;
+                let split = '<div class="aTable center">';
+                for (const res of $(this)[0].res()){
+                    let boost = +((production('metalworks',res,wiki) - 1) * 100).toFixed(2);
+                    split += `<span>${loc('space_metalworks_effect2',[global.resource[res].name,boost])}</span>`;
+                }
+                desc += split + '</div>';
+                return desc;
+            },
+            // Metals the works divides its pool between, in the order the UI lists them. The effect text,
+            // the industry panel and the production loop all read this one list.
+            res(){
+                return ['Steel','Iridium','Iron','Copper','Aluminium','Titanium'];
+            },
+            s_type: 'titan',
+            support(){ return -1; },
+            powered(){ return 0; },
+            special: true,
+            action(){
+                if (payCosts($(this)[0])){
+                    incrementStruct('metalworks');
+                    powerOnNewStruct($(this)[0]);
+                    global.settings.showIndustry = true;
+                    defineIndustry();
+                    return true;
+                }
+                return false;
+            },
+            struct(){
+                let d = { count: 0, on: 0 };
+                // Start with the pool split evenly and fully assigned; an uneven split hands the spare
+                // points out one each from the top of the list so the shares always total 100.
+                let metals = $(this)[0].res();
+                let share = Math.floor(100 / metals.length);
+                let spare = 100 - (share * metals.length);
+                metals.forEach(function(res,i){ d[res] = share + (i < spare ? 1 : 0); });
+                return {
+                    d: d,
+                    p: ['metalworks','space']
                 };
             }
         },
@@ -2308,6 +2378,44 @@ const tauCetiModules = {
                 return {
                     d: { count: 1, on: 0 },
                     p: ['alien_outpost','tauceti']
+                };
+            }
+        },
+        data_decoder: {
+            id: 'tauceti-data_decoder',
+            title: loc('tau_home_data_decoder'),
+            desc(){ return `<div>${loc('tau_home_data_decoder')}</div><div class="has-text-special">${loc('requires_power_support',[loc('tau_planet',[races[global.race.species].home])])}</div>`; },
+            type: 'science',
+            reqs: { tau_home: 9 },
+            path: ['truepath'],
+            cost: {
+                Money(offset){ return spaceCostMultiplier('data_decoder', offset, 780000000, 1.25, 'tauceti'); },
+                Water(offset){ return spaceCostMultiplier('data_decoder', offset, 128000, 1.25, 'tauceti'); },
+                Orichalcum(offset){ return spaceCostMultiplier('data_decoder', offset, 24500000, 1.25, 'tauceti'); },
+                Positronium(offset){ return spaceCostMultiplier('data_decoder', offset, 13500, 1.25, 'tauceti'); },
+            },
+            effect(wiki){
+                let desc = `<div class="has-text-caution">${loc('space_used_support',[loc('tau_planet',[races[global.race.species].home])])}</div>`;
+                let quantum_lv = +(get_qlevel(wiki)).toFixed(2);
+                desc = desc + `<div>${loc('tau_home_data_decoder_effect',[global.resource.Cipher.name,loc('tech_alien_outpost'),quantum_lv])}</div>`;
+                desc = desc + `<div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
+                return desc;
+            },
+            s_type: 'tau_home',
+            support(){ return -1; },
+            powered(){ return powerCostMod(6); },
+            action(){
+                if (payCosts($(this)[0])){
+                    incrementStruct('data_decoder','tauceti');
+                    powerOnNewStruct($(this)[0]);
+                    return true;
+                }
+                return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['data_decoder','tauceti']
                 };
             }
         },
@@ -4466,10 +4574,10 @@ const razeTargets = {
     spc_red: { c: 'space', s: ['spaceport','red_tower','living_quarters','pylon','vr_center','garage','red_mine','fabrication','red_factory','biodome','exotic_lab','ziggurat','space_barracks'] },
     spc_venus: { c: 'space', s: [] },
     spc_hell: { c: 'space', s: ['geothermal','hell_smelter','spc_casino','swarm_plant'] },
-    spc_titan: { c: 'space', s: ['titan_spaceport','electrolysis','hydrogen_plant','titan_quarters','titan_mine','storehouse','titan_bank','g_factory','sam','decoder','ai_colonist'] },
+    spc_titan: { c: 'space', s: ['titan_spaceport','electrolysis','hydrogen_plant','titan_quarters','titan_mine','storehouse','titan_bank','g_factory','sam','decoder','ai_colonist','metalworks'] },
     spc_enceladus: { c: 'space', s: ['water_freighter','zero_g_lab','operating_base','munitions_depot'] },
     spc_dwarf: { c: 'space', s: ['elerium_contain','e_reactor'] },
-    tau_home: { c: 'tauceti', s: ['colony','tau_housing','pylon','tau_farm','mining_pit','alien_outpost','fusion_generator','repository','tau_factory','infectious_disease_lab','tauceti_casino','tau_cultural_center','marine_barracks'] },
+    tau_home: { c: 'tauceti', s: ['colony','tau_housing','pylon','tau_farm','mining_pit','alien_outpost','fusion_generator','repository','tau_factory','infectious_disease_lab','tauceti_casino','tau_cultural_center','marine_barracks','data_decoder'] },
     tau_red: { c: 'tauceti', s: ['overseer','womling_village','womling_farm','womling_mine','womling_fun','womling_lab','antimatter_reactor','womling_rangers'] }
 };
 
@@ -4605,12 +4713,12 @@ function zFleetTargets(){
 // them. Only the two smallest are in service; the rest are written out and switched off, waiting for a
 // condition to be dropped in where the false is.
 const zFleetHulls = {
-    corvette:      { avail(){ return true; },  horde(){ return 250; } },
-    frigate:       { avail(){ return true; },  horde(){ return 600; } },
-    destroyer:     { avail(){ return global.tech['resettle'] && global.tech.resettle >= 11 ? true : false; }, horde(){ return 1250; } },
-    cruiser:       { avail(){ return false; }, horde(){ return 3000; } },
-    battlecruiser: { avail(){ return false; }, horde(){ return 7500; } },
-    dreadnought:   { avail(){ return false; }, horde(){ return 18000; } }
+    corvette:      { avail(){ return true; },  horde(){ return 350; } },
+    frigate:       { avail(){ return true; },  horde(){ return 825; } },
+    destroyer:     { avail(){ return global.tech['resettle'] && global.tech.resettle >= 11 ? true : false; }, horde(){ return 1700; } },
+    cruiser:       { avail(){ return false; }, horde(){ return 4100; } },
+    battlecruiser: { avail(){ return false; }, horde(){ return 10300; } },
+    dreadnought:   { avail(){ return false; }, horde(){ return 24750; } }
 };
 
 // The classes cleared to fly right now.
@@ -4634,7 +4742,7 @@ const zFleetDelayMin = 10;      // game days after the trigger before the first 
 const zFleetDelayMax = 25;
 const zFleetRampDays = 150;     // days of raiding before launches and cargoes reach full strength
 const zFleetOddsStart = 0.08;   // chance of a launch on the first day
-const zFleetOddsEnd = 0.55;     // ...and once the ramp is complete
+const zFleetOddsEnd = 0.40;     // ...and once the ramp is complete.
 const zFleetLoadStart = 0.25;   // share of a hull's cargo that lands on the first day
 
 // The one scripted sortie: days after Titan comes under threat, then where it goes and what flies it.

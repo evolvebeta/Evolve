@@ -1740,6 +1740,18 @@ const extraInformation = {
     alien_outpost: [
         loc(`wiki_tech_building_unlock`,[loc('tech_alien_outpost')])
     ],
+    data_decoder: [
+        loc(`wiki_tech_building_unlock`,[loc('tech_data_decoder')])
+    ],
+    dual_replicator: [
+        loc(`tech_dual_replicator_effect`)
+    ],
+    metalworks: [
+        loc(`wiki_tech_building_unlock`,[loc('space_metalworks_title')])
+    ],
+    positronium_electrolysis: [
+        loc(`wiki_tech_positronium_electrolysis`,[loc('space_electrolysis_title')])
+    ],
     jumpgates: [
         loc(`wiki_tech_building_unlock`,[loc('tau_jump_gate')]),
         loc(`wiki_tech_building_unlock`,[loc('tau_jump_gate')])

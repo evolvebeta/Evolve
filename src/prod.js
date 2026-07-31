@@ -1,4 +1,4 @@
-import { global, p_on } from './vars.js';
+import { global, p_on, support_on } from './vars.js';
 import { biomes, traits, fathomCheck } from './races.js';
 import { govRelationFactor, govEffect } from './civics.js';
 import { jobScale, teamsterCap } from './jobs.js';
@@ -197,6 +197,23 @@ export function production(id,val,wiki){
         {
             return 1.8;
         }
+        case 'metalworks':
+        {
+            // One pool of refining capacity, 1% of it per colonist per running works, divided between the
+            // four metals by whatever split the industry panel is set to. Returns the multiplier for the
+            // metal asked for, so raising one metal's share is always paid for out of the others.
+            let works = wiki ? (global.space?.metalworks?.on ?? 0) : (support_on['metalworks'] || 0);
+            if (!global.space['metalworks'] || works <= 0){ return 1; }
+            let share = global.space.metalworks.hasOwnProperty(val) ? global.space.metalworks[val] : 0;
+            if (share <= 0){ return 1; }
+            // Colonists counted exactly as the graphene factory above counts them, AI colonists included.
+            let titan_colonists = p_on['ai_colonist'] ? global.civic.titan_colonist.workers + jobScale(p_on['ai_colonist']) : global.civic.titan_colonist.workers;
+            let pool = 0.01 * titan_colonists * works;
+            if (global.race['high_pop']){
+                pool = highPopAdjust(pool);
+            }
+            return 1 + (pool * share / 100);
+        }
         case 'harvester':
         {
             switch (val){
@@ -254,6 +271,14 @@ export function production(id,val,wiki){
                 {
                     let base = highPopAdjust(0.12);
                     return base * (100 - (global.space['titan_mine'] ? global.space.titan_mine.ratio : 50)) / 100;
+                }
+                case 'stone':
+                {
+                    return global.tech['resettle'] ? highPopAdjust(0.04) : 0;
+                }
+                case 'chrysotile':
+                {
+                    return global.tech['resettle'] && global.resource.Chrysotile.display ? highPopAdjust(0.03) : 0;
                 }
             }
         }

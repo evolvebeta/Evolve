@@ -11,7 +11,7 @@ import { renderSpace, planetName, int_fuel_adjust } from './space.js';
 import { drawHellObservations } from './portal.js';
 import { setOrbits, drawShipYard, jumpGateShutdown, jumpGateRestart } from './truepath.js';
 import { arpa } from './arpa.js';
-import { setPowerGrid, defineIndustry, addSmelter, setupRituals } from './industry.js';
+import { setPowerGrid, defineIndustry, addSmelter, setupRituals, altReplicatorRes } from './industry.js';
 import { defineGovernor, removeTask } from './governor.js';
 import { big_bang, cataclysm_end, descension, aiApocalypse } from './resets.js';
 
@@ -2191,6 +2191,27 @@ const techs = {
             Soul_Gem(){ return 2; }
         },
         effect: loc('tech_hellfire_furnace_effect'),
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
+    positronium_furnace: {
+        id: 'tech-positronium_furnace',
+        title(){ return loc('tech_positronium_furnace',[global.resource.Positronium.name]); },
+        desc(){ return loc('tech_positronium_furnace',[global.resource.Positronium.name]); },
+        category: 'mining',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { smelting: 6, resettle: 13 },
+        grant: ['smelting',7],
+        cost: {
+            Knowledge(){ return 23000000; },
+            Positronium(){ return 20000; }
+        },
+        effect(){ return loc('tech_positronium_furnace_effect',[global.resource.Positronium.name]); },
         action(){
             if (payCosts($(this)[0])){
                 return true;
@@ -4873,7 +4894,7 @@ const techs = {
                     }, 4000);
                 }
                 else {
-                    global.race['replicator'] = { res: 'Stone', pow: 1 };
+                    global.race['replicator'] = { res: 'Stone', res2: 'Stone', pow: 1, ratio: 100 };
                 }
                 return true;
             }
@@ -12031,6 +12052,48 @@ const techs = {
             return false;
         }
     },
+    metalworks: {
+        id: 'tech-metalworks',
+        title(){ return loc('tech_metalworks',[planetName().titan]); },
+        desc(){ return loc('tech_metalworks',[planetName().titan]); },
+        category: 'mining',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { titan: 9, resettle: 13 },
+        grant: ['titan',10],
+        cost: {
+            Knowledge(){ return 23750000; }
+        },
+        effect(){ return loc('tech_metalworks_effect',[planetName().titan]); },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.space.spc_titan.metalworks);
+                return true;
+            }
+            return false;
+        }
+    },
+    positronium_electrolysis: {
+        id: 'tech-positronium_electrolysis',
+        title(){ return loc('tech_positronium_electrolysis',[global.resource.Positronium.name]); },
+        desc(){ return loc('tech_positronium_electrolysis',[global.resource.Positronium.name]); },
+        category: 'power_generation',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { titan: 10 },
+        grant: ['titan',11],
+        cost: {
+            Knowledge(){ return 25000000; },
+            Positronium(){ return 24000; }
+        },
+        effect(){ return loc('tech_positronium_electrolysis_effect',[loc('space_electrolysis_title'),planetName().titan,global.resource.Positronium.name]); },
+        action(){
+            if (payCosts($(this)[0])){
+                return true;
+            }
+            return false;
+        }
+    },
     ai_optimizations: {
         id: 'tech-ai_optimizations',
         title: loc('tech_ai_optimizations'),
@@ -13521,6 +13584,60 @@ const techs = {
             return false;
         }
     },
+    data_decoder: {
+        id: 'tech-data_decoder',
+        title: loc('tech_data_decoder'),
+        desc: loc('tech_data_decoder'),
+        category: 'science',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { tau_home: 8, resettle: 13 },
+        grant: ['tau_home',9],
+        cost: {
+            Knowledge(){ return 24000000; }
+        },
+        effect(){ return loc('tech_data_decoder_effect',[global.resource.Cipher.name, loc('tech_alien_outpost')]); },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.tauceti.tau_home.data_decoder);
+                return true;
+            }
+            return false;
+        }
+    },
+    dual_replicator: {
+        id: 'tech-dual_replicator',
+        title: loc('tech_dual_replicator'),
+        desc: loc('tech_dual_replicator'),
+        category: 'special',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { tau_home: 9, replicator: 1 },
+        grant: ['replicator',2],
+        cost: {
+            Knowledge(){ return 30000000; }
+        },
+        effect(){ return loc('tech_dual_replicator_effect'); },
+        action(){
+            if (payCosts($(this)[0])){
+                // The second line starts with none of the power, so nothing changes until the player
+                // moves the split off 100/0 themselves. It still opens on a different resource to the
+                // first, because the two lines are never allowed to sit on the same one.
+                if (global.race['replicator']){
+                    if (!global.race.replicator.hasOwnProperty('res2') || global.race.replicator.res2 === global.race.replicator.res){
+                        global.race.replicator['res2'] = altReplicatorRes(global.race.replicator.res);
+                    }
+                    global.race.replicator['ratio'] = 100;
+                }
+                return true;
+            }
+            return false;
+        },
+        post(){
+            defineIndustry();
+            defineGovernor();
+        }
+    },
     weasels: {
         id: 'tech-weasels',
         title: loc('tech_weasels'),
@@ -14737,7 +14854,7 @@ const techs = {
         effect(){ return global.race.universe === 'antimatter' ? loc('tech_antireplicator_effect') : loc('tech_replicator_effect'); },
         action(){
             if (payCosts($(this)[0])){
-                global.race['replicator'] = { res: 'Unobtainium', pow: 1 };
+                global.race['replicator'] = { res: 'Unobtainium', res2: 'Unobtainium', pow: 1, ratio: 100 };
                 return true;
             }
             return false;
