@@ -1,4 +1,4 @@
-import { save, global, seededRandom, webWorker, keyMultiplier, sizeApproximation, p_on, support_on, int_on, gal_on } from './vars.js';
+import { save, global, seededRandom, webWorker, keyMultiplier, sizeApproximation, p_on, support_on, int_on, gal_on, srSpeak } from './vars.js';
 import { vBind, messageQueue, clearElement, popover, clearPopper, flib, powerModifier, powerCostMod, calcPrestige, spaceCostMultiplier, darkEffect, eventActive, calcGenomeScore, randomKey, getTraitDesc, deepClone, get_qlevel, timeFormat } from './functions.js';
 import { unlockAchieve, unlockFeat, universeAffix } from './achieve.js';
 import { races, traits, genus_def, genusVars, planetTraits, biomes, traitCostMod } from './races.js';
@@ -13,6 +13,8 @@ import { defineGovernor, govActive } from './governor.js';
 import { ascend, terraform, apotheosis } from './resets.js';
 import { loadTab } from './index.js';
 import { loc } from './locale.js';
+
+export const spaceSectors = ['space','interstellar','galaxy','portal','tauceti','eden'];
 
 const spaceProjects = {
     spc_home: {
@@ -1074,6 +1076,7 @@ const spaceProjects = {
                 if (global.race['high_pop']){
                     fab = highPopAdjust(fab);
                 }
+                fab = +fab.toFixed(2);
                 return `<div class="has-text-caution">${loc('space_used_support',[planetName().red])}</div><div>${loc('space_red_fabrication_effect1',[jobScale(1)])}</div>${c_worker}<div>${loc('space_red_fabrication_effect2',[fab])}</div>`;
             },
             s_type: 'red',
@@ -1250,14 +1253,14 @@ const spaceProjects = {
             },
             action(args){
                 if (payCosts($(this)[0])){
+                    incrementStruct('university','city');
+                    global.space.red_university.count = global.city.university.count;
                     let gain = global.tech['science'] && global.tech['science'] >= 8 ? 700 : 500;
                     if (global.tech['supercollider']){
                         let ratio = global.tech['particles'] && global.tech['particles'] >= 3 ? 12.5: 25;
                         gain *= (global.tech['supercollider'] / ratio) + 1;
                     }
                     global['resource']['Knowledge'].max += gain;
-                    global.city.university.count++;
-                    global.space.red_university.count = global.city.university.count;
                     global.civic.professor.display = true;
                     global.civic.professor.max = jobScale(global.city.university.count);
                     return true;
@@ -1905,11 +1908,9 @@ const spaceProjects = {
                 }
             },
             action(args){
-                if (payCosts($(this)[0])){
-                    if (global.space.jump_gate.count < 100){
-                        global.space.jump_gate.count++;
-                        return true;
-                    }
+                if (global.space.jump_gate.count < 100 && payCosts($(this)[0])){
+                    incrementStruct('jump_gate','space');
+                    return true;
                 }
                 return false;
             },
@@ -2838,7 +2839,7 @@ const spaceProjects = {
             },
             action(args){
                 if (global.space.mass_relay.count < 100 && payCosts($(this)[0])){
-                    global.space.mass_relay.count++;
+                    incrementStruct('mass_relay','space');
                     if (global.space.mass_relay.count >= 100){
                         global.tech['outer'] = 6;
                         initStruct(spaceProjects.spc_dwarf.m_relay);
@@ -7052,7 +7053,7 @@ export function checkRequirements(action_set,region,action){
     if (action_set[region][action].hasOwnProperty('path') && !action_set[region][action].path.includes(path)){
         return false;
     }
-    var isMet = true;
+    let isMet = true;
     Object.keys(action_set[region][action].reqs).forEach(function (req){
         if (!global.tech[req] || global.tech[req] < action_set[region][action].reqs[req]){
             isMet = false;
@@ -7787,11 +7788,22 @@ export function setUniverse(){
 
         $('#evolution').append(parent);
 
+        let srDescButton = $(`<a class="is-sr-only" role="button">${universe_types[universe].name} description</a>`);
+        $('#evolution').append(srDescButton);
+
         $('#'+id).on('click',function(){
             global.race['universe'] = universe;
             clearElement($('#evolution'));
             genPlanets();
             clearPopper();
+        });
+
+        srDescButton.on('click',function(){
+            let desc = '';
+            desc = desc + universe_types[universe].name + ' universe: ';
+            desc = desc + universe_types[universe].desc + '. ';
+            desc = desc + universe_types[universe].effect + '.';
+            srSpeak(desc);
         });
 
         popover(id,function(obj){
@@ -7871,6 +7883,9 @@ export function ascendLab(hybrid,wiki){
         global.settings.spaceTabs = 0;
     }
 
+    if (document.getElementById('celestialLab')){
+        return;
+    }
     let unlockedTraits = {};
     let lab = $(`<div id="celestialLab" class="celestialLab"></div>`);
 

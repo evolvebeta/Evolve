@@ -8,10 +8,10 @@ import { defineJobs, job_desc, loadFoundry, farmerValue, jobName, jobScale, work
 import { defineIndustry, f_rate, manaCost, setPowerGrid, gridEnabled, gridDefs, nf_resources, replicator, replicatorLines, luxGoodPrice, smelterUnlocked, smelterFuelConfig, setupRituals, maxRitualNum, ritual_types } from './industry.js';
 import { checkControlling, garrisonSize, armyRating, govTitle, govCivics, govEffect, weaponTechModifer } from './civics.js';
 import { actions, updateDesc, checkTechRequirements, drawEvolution, BHStorageMulti, storageMultipler, checkAffordable, checkPowerRequirements, drawCity, drawTech, gainTech, housingLabel, updateQueueNames, wardenLabel, planetGeology, resQueue, bank_vault, start_cataclysm, orbitDecayed, postBuild, skipRequirement, structName, templeCount, initStruct, casino_vault, casinoEarn, doCallbacks, cLabels } from './actions.js';
-import { renderSpace, convertSpaceSector, fuel_adjust, int_fuel_adjust, zigguratBonus, planetName, genPlanets, setUniverse, universe_types, gatewayStorage, piracy, spaceTech, universe_affixes, galaxyRegions, gatewayArmada, galaxy_ship_types } from './space.js';
+import { renderSpace, convertSpaceSector, fuel_adjust, int_fuel_adjust, zigguratBonus, planetName, genPlanets, setUniverse, universe_types, gatewayStorage, piracy, spaceTech, universe_affixes, galaxyRegions, gatewayArmada, galaxy_ship_types, spaceSectors } from './space.js';
 import { renderFortress, bloodwar, soulForgeSoldiers, hellSupression, genSpireFloor, mechRating, mechCollect, updateMechbay, hellguard, buildMechQueue, mechCost } from './portal.js';
 import { asphodelResist, mechStationEffect, renderEdenic } from './edenic.js';
-import { renderTauCeti, syndicate, shipFuelUse, spacePlanetStats, genXYcoord, shipCrewSize, tpStorageMultiplier, tritonWar, sensorRange, erisWar, calcAIDrift, drawMap, tauEnabled, shipCosts, buildTPShipQueue, trackInfestation, salvageShip, randomCoord, atShipyard, pinSalvage } from './truepath.js';
+import { renderTauCeti, syndicate, shipFuelUse, spacePlanetStats, genXYcoord, shipCrewSize, tpStorageMultiplier, tritonWar, sensorRange, erisWar, calcAIDrift, drawMap, tauEnabled, shipCosts, buildTPShipQueue, trackInfestation, salvageShip, randomCoord, atShipyard, pinSalvage, womlingVillagePop, womlingFarmFood, womlingArtisans, womlingArtisansPer } from './truepath.js';
 import { arpa, buildArpa, sequenceLabs } from './arpa.js';
 import { events, eventList } from './events.js';
 import { defineGovernor, govern, govActive, removeTask } from './governor.js';
@@ -2225,14 +2225,14 @@ function fastLoop(){
         }
 
         if (global.city['mill'] && global.tech['agriculture'] && global.tech['agriculture'] >= 6){
-            let power = powerModifier(global.city.mill.on * actions.city.mill.powered());
+            let power = global.city.mill.on * actions.city.mill.powered();
             max_power += power;
             power_grid -= power;
             power_generated[loc('city_mill_title2')] = -(power);
         }
 
         if (global.city['windmill'] && global.tech['wind_plant']){
-            let power = powerModifier(global.city.windmill.count * actions.city.windmill.powered());
+            let power = global.city.windmill.count * actions.city.windmill.powered();
             max_power += power;
             power_grid -= power;
             power_generated[loc('city_mill_title2')] = -(power);
@@ -3360,11 +3360,14 @@ function fastLoop(){
         if (global.civic.govern.type === 'anarchy'){
             stress /= 2;
         }
-        if (global.civic.govern.type === 'autocracy'){
+        else if (global.civic.govern.type === 'autocracy'){
             stress *= 1 + (govEffect.autocracy()[0] / 100);
         }
-        if (global.civic.govern.type === 'socialist'){
+        else if (global.civic.govern.type === 'socialist'){
             stress *= 1 + (govEffect.socialist()[2] / 100);
+        }
+        else if (global.civic.govern.type === 'dictator'){
+            stress *= 1 + (govEffect.dictator()[0] / 100);
         }
         if (global.race['emotionless']){
             stress *= 1 - (traits.emotionless.vars()[1] / 100);
@@ -3375,9 +3378,6 @@ function fastLoop(){
             }
         }
 
-        if (global.civic.govern.type === 'dictator'){
-            stress *= 1 + (govEffect.dictator()[0] / 100);
-        }
 
         stress = +(stress).toFixed(1);
         global.city.morale.stress = stress;
@@ -3879,7 +3879,7 @@ function fastLoop(){
             if (biodome > 0){
                 breakdown.p['Food'][`ᄂ${loc('space_syndicate')}+0`] = -((1 - red_synd) * 100) + '%';
                 breakdown.p['Food'][`ᄂ${loc('space_red_ziggurat_title')}+0`] = ((zigVal - 1) * 100) + '%';
-                breakdown.p['Food'][`ᄂ${loc('sign_virgo')}+0`] = ((virgo - 1) * 100) + '%';
+                breakdown.p['Food'][`ᄂ${loc('sign_virgo')}+1`] = ((virgo - 1) * 100) + '%';
             }
 
             let generated = food_base + (hunting * q_multiplier) + (biodome * red_synd * zigVal * virgo);
@@ -5019,10 +5019,6 @@ function fastLoop(){
             }
             if (global.civic.govern.type === 'socialist'){
                 factory_output *= 1 + (govEffect.socialist()[1] / 100);
-            }
-            let dirtVal = govActive('dirty_jobs',2);
-            if (dirtVal){
-                factory_output *= 1 + (dirtVal / 100);
             }
 
             let powered_mult = 1;
@@ -6294,23 +6290,21 @@ function fastLoop(){
         if (global.resource.Mana.display){
             if (global.race['casting']){
                 ritual_types.forEach(function (spell){
-                    if (global.race.casting[spell]){
-                        if (global.race.casting[spell] > 0){
-                            const consume_mana = manaCost(global.race.casting[spell]);
-                            const consume_mana_dt = consume_mana * time_multiplier;
-                            if (consume_mana_dt > global.resource.Mana.amount){
-                                active_rituals[spell] = maxRitualNum(global.resource.Mana.amount, time_multiplier);
-                            }
-                            else {
-                                active_rituals[spell] = global.race.casting[spell];
-                            }
-                            breakdown.p.consume.Mana[loc(`modal_pylon_spell_${spell}`)] = -(consume_mana);
-
-                            modRes('Mana', -(consume_mana_dt));
+                    if (global.race.casting[spell] && global.race.casting[spell] > 0){
+                        const consume_mana = manaCost(global.race.casting[spell]);
+                        const consume_mana_dt = consume_mana * time_multiplier;
+                        if (consume_mana_dt > global.resource.Mana.amount){
+                            active_rituals[spell] = maxRitualNum(global.resource.Mana.amount, time_multiplier);
                         }
                         else {
-                            active_rituals[spell] = 0;
+                            active_rituals[spell] = global.race.casting[spell];
                         }
+                        breakdown.p.consume.Mana[loc(`modal_pylon_spell_${spell}`)] = -(consume_mana);
+
+                        modRes('Mana', -(consume_mana_dt));
+                    }
+                    else {
+                        active_rituals[spell] = 0;
                     }
                 });
             }
@@ -8473,6 +8467,7 @@ function fastLoop(){
 
 function midLoop(){
     const astroSign = astrologySign();
+    let blockGeneBuffer = false;
     if (global.race.species === 'protoplasm'){
         let base = 100;
         if (global.stats.achieve['mass_extinction'] && global.stats.achieve['mass_extinction'].l > 1){
@@ -10521,14 +10516,16 @@ function midLoop(){
                 morale += 30 + (support_on['womling_fun'] * actions.tauceti.tau_red.womling_fun.val());
             }
 
-            let vil_pop = global.tech['womling_pop'] && global.tech.womling_pop >= 2 ? 6 : 5;
+            let vil_pop = womlingVillagePop();
             pop = support_on['womling_village'] * vil_pop;
             let farmers = support_on['womling_farm'] * 2;
             if (farmers > pop){ farmers = pop; }
-            let crop_per_farmer = global.tech['womling_pop'] ? 8 : 6;
-            if (global.tech['womling_gene']){ crop_per_farmer += 2; }
-            if (pop > farmers * crop_per_farmer){
-                pop = farmers * crop_per_farmer;
+            // Two farmers work a farm, so this is half whatever the farm advertises it can feed.
+            let crop_per_farmer = womlingFarmFood() / 2;
+            // Floored because a farm capped down to an odd number of farmers would otherwise leave a
+            // half a womling in the population.
+            if (pop > Math.floor(farmers * crop_per_farmer)){
+                pop = Math.floor(farmers * crop_per_farmer);
             }
             let unemployed = pop - farmers - injured;
 
@@ -10559,6 +10556,14 @@ function midLoop(){
             if (miners > unemployed){ miners = unemployed; }
             unemployed -= miners;
 
+            // Artisans are staffed last, after the jobs that feed and supply the colony.
+            let artisan = 0;
+            if (support_on['womling_craftworks']){
+                artisan = support_on['womling_craftworks'] * womlingArtisansPer();
+                if (artisan > unemployed){ artisan = unemployed; }
+                unemployed -= artisan;
+            }
+
             let heal_chance = global.tech['tech_womling_firstaid'] ? 3 : 4;
             if (Math.rand(0,10) === 0){
                 let raw = Math.rand(0,miners + scientist);
@@ -10578,6 +10583,9 @@ function midLoop(){
             }
             if (global.tauceti.hasOwnProperty('womling_lab')){
                 global.tauceti.womling_lab.scientist = scientist;
+            }
+            if (global.tauceti.hasOwnProperty('womling_craftworks')){
+                global.tauceti.womling_craftworks.artisan = artisan;
             }
 
             loyal -= miners;
@@ -10782,6 +10790,23 @@ function midLoop(){
         else if (global.race['servants']){
             global.race.servants['force_scavenger'] = not_scavanger_jobs_avail === 0 ? true : false;
             global.race.servants.used = total_servants;
+        }
+
+        // Womling artisans lend a skilled pair of hands each. They are temporary in the sense that the
+        // capacity follows the job — lose the craftworks or the population and it goes away — so the
+        // permanent allowance is kept in sbase and the total rebuilt from it every tick.
+        {
+            let artisans = womlingArtisans();
+            if (global.race['servants']){
+                if (!global.race.servants.hasOwnProperty('sbase')){
+                    global.race.servants['sbase'] = global.race.servants.smax || 0;
+                }
+                global.race.servants.smax = global.race.servants.sbase + artisans;
+            }
+            else if (artisans > 0){
+                // No servants of your own yet — the artisans alone are enough to open the workshop.
+                global.race['servants'] = { max: 0, used: 0, sbase: 0, smax: artisans, sused: 0, jobs: {}, sjobs: {}, force_scavenger: false };
+            }
         }
 
         if (global.race['servants'] && global.race.servants.hasOwnProperty('smax') && global.race.servants.smax > 0){
@@ -11101,9 +11126,8 @@ function midLoop(){
             }
         });
 
-        let spc_locations = ['space','interstellar','galaxy','portal','tauceti','eden'];
-        for (let i=0; i<spc_locations.length; i++){
-            let location = spc_locations[i];
+        for (let i=0; i<spaceSectors.length; i++){
+            let location = spaceSectors[i];
             Object.keys(actions[location]).forEach(function (region){
                 Object.keys(actions[location][region]).forEach(function (action){
                     let s_region = actions[location][region][action] && actions[location][region][action].hasOwnProperty('region') ? actions[location][region][action].region : location;
@@ -11430,11 +11454,10 @@ function midLoop(){
             global.race.casting.total = total;
         }
 
-        let blockGeneBuffer = false;
         if (global.tech['r_queue'] && global.r_queue.display){
             let idx = -1;
             let c_action = false;
-            let stop = false;
+            let stop = global.r_queue.pause;
             let time = 0; let untime = 0;
             let spent = { t: {t:0,rt:0}, r: {}, rr: {}, id: {}};
             for (let i=0; i<global.r_queue.queue.length; i++){
@@ -11445,7 +11468,7 @@ function midLoop(){
 
                 if (t_action['grant'] && global.tech[t_action.grant[0]] && global.tech[t_action.grant[0]] >= t_action.grant[1]){
                     global.r_queue.queue.splice(i,1);
-                    clearPopper(`rq${c_action.id}`);
+                    clearPopper(`rq${t_action.id}`);
                     break;
                 }
                 else {
@@ -11524,10 +11547,6 @@ function midLoop(){
             }
         }
 
-        if (global.arpa.sequence && global.arpa.sequence['auto'] && global.tech['genetics'] && global.tech['genetics'] >= 8){
-            buildGene(blockGeneBuffer);
-        }
-
         if (p_on['soul_forge']){
             vBind({el: `#fort`},'update');
         }
@@ -11536,15 +11555,15 @@ function midLoop(){
     }
 
     if (global.tech['queue'] && global.queue.display){
+        const qAny = global.settings.qAny ? true : false; // Coerce to boolean and cache to avoid repeated Vue callbacks.
         let idx = -1;
         let c_action = false;
-        let stop = false;
-        let deepScan = ['space','interstellar','galaxy','portal','tauceti','eden'];
+        let stop = global.queue.pause;
         let time = 0;
         let spent = { t: {t:0,rt:0}, r: {}, rr: {}, id: {}};
         let arpa = false;
         for (let i=0; i<global.queue.queue.length; i++){
-            if (global.settings.qAny){
+            if (qAny){
                 spent = { t: {t:0,rt:0}, r: {}, rr: {}, id: {}};
                 time = 0;
             }
@@ -11575,7 +11594,7 @@ function midLoop(){
                     doNotAdjustCost: true,
                 };
             }
-            else if (deepScan.includes(struct.action)){
+            else if (spaceSectors.includes(struct.action)){
                 for (let region in actions[struct.action]) {
                     if (actions[struct.action][region][struct.type]){
                         t_action = actions[struct.action][region][struct.type];
@@ -11605,15 +11624,26 @@ function midLoop(){
                     struct['time'] = -1;
                 }
 
-                if (arpaTimeCheck(t_action, 0.01) >= 0){
-                    if (global.settings.qAny && !global.queue.pause && struct['time'] > 1){
-                        buildArpa(struct.type,100,true);
-                    }
-                    else if (!stop){
+                if (!stop){
+                    const segment_info = arpaTimeCheck(t_action, 0.01, false, true);
+                    const segment_time = segment_info.t;
+
+                    // Ordered building queue: always stop on the first struct or project.
+                    // Unordered building queue: entire remainder of ARPA project can be completed now
+                    if (!qAny || struct['time'] === 0){
                         c_action = t_action;
                         idx = i;
                         arpa = true;
                         stop = true;
+                    }
+                    // Unordered building queue: at least 1% of ARPA project can be completed now
+                    else if (qAny && segment_time === 0){
+                        // Build in parallel without blocking later structs or projects from also making progress
+                        buildArpa(struct.type, 100, true);
+                    }
+                    // If blocking resource is Knowledge and segment time remaining is less than 1 second, then block gene assembly
+                    if (segment_info.r === 'Knowledge' && segment_time > 0 && segment_time <= 1){
+                        blockGeneBuffer = true;
                     }
                 }
             }
@@ -11627,14 +11657,17 @@ function midLoop(){
                             c_action = t_action;
                             idx = i;
                             arpa = false;
-                            if (global.settings.qAny){
+                            if (qAny){
                                 stop = true;
                             }
                         }
                         else {
+                            if (!stop && t_time <= 1 && t_action.cost.hasOwnProperty('Knowledge')){
+                                blockGeneBuffer = true;
+                            }
                             time += t_time;
                         }
-                        if (!global.settings.qAny){
+                        if (!qAny){
                             stop = true;
                         }
                         struct['time'] = time;
@@ -11656,7 +11689,7 @@ function midLoop(){
                     struct['time'] = -1;
                 }
             }
-            struct.qa = global.settings.qAny ? true : false;
+            struct.qa = qAny;
         }
         if (idx >= 0 && c_action && !global.queue.pause){
             let triggerd = false;
@@ -11772,6 +11805,10 @@ function midLoop(){
             global.queue.queue = merged_queue;
             buildQueue();
         }
+    }
+
+    if (global?.arpa?.sequence?.auto && global.tech?.genetics >= 8){
+        buildGene(blockGeneBuffer);
     }
 
     resourceAlt();
@@ -12098,8 +12135,12 @@ function longLoop(){
 
         // Soldier Healing
         if (global.civic.garrison.wounded > 0){
-            let healed = global.race['regenerative'] ? traits.regenerative.vars()[0] : 1;
+            let healed = jobScale(global.race['regenerative'] ? traits.regenerative.vars()[0] : 1);
 
+            let fathom = fathomCheck('troll');
+            if (fathom > 0){
+                healed += Math.round(jobScale(20 * traits.regenerative.vars(1)[0] * fathom));
+            }
             let hc = global.city['hospital'] ? global.city.hospital.count : 0;
             if (global.race['orbit_decayed'] && global.race['truepath']){
                 hc = Math.min(support_on['operating_base'],p_on['operating_base']);
@@ -12130,7 +12171,7 @@ function longLoop(){
                 hc >= 20 ? hc *= (1 + traits.cannibalize.vars(1)[0] / 100 * mantisFathom) : hc += Math.floor(traits.cannibalize.vars(1)[0] / 5 * mantisFathom);
             }
             if (global.race['high_pop']){
-                hc *= traits.high_pop.vars()[2]
+                hc *= traits.high_pop.vars()[2];
             }
             let painVal = govActive('nopain',0);
             if (painVal){
@@ -12138,10 +12179,6 @@ function longLoop(){
             }
             if(global.city.banquet && global.city.banquet.on && global.city.banquet.level >= 2){
                 hc *= 1 + (global.city.banquet.strength ** 0.65) / 100;
-            }
-            let fathom = fathomCheck('troll');
-            if (fathom > 0){
-                hc += Math.round(20 * traits.regenerative.vars(1)[0] * fathom);
             }
             let max_bound = 20;
             if (global.race['slow_regen']){
@@ -12660,7 +12697,10 @@ function longLoop(){
             }
         }
 
-        if (!global.race['warlord'] && (global.stats.matrix > 0 || global.stats.retire > 0) && !global.race['servants'] && Math.rand(0,25) === 0){
+        // Womling artisans can create the servants record before this ever fires, so the gate is on the
+        // prestige grant itself rather than on the record existing — otherwise an artisan workshop would
+        // quietly cost the player their prestige servants.
+        if (!global.race['warlord'] && (global.stats.matrix > 0 || global.stats.retire > 0) && !(global.race['servants'] && global.race.servants['prestige']) && Math.rand(0,25) === 0){
             let womlings = Math.min(global.stats.matrix,100) + Math.min(global.stats.retire,100) + Math.min(global.stats.eden,100);
             let skilled = Math.min(Math.min(global.stats.matrix, global.stats.retire),100);
             skilled += global.stats.achieve['pathfinder'] && global.stats.achieve.pathfinder.l >= 5 ? 2 : 0;
@@ -12672,15 +12712,26 @@ function longLoop(){
                     }
                 });
             }
-            global.race['servants'] = {
-                max: womlings,
-                used: 0,
-                smax: skilled,
-                sused: 0,
-                jobs: {},
-                sjobs: {},
-                force_scavenger: false
-            };
+            if (global.race['servants']){
+                // A record already opened by the artisans: fold the prestige allowance into it rather
+                // than replacing it, so neither source is lost.
+                global.race.servants.max += womlings;
+                global.race.servants['sbase'] = (global.race.servants['sbase'] || 0) + skilled;
+                global.race.servants['prestige'] = true;
+            }
+            else {
+                global.race['servants'] = {
+                    max: womlings,
+                    used: 0,
+                    sbase: skilled,
+                    smax: skilled,
+                    sused: 0,
+                    jobs: {},
+                    sjobs: {},
+                    force_scavenger: false,
+                    prestige: true
+                };
+            }
             messageQueue((womlings + skilled) === 1 ? loc('civics_servants_msg1') : loc('civics_servants_msg2',[womlings + skilled]),'caution',false,['events','major_events']);
         }
 
@@ -13239,7 +13290,8 @@ function longLoop(){
         }
 
         if (global.race['living_materials']){
-            ['city','space','interstellar','galaxy','portal','eden','tauceti'].forEach(function(sector){
+            const structSectors = ['city'].concat(spaceSectors);
+            structSectors.forEach(function(sector){
                 Object.keys(global[sector]).forEach(function(struct){
                     if (global[sector][struct].hasOwnProperty('l_m')){
                         global[sector][struct].l_m++;

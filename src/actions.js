@@ -7,7 +7,7 @@ import { defineResources, unlockCrates, unlockContainers, crateValue, containerV
 import { loadFoundry, defineJobs, jobScale, workerScale, job_desc } from './jobs.js';
 import { loadIndustry, defineIndustry, nf_resources, gridDefs, addSmelter, cancelRituals } from './industry.js';
 import { defineGovernment, defineGarrison, buildGarrison, commisionGarrison, foreignGov, armyRating, garrisonSize, govEffect } from './civics.js';
-import { spaceTech, interstellarTech, galaxyTech, incrementStruct, universe_affixes, renderSpace, piracy, fuel_adjust, isStargateOn } from './space.js';
+import { spaceTech, interstellarTech, galaxyTech, incrementStruct, universe_affixes, renderSpace, piracy, fuel_adjust, isStargateOn, spaceSectors, checkRequirements } from './space.js';
 import { renderFortress, fortressTech, warlordSetup } from './portal.js';
 import { edenicTech, renderEdenic } from './edenic.js';
 import { tauCetiTech, renderTauCeti, loneSurvivor } from './truepath.js';
@@ -2093,6 +2093,7 @@ export const actions = {
                 if (milVal){
                     rate *= 1 + (milVal / 100);
                 }
+                rate = +rate.toFixed(2);
                 let effect = global.tech['spy'] && global.tech['spy'] >= 3 ? `<div>${loc('city_boot_camp_effect',[rate])}</div><div>${loc('city_boot_camp_effect2',[10])}</div>` : `<div>${loc('city_boot_camp_effect',[rate])}</div>`;
                 if (global.race['artifical'] && !global.race['orbit_decayed']){
                     let repair = global.tech['medic'] || 1;
@@ -3286,20 +3287,30 @@ export const actions = {
             },
             effect(wiki){
                 let xeno = global.tech['monument'] && global.tech.monument >= 3 && isStargateOn(wiki) ? 3 : 1;
-                let amp = (global.civic.govern.type === 'corpocracy' ? 2 : 1) * xeno;
-                let cas = (global.civic.govern.type === 'corpocracy' ? 10 : 5) * xeno;
-                let mon = (global.civic.govern.type === 'corpocracy' ? 4 : 2) * xeno;
+                let modifier = xeno;
+                if (global.civic.govern.type === 'corpocracy'){
+                    modifier *= 1 + (govEffect.corpocracy()[2] / 100);
+                }
+                else if (global.civic.govern.type === 'socialist'){
+                    modifier *= 1 - (govEffect.socialist()[3] / 100);
+                }
+
+                let amp = +(1 * modifier).toFixed(2);
+                let cas = +(5 * modifier).toFixed(2);
+                let mon = +(2 * modifier).toFixed(2);
+                let trd = +(3 * modifier).toFixed(2);
 
                 let desc = `<div class="has-text-caution">${loc('city_tourist_center_effect1',[global.resource.Food.name])}</div>`;
                 desc += `<div>${loc('city_tourist_center_effect2',[amp,actions.city.amphitheatre.title()])}</div>`;
                 desc += `<div>${loc('city_tourist_center_effect2',[cas,structName('casino')])}</div>`;
                 desc += `<div>${loc('city_tourist_center_effect2',[mon,loc(`arpa_project_monument_title`)])}</div>`;
                 if (global.stats.achieve['banana'] && global.stats.achieve.banana.l >= 4){
-                    desc += `<div>${loc(`city_tourist_center_effect2`,[(global.civic.govern.type === 'corpocracy' ? 6 : 3) * xeno, loc('city_trade')])}</div>`;
+                    desc += `<div>${loc(`city_tourist_center_effect2`,[trd, loc('city_trade')])}</div>`;
                 }
                 let piousVal = govActive('pious',1);
                 if (piousVal){
-                    desc += `<div>${loc(`city_tourist_center_effect2`,[(global.civic.govern.type === 'corpocracy' ? (piousVal * 2) : piousVal) * xeno, structName('temple')])}</div>`;
+                    piousVal *= modifier;
+                    desc += `<div>${loc(`city_tourist_center_effect2`,[piousVal, structName('temple')])}</div>`;
                 }
 
                 return desc;
@@ -5893,23 +5904,15 @@ export function storageMultipler(scale = 1, wiki = false){
 }
 
 export function checkCityRequirements(action){
-    if ((global.race['kindling_kindred'] || global.race['smoldering']) && action === 'lumber'){
+    if (action === 'lumber' && (global.race['kindling_kindred'] || global.race['smoldering'])){
         return false;
     }
-    else if ((global.race['kindling_kindred'] || global.race['smoldering']) && action === 'stone'){
+    else if (action === 'stone' && (global.race['kindling_kindred'] || global.race['smoldering'])){
         return true;
     }
-    let c_path = global.race['truepath'] ? 'truepath' : 'standard';
-    if (actions.city[action].hasOwnProperty('path') && !actions.city[action].path.includes(c_path)){
-        return false;
+    else {
+        return checkRequirements(actions, 'city', action);
     }
-    var isMet = true;
-    Object.keys(actions.city[action].reqs).forEach(function (req){
-        if (!global.tech[req] || global.tech[req] < actions.city[action].reqs[req]){
-            isMet = false;
-        }
-    });
-    return isMet;
 }
 
 function checkTechPath(tech){
@@ -6831,6 +6834,9 @@ export function setPlanet(opt){
 
     $('#evolution').append(parent);
 
+    let srDescButton = $(`<a class="is-sr-only" role="button">${title} description</a>`);
+    $('#evolution').append(srDescButton);
+
     let popper = false;
     let gecked = 0;
     popover(id,function(obj){
@@ -6873,6 +6879,7 @@ export function setPlanet(opt){
             }
             title = `${traits}${biomes[biome].label} ${num}`;
             $(`#${id} .aTitle`).html(title);
+            srDescButton.html(title + ' description');
             gecked++;
             global.race.geck--;
             if (!global.race.hasOwnProperty('gecked')){
@@ -6901,6 +6908,10 @@ export function setPlanet(opt){
         }
     });
 
+    srDescButton.on('click', function() {
+        srPlanetDesc(title, biome, orbit, trait, geology, gecked);
+    });
+
     return custom ? custom : (biome === 'eden' ? 'hellscape' : biome);
 }
 
@@ -6921,6 +6932,31 @@ function planetDesc(obj,title,biome,orbit,trait,geology,gecked){
         obj.popper.append($(`<div class="has-text-special">${loc(`rejuvenated`)}</div>`));
     }
     return undefined;
+}
+
+function srPlanetDesc(title,biome,orbit,trait,geology,gecked){
+    let desc = '';
+    desc = desc + `<div>${loc('set_planet',[title,biomes[biome].label,orbit])}</div>`;
+    desc = desc + `<div>${biomes[biome].desc}</div>`;
+    if (trait.length > 0){
+        trait.forEach(function(t){
+            desc = desc + `<div>${planetTraits[t].desc}</div>`;
+        });
+    }
+
+    let pg = planetGeology(geology);
+    if (pg.length > 0){
+        // modify geology text to have it be spoken better
+        pg = pg.replaceAll(': <span', '<span');
+        pg = pg.replaceAll('</span></div>', ',</span></div>'); // add commas after each list item
+        pg = pg.replace(/,(?!.*,)/, '.'); // replace trailing comma with period
+
+        desc = desc + `<div>${pg}</div>`;
+    }
+    if (gecked && gecked > 0){
+        desc = desc + `<div class="has-text-special">${loc(`rejuvenated`)}</div>`;
+    }
+    srSpeak(desc);
 }
 
 function buildPlanet(aspect,opt,args){
@@ -8366,11 +8402,10 @@ export function structName(type){
 
 export function updateQueueNames(both, items){
     if (global.tech['queue'] && global.queue.display){
-        let deepScan = ['space','interstellar','galaxy','portal','tauceti'];
         for (let i=0; i<global.queue.queue.length; i++){
             let currItem = global.queue.queue[i];
             if (!items || items.indexOf(currItem.id) > -1){
-                if (deepScan.includes(currItem.action)){
+                if (spaceSectors.includes(currItem.action)){
                     let scan = true; Object.keys(actions[currItem.action]).forEach(function (region){
                         if (actions[currItem.action][region][currItem.type] && scan){
                             global.queue.queue[i].label = 

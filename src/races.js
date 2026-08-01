@@ -14,6 +14,7 @@ import { renderEdenic } from './edenic.js';
 import { events, eventList } from './events.js';
 import { swissKnife } from './tech.js';
 import { warhead, big_bang } from './resets.js';
+import { spaceSectors } from './space.js';
 
 const date = new Date();
 const easter = getEaster();
@@ -6818,6 +6819,44 @@ function setPurgatory(s,t){
         global.race.purgatory[s][t] = global[s][t];
         delete global[s][t];
     }
+    // Remove tech from research queue
+    if (s === 'tech'){
+        if (global.tech['r_queue'] && global.r_queue.display){
+            for (let i=0; i<global.r_queue.queue.length; i++){
+                const struct = global.r_queue.queue[i];
+                const t_action = actions[struct.action][struct.type];
+                if (t_action['grant'] && t_action.grant[0] === t){
+                    global.r_queue.queue.splice(i,1);
+                    clearPopper(`rq${t_action.id}`);
+                }
+            }
+        }
+    }
+    // Remove structures from building queue
+    else {
+        if (global.tech['queue'] && global.queue.display){
+            for (let i=0; i<global.queue.queue.length; i++){
+                const struct = global.queue.queue[i];
+                if (struct.action === s && struct.type === t){
+                    global.queue.queue.splice(idx,1);
+                    // Remove info dialog (different code for city and space)
+                    if (spaceSectors.includes(struct.action)){
+                        for (const region in actions[struct.action]) {
+                            if (actions[struct.action][region][struct.type]){
+                                const c_action = actions[struct.action][region][struct.type];
+                                clearPopper(`q${c_action.id}${idx}`);
+                                break;
+                            }
+                        }
+                    }
+                    else {
+                        const c_action = actions[struct.action][struct.type];
+                        clearPopper(`q${c_action.id}${idx}`);
+                    }
+                }
+            }
+        }
+    }
 }
 
 function getPurgatory(s,t){
@@ -7056,10 +7095,12 @@ export function traitCostMod(t,val){
         case 'stubborn':
         {
             val *= 1 + (traits.stubborn.vars()[0] / 100);
+            break;
         }
         case 'untrustworthy':
         {
             val *= 1 + (traits.untrustworthy.vars()[0] / 100);
+            break;
         }
     }
     return Math.round(val);
@@ -7078,6 +7119,7 @@ export function cleanAddTrait(trait){
                 break;
             }
             purgeLumber();
+            setResourceName('Useless');
             break;
         case 'smoldering':
             global.resource.Chrysotile.display = true;
@@ -7085,6 +7127,7 @@ export function cleanAddTrait(trait){
                 break;
             }
             purgeLumber();
+            setResourceName('Useless');
             break;
         case 'iron_wood':
             if (global.race['smoldering']){
@@ -7120,6 +7163,7 @@ export function cleanAddTrait(trait){
         case 'flier':
             setResourceName('Stone');
             setResourceName('Brick');
+            defineGovernor(); // Rename resource in storage balance config
             global.resource.Cement.display = false;
             global.civic.cement_worker.display = false;
             global.civic.cement_worker.workers = 0;
@@ -7136,6 +7180,7 @@ export function cleanAddTrait(trait){
             global.civic.quarry_worker.workers = 0;
             global.civic.quarry_worker.assigned = 0;
             setResourceName('Stone');
+            defineGovernor(); // Rename resource in storage balance config
             setPurgatory('tech','hammer');
             setPurgatory('city','rock_quarry');
             break;
@@ -7354,9 +7399,10 @@ export function cleanRemoveTrait(trait,rank){
             if ((global.tech['axe'] || global.tech['reclaimer']) && !global.race['orbit_decayed']){
                 global.civic.lumberjack.display = true;
             }
+            setResourceName('Useless');
             break;
         case 'smoldering':
-            releaseResource('Chrysotile')
+            releaseResource('Chrysotile');
             if (global.race['kindling_kindred']){
                 break;
             }
@@ -7376,6 +7422,7 @@ export function cleanRemoveTrait(trait,rank){
             if ((global.tech['axe'] || global.tech['reclaimer']) && !global.race['orbit_decayed']){
                 global.civic.lumberjack.display = true;
             }
+            setResourceName('Useless');
             break;
         case 'iron_wood':
             if (global.tech['foundry']){
@@ -7399,6 +7446,7 @@ export function cleanRemoveTrait(trait,rank){
         case 'flier':
             setResourceName('Stone');
             setResourceName('Brick');
+            defineGovernor(); // Rename resource in storage balance config
             checkPurgatory('tech','cement');
             if (global.tech['cement']){
                 checkPurgatory('city','cement_plant');
@@ -7409,6 +7457,7 @@ export function cleanRemoveTrait(trait,rank){
             break;
         case 'sappy':
             setResourceName('Stone');
+            defineGovernor(); // Rename resource in storage balance config
             checkPurgatory('tech','hammer');
             if (global.tech['mining'] >= 1) {
                 checkPurgatory('city','rock_quarry',{ count: 0, asbestos: 0 });
@@ -9162,7 +9211,7 @@ function psychicBoost(parent){
     if (global.tech.psychic >= 4){
         let channel = $(`<div class="gap">${loc('psychic_channel')}</div>`);
         let psy = $(`<span class="current">{{ c.boost }}</span>`);
-        let sub = $(`<span role="button" class="sub" @click="sub" aria-label="Decresae Energy reserved for ${loc(`psychic_attack`)}"><span>&laquo;</span></span>`);
+        let sub = $(`<span role="button" class="sub" @click="sub" aria-label="Decrease Energy reserved for ${loc(`psychic_attack`)}"><span>&laquo;</span></span>`);
         let add = $(`<span role="button" class="add" @click="add" aria-label="Increase Energy reserved for ${loc(`psychic_attack`)}"><span>&raquo;</span></span>`);
         channel.append(sub);
         channel.append(psy);
@@ -9282,7 +9331,7 @@ function psychicAssault(parent){
     if (global.tech.psychic >= 4){
         let channel = $(`<div class="gap">${loc('psychic_channel')}</div>`);
         let psy = $(`<span class="current">{{ assault }}</span>`);
-        let sub = $(`<span role="button" class="sub" @click="sub" aria-label="Decresae Energy reserved for ${loc(`psychic_attack`)}"><span>&laquo;</span></span>`);
+        let sub = $(`<span role="button" class="sub" @click="sub" aria-label="Decrease Energy reserved for ${loc(`psychic_attack`)}"><span>&laquo;</span></span>`);
         let add = $(`<span role="button" class="add" @click="add" aria-label="Increase Energy reserved for ${loc(`psychic_attack`)}"><span>&raquo;</span></span>`);
         channel.append(sub);
         channel.append(psy);
@@ -9352,7 +9401,7 @@ function psychicFinance(parent){
     if (global.tech.psychic >= 4){
         let channel = $(`<div class="gap">${loc('psychic_channel')}</div>`);
         let psy = $(`<span class="current">{{ cash }}</span>`);
-        let sub = $(`<span role="button" class="sub" @click="sub" aria-label="Decresae Energy reserved for ${loc(`psychic_profit`)}"><span>&laquo;</span></span>`);
+        let sub = $(`<span role="button" class="sub" @click="sub" aria-label="Decrease Energy reserved for ${loc(`psychic_profit`)}"><span>&laquo;</span></span>`);
         let add = $(`<span role="button" class="add" @click="add" aria-label="Increase Energy reserved for ${loc(`psychic_profit`)}"><span>&raquo;</span></span>`);
         channel.append(sub);
         channel.append(psy);

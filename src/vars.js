@@ -1307,6 +1307,19 @@ if (convertVersion(global['version']) < 104009){
     }
 }
 
+// Skilled servant capacity is now a permanent allowance (sbase) plus whatever temporary help is on
+// loan, so Womling artisans can add to it without the total compounding every tick. A save from before
+// that has the whole figure in smax, and got its servants from the prestige grant — mark both so the
+// grant does not pay out a second time.
+if (global['race'] && global.race['servants']){
+    if (!global.race.servants.hasOwnProperty('sbase')){
+        global.race.servants['sbase'] = global.race.servants['smax'] || 0;
+    }
+    if (!global.race.servants.hasOwnProperty('prestige')){
+        global.race.servants['prestige'] = true;
+    }
+}
+
 // The replicator gained a second production line. A save from before that has neither field; start the
 // split at 100/0 so the second line is idle and the save behaves exactly as it did.
 if (global['race'] && global.race['replicator']){
@@ -1355,7 +1368,7 @@ if (global['tauceti'] && global.tauceti['refueling_station'] && !global.tauceti.
 
 global['version'] = '1.5.0';
 delete global['revision'];
-global['beta'] = 16;
+global['beta'] = 17;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};

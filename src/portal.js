@@ -1604,7 +1604,11 @@ const fortressModules = {
                 let soldiers = global.tech.hell_gun >= 2 ? jobScale(2) : jobScale(1);
                 let min = global.tech.hell_gun >= 2 ? 35 : 20;
                 let max = global.tech.hell_gun >= 2 ? 75 : 40;
-                return `<div>${loc('portal_gun_emplacement_effect',[soldiers])}</div><div>${loc('portal_gun_emplacement_effect2',[min,max])}</div><div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
+                let soldierEffect = loc('portal_gun_emplacement_effect',[soldiers]);
+                if (global.race['hivemind']){
+                    soldierEffect = loc('portal_gun_emplacement_effect_hivemind');
+                }
+                return `<div>${soldierEffect}</div><div>${loc('portal_gun_emplacement_effect2',[min,max])}</div><div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
             },
             action(args){
                 if (payCosts($(this)[0])){
@@ -1708,7 +1712,7 @@ const fortressModules = {
             },
             action(args){
                 if (global.portal.soul_capacitor.count < 40 && payCosts($(this)[0])){
-                    global.portal.soul_capacitor.count++;
+                    incrementStruct('soul_capacitor','portal');
                     powerOnNewStruct($(this)[0]);
                     return true;
                 }
@@ -2944,7 +2948,7 @@ const fortressModules = {
             },
             action(args){
                 if (global.portal.oven.count < 100 && payCosts($(this)[0])){
-                    global.portal['oven'].count++;
+                    incrementStruct('oven','portal');
                     if (global.portal.oven.count >= 100){
                         global.tech['dish'] = 3;
                         initStruct(fortressModules.prtl_lake.oven_complete);
@@ -3036,7 +3040,7 @@ const fortressModules = {
             },
             action(args){
                 if (payCosts($(this)[0])){
-                    global.portal['dish_soul_steeper'].count++;
+                    incrementStruct('dish_soul_steeper','portal');
                     global.portal['dish_soul_steeper'].on++;
                     return true;
                 }
@@ -3068,7 +3072,7 @@ const fortressModules = {
             },
             action(args){
                 if (payCosts($(this)[0])){
-                    global.portal['dish_life_infuser'].count++;
+                    incrementStruct('dish_life_infuser','portal');
                     global.portal['dish_life_infuser'].on++;
                     return true;
                 }
