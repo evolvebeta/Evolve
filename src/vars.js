@@ -1368,7 +1368,7 @@ if (global['tauceti'] && global.tauceti['refueling_station'] && !global.tauceti.
 
 global['version'] = '1.5.0';
 delete global['revision'];
-global['beta'] = 17;
+global['beta'] = 18;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -1649,6 +1649,16 @@ if (!global.settings.hasOwnProperty('mtorder')){
 if (!global.settings.hasOwnProperty('resBar')){
     global.settings['resBar'] = {};
 }
+// What the solar map draws. Kept here rather than in the map module so the choices survive a reload
+// along with everything else the player has set, instead of only until the page is closed.
+if (!global.settings.hasOwnProperty('mapView')){
+    global.settings['mapView'] = {};
+}
+['planetOrbits','moonOrbits','ships','planetNames'].forEach(function(k){
+    if (!global.settings.mapView.hasOwnProperty(k)){
+        global.settings.mapView[k] = true;
+    }
+});
 
 export function setupStats(){
     // Stat Counters
@@ -2030,6 +2040,9 @@ if (global.city['foundry'] && !global.city.foundry['Scarletite']){
 if (global.city['foundry'] && !global.city.foundry['Quantium']){
     global.city.foundry['Quantium'] = 0;
 }
+if (global.city['foundry'] && !global.city.foundry['Aerographene']){
+    global.city.foundry['Aerographene'] = 0;
+}
 
 if (!global.settings['arpa']){
     global.settings['arpa'] = {
@@ -2097,6 +2110,10 @@ if (global.city.hasOwnProperty('spc_casino')){
 
 if (global.tech.hasOwnProperty('nanoweave')){
     global.resource.Nanoweave.display = true;
+}
+
+if (global.tech.hasOwnProperty('aerographene')){
+    global.resource.Aerographene.display = true;
 }
 
 if (!global.civic['new']){

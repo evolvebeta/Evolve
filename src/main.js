@@ -1,7 +1,7 @@
 import { global, save, seededRandom, webWorker, intervals, keyMap, atrack, resizeGame, breakdown, sizeApproximation, keyMultiplier, power_generated, p_on, support_on, int_on, gal_on, spire_on, set_qlevel, quantum_level, callback_queue, active_rituals, suppressReactivity, restoreReactivity } from './vars.js';
 import { loc } from './locale.js';
 import { unlockAchieve, checkAchievements, drawAchieve, alevel, universeAffix, challengeIcon, unlockFeat, checkAdept } from './achieve.js';
-import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, resetResBuffer, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, deepClone, exceededATimeThreshold, loopTimers, calcQuantumLevel, drawPet } from './functions.js';
+import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, resetResBuffer, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, deepClone, exceededATimeThreshold, loopTimers, getWeaselTechLevelRequirement, calcQuantumLevel, drawPet } from './functions.js';
 import { races, traits, racialTrait, orbitLength, servantTrait, randomMinorTrait, biomes, planetTraits, shapeShift, fathomCheck, blubberFill, cleanRemoveTrait } from './races.js';
 import { defineResources, resource_values, spatialReasoning, craftCost, plasmidBonus, faithBonus, faithTempleCount, tradeRatio, craftingRatio, crateValue, containerValue, tradeSellPrice, tradeBuyPrice, atomic_mass, supplyValue, galaxyOffers } from './resources.js';
 import { defineJobs, job_desc, loadFoundry, farmerValue, jobName, jobScale, workerScale, limitCraftsmen, loadServants} from './jobs.js';
@@ -11,7 +11,7 @@ import { actions, updateDesc, checkTechRequirements, drawEvolution, BHStorageMul
 import { renderSpace, convertSpaceSector, fuel_adjust, int_fuel_adjust, zigguratBonus, planetName, genPlanets, setUniverse, universe_types, gatewayStorage, piracy, spaceTech, universe_affixes, galaxyRegions, gatewayArmada, galaxy_ship_types, spaceSectors } from './space.js';
 import { renderFortress, bloodwar, soulForgeSoldiers, hellSupression, genSpireFloor, mechRating, mechCollect, updateMechbay, hellguard, buildMechQueue, mechCost } from './portal.js';
 import { asphodelResist, mechStationEffect, renderEdenic } from './edenic.js';
-import { renderTauCeti, syndicate, shipFuelUse, spacePlanetStats, genXYcoord, shipCrewSize, tpStorageMultiplier, tritonWar, sensorRange, erisWar, calcAIDrift, drawMap, tauEnabled, shipCosts, buildTPShipQueue, trackInfestation, salvageShip, randomCoord, atShipyard, pinSalvage, womlingVillagePop, womlingFarmFood, womlingArtisans, womlingArtisansPer } from './truepath.js';
+import { renderTauCeti, syndicate, shipFuelUse, spacePlanetStats, genXYcoord, shipCrewSize, tpStorageMultiplier, tritonWar, sensorRange, erisWar, calcAIDrift, drawMap, tauEnabled, shipCosts, buildTPShipQueue, trackInfestation, salvageShip, randomCoord, atShipyard, pinSalvage, womlingVillagePop, womlingFarmFood, womlingArtisans, womlingArtisansPer, moveShips } from './truepath.js';
 import { arpa, buildArpa, sequenceLabs } from './arpa.js';
 import { events, eventList } from './events.js';
 import { defineGovernor, govern, govActive, removeTask } from './governor.js';
@@ -1410,7 +1410,7 @@ function fastLoop(){
         'Cement','Coal','Oil','Uranium','Aluminium','Steel','Titanium','Alloy','Polymer','Iridium','Helium_3',
         'Water','Deuterium','Neutronium','Adamantite','Infernite','Elerium','Nano_Tube','Graphene','Stanene',
         'Bolognium','Vitreloy','Orichalcum','Asphodel_Powder','Elysanite','Unobtainium','Positronium','Quantium',
-        'Plywood','Brick','Wrought_Iron','Sheet_Metal','Mythril','Aerogel','Nanoweave','Scarletite',
+        'Plywood','Brick','Wrought_Iron','Sheet_Metal','Mythril','Aerogel','Nanoweave','Aerographene','Scarletite',
         'Cipher','Nanite','Mana','Authority'
     ];
 
@@ -10541,9 +10541,8 @@ function midLoop(){
 
                 if (Math.rand(0,10) < global.tauceti.womling_lab.scientist){
                     global.tauceti.womling_lab.tech += Math.rand(0,global.tauceti.womling_lab.scientist + 1);
-                    let expo = global.stats.achieve['overlord'] && global.stats.achieve.overlord.l >= 5 ? 4.9 : 5;
-                    if (global.race['lone_survivor']){ expo -= 0.1; }
-                    if (global.tauceti.womling_lab.tech >= Math.round((global.tech.womling_tech + 2) ** expo)){
+                    const req = getWeaselTechLevelRequirement();
+                    if (global.tauceti.womling_lab.tech >= req) {
                         global.tech.womling_tech++;
                         global.tauceti.womling_lab.tech = 0;
                         messageQueue(loc('tau_red_womling_advancement',[global.tech.womling_tech]),'advanced',false,['progress']);
@@ -11811,6 +11810,31 @@ function midLoop(){
         buildGene(blockGeneBuffer);
     }
 
+    if (global.race['truepath']){
+        if (global.space.hasOwnProperty('position')){
+            Object.keys(spacePlanetStats).forEach(function(planet){
+                if (spacePlanetStats[planet].startype){ return; }   // stars use fixed coordinates
+                if (global.space.position.hasOwnProperty(planet)){
+                    let orbit = spacePlanetStats[planet].orbit === -1 ? orbitLength() : spacePlanetStats[planet].orbit;
+                    if (orbit === 0){
+                        global.space.position[planet] = 0;
+                    }
+                    else {
+                        global.space.position[planet] += +(72 / orbit).toFixed(6);
+                        if (global.space.position[planet] >= 360){
+                            global.space.position[planet] -= 360;
+                        }
+                    }
+                }
+            });
+        }
+        moveShips(webWorker.midRatio / webWorker.longRatio);
+
+        if ($('#mapCanvas').length > 0) {
+            drawMap();
+        }
+    }
+    
     resourceAlt();
 
     $(`.costList`).each(function (){
@@ -12579,34 +12603,10 @@ function longLoop(){
                 let eScan = 0;
                 let tScan = 0;
                 let tShip = false;
+                // Hulls under way are advanced by moveShips (see truepath.js), which midLoop drives in
+                // fifth-of-a-day steps so they cross the map smoothly instead of a day at a time. By
+                // the time this runs, `transit` is the same whole number of days it always was.
                 global.space.shipyard.ships.forEach(function(ship){
-                    if (ship.transit > 0 && ship.fueled){
-                        ship.transit--;
-                        let trip = 1 - (ship.transit / ship.dist);
-                        if (ship.path){
-                            // Multi-leg wormhole route: place the ship by elapsed-time fraction along
-                            // the path so the near-instant inter-gate leg is crossed in its allotted time.
-                            let path = ship.path;
-                            let seg = path.length - 2;
-                            for (let i=0; i<path.length-1; i++){
-                                if (trip <= path[i+1].tn){ seg = i; break; }
-                            }
-                            let a = path[seg], b = path[seg+1];
-                            let span = b.tn - a.tn;
-                            let sf = span > 0 ? (trip - a.tn) / span : 1;
-                            ship.xy.x = a.x + (b.x - a.x) * sf;
-                            ship.xy.y = a.y + (b.y - a.y) * sf;
-                            ship.xy.z = (a.z || 0) + ((b.z || 0) - (a.z || 0)) * sf;
-                        }
-                        else {
-                            // Straight interpolation on each axis. `|| 0` covers ships that were
-                            // already under way in a save written before the map had a z.
-                            let o = ship.origin, d = ship.destination;
-                            ship.xy.x = o.x + (d.x - o.x) * trip;
-                            ship.xy.y = o.y + (d.y - o.y) * trip;
-                            ship.xy.z = (o.z || 0) + ((d.z || 0) - (o.z || 0)) * trip;
-                        }
-                    }
                     if (ship.transit === 0){
                         ship.xy = genXYcoord(ship.location);
                         ship.origin = deepClone(ship.xy);
@@ -12665,27 +12665,6 @@ function longLoop(){
                         messageQueue(loc('tau_scan',[tShip]),'info',false,['progress']);
                         renderTauCeti();
                     }
-                }
-                if (global.space.hasOwnProperty('position')){
-                    Object.keys(spacePlanetStats).forEach(function(planet){
-                        if (spacePlanetStats[planet].startype){ return; }   // stars use fixed coordinates
-                        if (global.space.position.hasOwnProperty(planet)){
-                            let orbit = spacePlanetStats[planet].orbit === -1 ? orbitLength() : spacePlanetStats[planet].orbit;
-                            if (orbit === 0){
-                                global.space.position[planet] = 0;
-                            }
-                            else {
-                                global.space.position[planet] += +(360 / orbit).toFixed(4);
-                                if (global.space.position[planet] >= 360){
-                                    global.space.position[planet] -= 360;
-                                }
-                            }
-                        }
-                    });
-                }
-
-                if ($('#mapCanvas').length > 0) {
-                    drawMap();
                 }
             }
 
@@ -13151,6 +13130,12 @@ function longLoop(){
                 pinSalvage('spc_dwarf','dreadnought');
                 renderSpace();
                 messageQueue(loc('scout_spc_dwarf',[planetName().dwarf,global.resource.Elerium.name]),'info',false,['progress']);
+            }
+
+            // Investigate Activity
+            if (global.tech.dwarf >= 3 && global.tech.resettle === 14){
+                //global.tech.resettle = 15;
+                //messageQueue(loc('scout_activity'),'info',false,['progress']);
             }
 
             // Detect Signals
