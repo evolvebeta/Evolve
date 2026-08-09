@@ -7135,8 +7135,10 @@ function space(zone){
                 // The horde readout follows the support line when there is one.
                 let infest = infestationLabel(region);
 
-                if (spaceProjects[region].info['support']){
-                    let support = spaceProjects[region].info['support'];
+                let support = spaceProjects[region].info['support'];
+                if (support && !global.space[support]){ support = false; }
+
+                if (support){
                     if (!global.space[support].hasOwnProperty('support')){
                         global.space[support]['support'] = 0;
                         global.space[support]['s_max'] = 0;
@@ -7477,11 +7479,15 @@ function armada(parent,id){
 
         cols[0].append($(`<span></span>`));
         cols[0].append($(`<span id="armadagateway" class="has-text-danger">${galaxyProjects.gxy_gateway.info.name}</span>`));
+        cols[0].attr('aria-hidden', 'true');
 
         for (let i = 0; i < gatewayArmada.length; i++){
             const ship = gatewayArmada[i];
             if (global.galaxy.hasOwnProperty(ship)){
-                cols[i+1].append($(`<span id="armada${ship}" class="ship has-text-advanced">${typeof galaxyProjects.gxy_gateway[ship].title === 'string' ? galaxyProjects.gxy_gateway[ship].title : galaxyProjects.gxy_gateway[ship].title()}</span>`));
+                let shipTitle = typeof galaxyProjects.gxy_gateway[ship].title === 'string' ? galaxyProjects.gxy_gateway[ship].title : galaxyProjects.gxy_gateway[ship].title();
+                cols[i+1].append($(`<h4 class="is-sr-only">${shipTitle} class</h4>`));
+                cols[i+1].append($(`<span class="is-sr-only">${typeof galaxyProjects.gxy_gateway.info.name === 'string' ? galaxyProjects.gxy_gateway.info.name : galaxyProjects.gxy_gateway.info.name()}: </span>`));
+                cols[i+1].append($(`<span id="armada${ship}" class="ship has-text-advanced" aria-hidden="true">${shipTitle}</span>`));
                 cols[i+1].append($(`<span class="ship">{{ gateway.${ship} }}</span>`));
             }
         }
@@ -7496,10 +7502,11 @@ function armada(parent,id){
                 for (let i = 0; i < gatewayArmada.length; i++){
                     const ship = gatewayArmada[i];
                     if (global.galaxy.hasOwnProperty(ship)){
+                        let areaLabel = typeof galaxyProjects[area].info.name === 'string' ? galaxyProjects[area].info.name : galaxyProjects[area].info.name();
                         let shipSpan = $(`<span class="ship"></span>`);
-                        let sub = $(`<span role="button" aria-label="remove ${ship}" class="sub has-text-danger" @click="sub('${area}','${ship}')"><span>&laquo;</span></span>`);
+                        let sub = $(`<span role="button" aria-label="remove ${loc('galaxy_' + ship)} from ${areaLabel}" class="sub has-text-danger" @click="sub('${area}','${ship}')"><span>&laquo;</span></span>`);
                         let count = $(`<span class="current">{{ ${r}.${ship} }}</span>`);
-                        let add = $(`<span role="button" aria-label="add ${ship}" class="add has-text-success" @click="add('${area}','${ship}')"><span>&raquo;</span></span>`);
+                        let add = $(`<span role="button" aria-label="add ${loc('galaxy_' + ship)} to ${areaLabel}" class="add has-text-success" @click="add('${area}','${ship}')"><span>&raquo;</span></span>`);
                         cols[i+1].append(shipSpan);
                         shipSpan.append(sub);
                         shipSpan.append(count);
@@ -7845,7 +7852,7 @@ export function setUniverse(){
 
         $('#evolution').append(parent);
 
-        let srDescButton = $(`<a class="is-sr-only" role="button">${universe_types[universe].name} description</a>`);
+        let srDescButton = $(`<a class="is-sr-only" role="button">${universe_types[universe].name()} description</a>`);
         $('#evolution').append(srDescButton);
 
         $('#'+id).on('click',function(){

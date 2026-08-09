@@ -1634,19 +1634,61 @@ const outerTruth = {
                 return planetName().venus;
             },
             desc(){
-                if (global.tech['venus'] && global.tech.venus === 1){
+                // A blockade shuts down the planet
+                let blockade = venusBlockade();
+                if (blockade > 0){
+                    return `<div class="has-text-danger">${loc('space_venus_info_desc_blockade',[blockade,planetName().venus])}</div><div>${loc('space_venus_info_desc',[planetName().venus])}</div>`;
+                }
+                if (global.tech['venus'] && global.tech.venus <= 2){
                     return `<div class="has-text-warning">${loc('space_venus_info_desc_not_scouted',[planetName().venus])}</div><div>${loc('space_venus_info_desc',[planetName().venus])}</div>`;
                 }
                 else {
                     return loc('space_venus_info_desc',[planetName().venus]);
                 }
             },
+            support: 'cloud_city',
             zone: 'inner',
             showDest(){
                 return {r: true, l: global.tech['venus'] ? true : false};
             },
             syndicate(){ return false; },
             nav(){ return global.tech['venus'] ? true : false; }
+        },
+        cloud_city: {
+            id: 'space-cloud_city',
+            title(){ return loc('space_cloud_city_title'); },
+            desc(){ return `<div>${loc('space_cloud_city_title')}</div><div class="has-text-special">${loc('requires_power')}</div>`; },
+            type: 'outpost',
+            reqs: { venus: 4 },
+            path: ['truepath'],
+            // Nothing goes up while the horde holds the orbit. Every Venus structure should carry this.
+            condition(){ return venusBlockade() === 0; },
+            cost: {
+                Money(offset){ return spaceCostMultiplier('cloud_city', offset, 20000000, 1.28); },
+                Aluminium(offset){ return spaceCostMultiplier('cloud_city', offset, 5800000, 1.28); },
+                Nano_Tube(offset){ return spaceCostMultiplier('cloud_city', offset, 1200000, 1.28); },
+                Stanene(offset){ return spaceCostMultiplier('cloud_city', offset, 3500000, 1.28); },
+                Aerographene(offset){ return spaceCostMultiplier('cloud_city', offset, 500000, 1.28); }
+            },
+            effect(){
+                return `<div>+${loc(`galaxy_alien2_support`,[$(this)[0].support(),planetName().venus])}</div><div class="has-text-caution">${loc('minus_power',[$(this)[0].powered()])}</div>`;
+            },
+            support(){ return 3; },
+            powered(){ return powerCostMod(8); },
+            action(){
+                if (payCosts($(this)[0])){
+                    incrementStruct('cloud_city');
+                    powerOnNewStruct($(this)[0]);
+                    return true;
+                }
+                return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0, support: 0, s_max: 0 },
+                    p: ['cloud_city','space']
+                };
+            }
         }
     },
 };
@@ -4893,6 +4935,10 @@ function zFleetDay(){
 
     zFleetMove(fleet);
 
+    // The blockade runs on its own rules rather than act like a raid
+    zVenusBlockade(fleet);
+    zBlockadeDay(fleet);
+
     if (fleet.t > 0){
         fleet.t--;
         if (fleet.t === 0){
@@ -5056,21 +5102,59 @@ function destroyPlayerShip(ship,locationName){
     messageQueue(loc('zcombat_ship_lost',[ship.name,regionName(locationName),crew]),'danger',false,['combat']);
 }
 
-// One exchange at a location. Your ships fire, then whatever is left of theirs fires back — one volley
-// each, then the raiders press on. Returns true if any of the raiders were stopped here.
+// --- Battle log ----------------------------------------------------------------------------------
+const zBattleLogMax = 60;   // engagements kept; the oldest falls off the end
+
+export function zBattleLog_read(){
+    return global.space['shipyard'] && Array.isArray(global.space.shipyard['battles']) ? global.space.shipyard.battles : [];
+}
+
+// Engagement information
+function zBattleRoster(ships){
+    let roster = {};
+    ships.forEach(function(s){
+        if (!s || !s.class){ return; }
+        roster[s.class] = (roster[s.class] || 0) + 1;
+    });
+    return roster;
+}
+
+// Written the moment the volleys are resolved, before the wrecks are cleared away.
+function zBattleLog(locationName,guards,foes,dealt,taken,lost,downed){
+    if (!global.space['shipyard']){ return; }
+    if (!Array.isArray(global.space.shipyard['battles'])){ global.space.shipyard['battles'] = []; }
+    global.space.shipyard.battles.unshift({
+        d: global.stats.days,       // game day
+        l: locationName,            // where it happened
+        p: zBattleRoster(guards),   // your hulls
+        e: zBattleRoster(foes),     // theirs
+        pd: dealt,                  // hull you landed
+        ed: taken,                  // hull they landed
+        pl: lost,                   // your ships destroyed
+        el: downed                  // theirs destroyed
+    });
+    if (global.space.shipyard.battles.length > zBattleLogMax){
+        global.space.shipyard.battles.length = zBattleLogMax;
+    }
+}
+
 function zEngage(locationName,foes){
     let guards = guardsAt(locationName);
     if (guards.length === 0 || foes.length === 0){ return false; }
 
     let scan = guards.reduce((t,s) => t + (sensorRange(s) || 0), 0);
     let downed = [];
+    let dealt = 0;
+    let taken = 0;
 
     guards.forEach(function(ship){
         let live = foes.filter(f => f.damage < 100);
         if (live.length === 0){ return; }
         let foe = live[Math.floor(seededRandom(0,live.length,true))];
         if (seededRandom(0,1,true) >= playerAccuracy(scan,foe)){ return; }
-        foe.damage += combatDamage(ship,foe);
+        let hit = combatDamage(ship,foe);
+        foe.damage += hit;
+        dealt += hit;
         if (foe.damage >= 100){
             foe.damage = 100;
             downed.push(foe);
@@ -5085,21 +5169,25 @@ function zEngage(locationName,foes){
         if (live.length === 0){ return; }
         let ship = live[Math.floor(seededRandom(0,live.length,true))];
         if (seededRandom(0,1,true) >= foeAccuracy(foe)){ return; }
-        ship.damage += combatDamage(foe,ship);
+        let hit = combatDamage(foe,ship);
+        ship.damage += hit;
+        taken += hit;
         if (ship.damage >= 100){
             ship.damage = 100;
             lost.push(ship);
         }
     });
 
+    zBattleLog(locationName,guards,foes,dealt,taken,lost.length,downed.length);
+
     zMessage(loc('zcombat_engage',[guards.length,foes.length,regionName(locationName)]),'warning');
     lost.forEach(function(ship){ destroyPlayerShip(ship,locationName); });
+    if (lost.length > 0){ drawShips(); }
     downed.forEach(function(foe){
         zMessage(loc('zcombat_foe_destroyed',[foe.name,regionName(locationName)]),'success');
     });
 
-    // Anything shot down here is culled before it can deliver, so a single kill anywhere along the
-    // route — over Earth, at a wormhole gate, or on arrival — settles the interception task.
+    // Check for achievement unlock
     if (downed.length > 0){
         zombieGenociderTask('z2');
     }
@@ -5112,9 +5200,7 @@ function zCullDowned(list){
     return list.filter(f => f.damage < 100);
 }
 
-// Every tunable the Z-warfare systems run on, gathered in one place so the wiki can document the live
-// numbers rather than repeating them. Read-only by convention — callers should not mutate what comes
-// back, they should change the constants above.
+// zWarfare Variables
 export function zWarfareVars(){
     return {
         // Ground war against a horde already on a world
@@ -5240,6 +5326,9 @@ function zFleetMove(fleet){
             continue;
         }
         if (!ship.inTransit){
+            // The Venus blockade is not a delivery. It takes station in orbit and stays there, so it is
+            // left in the fleet rather than landed and turned into a horde on the ground.
+            if (ship.vb){ continue; }
             fleet.s.splice(i,1);
             if (!landings[ship.location.name]){ landings[ship.location.name] = []; }
             landings[ship.location.name].push(ship);
@@ -5379,7 +5468,11 @@ export function finalBeacons(){
 
 // One raider hull of a given class, fitted out and sitting over Earth. Not yet under way: a sortie
 // wants its whole group built before any of it is shot at.
-function zFleetHull(cls){
+//
+// An ordinary raid is thrown together from whatever the wrecks gave up, so each fitting is rolled. A
+// scripted force fitted `best` instead takes the top of every list — zFleetParts is ordered worst to
+// best, so this stays right if the lists are ever retuned or extended.
+function zFleetHull(cls,best){
     let ship = {
         class: cls,
         name: `${loc(`outer_shipyard_class_${cls}`)} ${Math.floor(seededRandom(100,10000,true))}`,
@@ -5387,7 +5480,8 @@ function zFleetHull(cls){
     };
     TPShipInitTransit(ship, 'spc_home');
     Object.keys(zFleetParts).forEach(function(part){
-        ship[part] = zFleetParts[part][Math.floor(seededRandom(0,zFleetParts[part].length,true))];
+        let list = zFleetParts[part];
+        ship[part] = best ? list[list.length - 1] : list[Math.floor(seededRandom(0,list.length,true))];
     });
     return ship;
 }
@@ -5396,8 +5490,15 @@ function zFleetHull(cls){
 // Lift a group of hulls together for one target. Whatever you have parked over Earth gets a single
 // shot at the sortie as it climbs out, however many hulls are in it, and only what survives that flies.
 // Returns the number that got away.
-function zFleetSortie(fleet,classes,target,ramp){
-    let ships = classes.map(cls => zFleetHull(cls));
+//
+// `opts.best` fits every hull with the top of each parts list; `opts.mark` sets a flag on each one
+// before it is engaged, so a scripted force is identifiable even if it is shot down on the way out.
+function zFleetSortie(fleet,classes,target,ramp,opts){
+    opts = opts || {};
+    let ships = classes.map(cls => zFleetHull(cls,opts.best));
+    if (opts.mark){
+        ships.forEach(function(ship){ ship[opts.mark] = true; });
+    }
     zEngage('spc_home',ships);
     let flying = zCullDowned(ships);
     if (flying.length === 0){ return 0; }
@@ -5483,6 +5584,84 @@ function zTauStrike(fleet){
     let sent = zFleetSortie(fleet,zTauStrikeHulls.slice(),zTauStrikeTarget,1);
     if (sent > 0){
         //messageQueue(loc('zfleet_tau_strike',[sent,regionName(zTauStrikeTarget)]),'danger',false,['combat','progress']);
+    }
+}
+
+// --- The blockade over Venus -------------------------------------------------------------------
+// The one infested force that is not a delivery. Every other sortie is a hull carrying infected to a
+// surface; this one is sent to keep you off one, and it holds station in orbit until it is destroyed.
+// Nothing can be built on Venus while it is up there.
+const zVenusBlockadeHulls = ['dreadnought','cruiser','cruiser','destroyer','destroyer','frigate','frigate'];
+const zVenusBlockadeTarget = 'spc_venus';
+// Hull a blockade ship recovers on a day nobody engages it. Leaving it alone lets it patch up, so a
+// half-finished attack is worse than none — the fight wants to be pressed until it is over.
+const zBlockadeRepair = 2;
+
+// Infested hulls actually holding station over Venus. Ships still crossing are not blockading anything
+// yet, which is what makes the arrival the moment the planet closes.
+export function venusBlockade(){
+    let fleet = global.race['zfleet'];
+    if (!fleet || !fleet.s){ return 0; }
+    return fleet.s.filter(s => s.vb && !s.inTransit).length;
+}
+
+// Sent once, the moment the outpost on the surface is identified. Whatever is down there does not want
+// it looked at, and it commits the best hulls the horde can field rather than the usual scavenged mix.
+function zVenusBlockade(fleet){
+    if (fleet.vb || !global.tech['venus'] || global.tech.venus < 3){ return; }
+
+    // Marked spent whether or not any of it survives the climb out, the same as the Tau Ceti strike:
+    // stopping it over Earth is a win, not an invitation to try again.
+    fleet.vb = true;
+    let sent = zFleetSortie(fleet,zVenusBlockadeHulls.slice(),zVenusBlockadeTarget,1,{ best: true, mark: 'vb' });
+    if (sent > 0){
+        messageQueue(loc('zfleet_blockade_launch',[sent,regionName('spc_home'),regionName(zVenusBlockadeTarget)]),'danger',false,['combat','progress']);
+    }
+    else {
+        // Broken up before it ever left orbit. It still counts as beaten.
+        fleet.vbd = true;
+        zombieGenociderTask('z3');
+        messageQueue(loc('zfleet_blockade_broken',[regionName(zVenusBlockadeTarget)]),'success',false,['combat','progress']);
+    }
+}
+
+// One day of the blockade. It never goes down to the surface, so the only way past it is to destroy it:
+// anything of yours in orbit trades a volley with it, and on a day nobody comes it patches itself up.
+function zBlockadeDay(fleet){
+    if (!fleet.vb || fleet.vbd){ return; }
+
+    let ships = fleet.s.filter(s => s.vb);
+    if (ships.length === 0){
+        fleet.vbd = true;
+        zombieGenociderTask('z3');
+        messageQueue(loc('zfleet_blockade_broken',[regionName(zVenusBlockadeTarget)]),'success',false,['combat','progress']);
+        renderSpace();
+        return;
+    }
+
+    let onStation = ships.filter(s => !s.inTransit);
+    if (onStation.length === 0){ return; }
+
+    // Taking station is what closes the planet, so it is announced the day it happens rather than the
+    // day the fleet left.
+    if (!fleet.vba){
+        fleet.vba = true;
+        messageQueue(loc('zfleet_blockade_arrive',[onStation.length,regionName(zVenusBlockadeTarget)]),'danger',false,['combat','progress']);
+        renderSpace();
+    }
+
+    if (guardsAt(zVenusBlockadeTarget).length > 0){
+        zEngage(zVenusBlockadeTarget,onStation);
+        // Culled here rather than left to the next day's move pass, so the blockade is known to be
+        // broken on the day the last hull goes down.
+        for (let i=fleet.s.length-1; i>=0; i--){
+            if (fleet.s[i].vb && fleet.s[i].damage >= 100){ fleet.s.splice(i,1); }
+        }
+    }
+    else {
+        onStation.forEach(function(ship){
+            if (ship.damage > 0){ ship.damage = Math.max(0, ship.damage - zBlockadeRepair); }
+        });
     }
 }
 
@@ -7332,11 +7511,16 @@ function drawShipRow(list,i,ship,regionNames){
                 },
                 // A fleet aims as one body, so what it is worth is the best dish it carries.
                 sensorText(id){
-                    return Math.max(...rowGroup(global.space.shipyard.ships[id]).map(s => sensorRange(s) || 0)) + 'km';
+                    let group = rowGroup(global.space.shipyard.ships[id]);
+                    // Math.max of nothing is -Infinity, and a row can outlive its ship by a frame.
+                    if (group.length === 0){ return `0km`; }
+                    return Math.max(...group.map(s => sensorRange(s) || 0)) + 'km';
                 },
                 // A fleet keeps pace with its slowest ship, which is what its trips are planned on.
                 speedText(id){
-                    let speed = (149597870.7/225/24/3600) * shipSpeed(fleetPace(rowGroup(global.space.shipyard.ships[id])));
+                    let pace = fleetPace(rowGroup(global.space.shipyard.ships[id]));
+                    if (!pace){ return `0km/s`; }
+                    let speed = (149597870.7/225/24/3600) * shipSpeed(pace);
                     return Math.round(speed) + 'km/s';
                 },
                 fuelText(id){
@@ -7345,7 +7529,9 @@ function drawShipRow(list,i,ship,regionNames){
                 // The worst hull in the group: a fleet leaves together or not at all, so that is the
                 // one that decides whether it can.
                 hullText(id){
-                    return `${100 - Math.max(...rowGroup(global.space.shipyard.ships[id]).map(s => s.damage))}%`;
+                    let group = rowGroup(global.space.shipyard.ships[id]);
+                    if (group.length === 0){ return `100%`; }
+                    return `${100 - Math.max(...group.map(s => s.damage))}%`;
                 },
                 // An undamaged hull is the norm and says nothing worth the space, so the readout only
                 // appears once a ship has taken damage.
@@ -7355,6 +7541,7 @@ function drawShipRow(list,i,ship,regionNames){
                 // Colorize hull damage at threshold
                 hullDamage(id){
                     let group = rowGroup(global.space.shipyard.ships[id]);
+                    if (group.length === 0){ return ``; }
                     let damage = Math.max(...group.map(s => s.damage));
                     if (damage <= 10){
                         return `has-text-success`;
@@ -11871,9 +12058,16 @@ function shipDispatchModal(id, modal){
         dests = dests.filter(d => reachable.has(d.region));
     }
 
-    // A hull under the launch minimum holds the ship in dry dock 
+    // Crew check
+    let crewNeed = group.reduce((t,s) => t + (shipManned(s) ? 0 : shipCrewSize(s)), 0);
+    let crewFree = Math.max(0, global.civic.garrison.workers - global.civic.garrison.crew);
+
+    // A hull under the launch minimum holds the ship in dry dock
     if (group.some(s => !shipCanLaunch(s))){
         list.append(`<span class="has-text-danger">${loc('outer_shipyard_dispatch_damaged',[minHullToLaunch])}</span>`);
+    }
+    else if (crewNeed > crewFree){
+        list.append(`<span class="has-text-danger">${loc(group.length > 1 ? 'outer_shipyard_dispatch_crew_fleet' : 'outer_shipyard_dispatch_crew',[crewNeed,crewFree])}</span>`);
     }
     else if (dests.length === 0){
         list.append(`<span class="has-text-caution">${loc('outer_shipyard_dispatch_none')}</span>`);
@@ -11901,6 +12095,40 @@ function shipDispatchModal(id, modal){
                 .appendTo(list);
         });
     }
+}
+
+// The battle log. Newest first, one row per engagement: when and where it happened, what each side
+// brought, and what each side landed. Read-only — it is a record, not a control.
+export function battleLogModal(){
+    $('#modalBox').append($(`<p id="modalBoxTitle" class="has-text-warning modalTitle">${loc('battle_log_title')}</p>`));
+
+    let log = zBattleLog_read();
+    let list = $(`<div class="battleLog"></div>`);
+    $('#modalBox').append(list);
+
+    if (log.length === 0){
+        list.append(`<span class="has-text-caution">${loc('battle_log_empty')}</span>`);
+        return;
+    }
+
+    // A hull tally rendered as "2 Corvettes, 1 Destroyer", using the same class names the shipyard uses.
+    let roster = function(tally){
+        let parts = shipClassSizes.concat(['explorer']).filter(c => tally[c] > 0).map(function(c){
+            return `${tally[c]} ${loc(`outer_shipyard_class_${c}`)}`;
+        });
+        return parts.length ? parts.join(`, `) : loc('battle_log_unknown');
+    };
+
+    log.forEach(function(b){
+        let row = $(`<div class="battleRow"></div>`);
+        // A fight you walked away from unscathed reads differently from one that cost you a hull, so the
+        // outcome is colored rather than left for the player to work out from the numbers.
+        let tone = b.pl > 0 ? `has-text-danger` : (b.el > 0 ? `has-text-success` : `has-text-warning`);
+        row.append(`<div class="battleHead"><span class="${tone}">${loc('battle_log_where',[regionName(b.l)])}</span> <span class="has-text-caution">${loc('battle_log_day',[b.d])}</span></div>`);
+        row.append(`<div class="battleSide"><span class="has-text-success">${loc('battle_log_yours')}</span> <span>${roster(b.p)}</span> <span class="has-text-warning">${loc('battle_log_dealt',[b.pd])}</span>${b.pl > 0 ? ` <span class="has-text-danger">${loc('battle_log_lost',[b.pl])}</span>` : ``}</div>`);
+        row.append(`<div class="battleSide"><span class="has-text-danger">${loc('battle_log_theirs')}</span> <span>${roster(b.e)}</span> <span class="has-text-warning">${loc('battle_log_dealt',[b.ed])}</span>${b.el > 0 ? ` <span class="has-text-success">${loc('battle_log_destroyed',[b.el])}</span>` : ``}</div>`);
+        list.append(row);
+    });
 }
 
 // Who a ship could serve under: a fleet of its own, or any flagship parked alongside with the command
@@ -12046,9 +12274,10 @@ function fleetDamageBonus(ship){
     return fleetHulls.hasOwnProperty(flag.class) ? fleetHulls[flag.class].buff : 0;
 }
 
-// Share of an incoming hit a flagship shrugs off. Only the ship in command benefits.
+// Share of an incoming hit a flagship shrugs off. Only the ship in command benefits, and only while it
+// actually has an escort to screen it — a flagship leading nobody is just a ship, however it is flagged.
 function fleetDamageSoak(ship){
-    if (!ship || !ship.flag || !shipFlagship(ship)){ return 0; }
+    if (!ship || !ship.flag || !shipFlagship(ship) || fleetEscortCount(ship.fid) === 0){ return 0; }
     return fleetHulls.hasOwnProperty(ship.class) ? fleetHulls[ship.class].soak : 0;
 }
 
@@ -12056,7 +12285,8 @@ function fleetDamageSoak(ship){
 // travels as fast as the arrangement lets it.
 function fleetSpeedBonus(ship){
     let flag = shipFlagship(ship);
-    if (!flag){ return 0; }
+    // A group of one is not a group: a light hull flying alone has nobody to set the pace for.
+    if (!flag || fleetEscortCount(flag.fid) === 0){ return 0; }
     return fleetHulls.hasOwnProperty(flag.class) ? fleetHulls[flag.class].speed : 0;
 }
 
@@ -12110,15 +12340,14 @@ export function fleetsFor(ship){
     );
 }
 
-// Whether forming a fleet here would achieve anything: something else has to be sitting alongside that
-// could actually be told to join.
+// Fleet check
 function fleetWorthForming(ship){
-    if (!fleetEligible(ship) || ship.fid || fleetCommandRating(ship) <= 0){ return false; }
-    return allShips().some(o => o !== ship && !o.fid && sameStation(o,ship) && fleetCommandCost(o) > 0);
+    return fleetEligible(ship) && !ship.fid && fleetCommandRating(ship) > 0 ? true : false;
 }
 
 // A fleet keeps pace with its slowest ship, so that is the one every trip is planned on.
 function fleetPace(group){
+    if (!group || group.length === 0){ return false; }
     return group.reduce((a,b) => shipSpeed(a) <= shipSpeed(b) ? a : b);
 }
 

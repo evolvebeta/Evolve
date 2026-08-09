@@ -1528,7 +1528,7 @@ if (convertVersion(global['version']) <= 105000){
 
 global['version'] = '1.5.0';
 delete global['revision'];
-global['beta'] = 22;
+global['beta'] = 23;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -1549,7 +1549,7 @@ if (!global.hasOwnProperty('support')){
 
 [
     'moon','red','belt','alpha','nebula','gateway','alien2','lake','spire',
-    'titan','enceladus','eris','tau_home','tau_red','tau_roid','asphodel'
+    'titan','enceladus','eris','venus','tau_home','tau_red','tau_roid','asphodel'
 ].forEach(function(s){
     if (!global.support.hasOwnProperty(s)){
         global.support[s] = [];
