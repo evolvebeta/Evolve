@@ -1528,7 +1528,7 @@ if (convertVersion(global['version']) <= 105000){
 
 global['version'] = '1.5.0';
 delete global['revision'];
-global['beta'] = 23;
+global['beta'] = 24;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -2224,6 +2224,18 @@ if (!global.settings.arpa['blood']){
 
 if (!global['arpa']){
     global['arpa'] = {};
+}
+
+if (global.city['foundry']){
+    if (!global.city.foundry.hasOwnProperty('hold')){
+        global.city.foundry['hold'] = {};
+    }
+    if (!global.city.foundry.hasOwnProperty('cap')){
+        global.city.foundry['cap'] = 0;
+    }
+    if (!global.city.foundry.hasOwnProperty('rcap')){
+        global.city.foundry['rcap'] = {};
+    }
 }
 
 if (global.city['factory']){

@@ -9,7 +9,7 @@ import { loadFoundry, jobScale, jobName, limitCraftsmen } from './jobs.js';
 import { buildGarrison, checkControlling, govTitle, defineFleetCommand } from './civics.js';
 import { renderSpace, planetName, int_fuel_adjust } from './space.js';
 import { drawHellObservations } from './portal.js';
-import { setOrbits, drawShipYard, jumpGateShutdown, jumpGateRestart, aerographeneSpeedBonus, shipCapacitorSaving } from './truepath.js';
+import { setOrbits, drawShipYard, jumpGateShutdown, jumpGateRestart, aerographeneSpeedBonus, shipCapacitorSaving, surveyTheme } from './truepath.js';
 import { arpa } from './arpa.js';
 import { setPowerGrid, defineIndustry, addSmelter, setupRituals, altReplicatorRes } from './industry.js';
 import { defineGovernor, removeTask } from './governor.js';
@@ -14963,6 +14963,73 @@ const techs = {
             if (payCosts($(this)[0])){
                 initStruct(actions.space.spc_venus.cloud_city);
                 messageQueue(loc('tech_venus_foothold_msg',[3]),'info',false,['progress']);
+                renderSpace();
+                return true;
+            }
+            return false;
+        }
+    },
+    descent_module: {
+        id: 'tech-descent_module',
+        title(){ return loc('tech_descent_module'); },
+        desc(){ return loc('tech_descent_module'); },
+        category: 'progress',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { venus: 5 },
+        grant: ['venus',6],
+        cost: {
+            Knowledge(){ return 27250000; }
+        },
+        effect(){ return loc('tech_descent_module_effect',[planetName().venus,loc('space_cloud_city_title')]); },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.space.spc_venus.descender);
+                renderSpace();
+                return true;
+            }
+            return false;
+        }
+    },
+    nitrogen_harvester: {
+        id: 'tech-nitrogen_harvester',
+        title(){ return loc('tech_nitrogen_harvester'); },
+        desc(){ return loc('tech_nitrogen_harvester'); },
+        category: 'progress',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { venus: 6 },
+        grant: ['venus',7],
+        cost: {
+            Knowledge(){ return 27500000; }
+        },
+        effect(){ return loc('tech_nitrogen_harvester_effect',[planetName().venus]); },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.space.spc_venus.nitrogen_harvester);
+                renderSpace();
+                return true;
+            }
+            return false;
+        }
+    },
+    moon_resort: {
+        id: 'tech-moon_resort',
+        // Theme changes depending on which moon was selected
+        title(){ return loc(`tech_moon_resort_${surveyTheme()}`); },
+        desc(){ return loc(`tech_moon_resort_${surveyTheme()}`); },
+        category: 'progress',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { survey: 2 },
+        grant: ['survey',3],
+        cost: {
+            Knowledge(){ return 26500000; }
+        },
+        effect(){ return loc(`tech_moon_resort_${surveyTheme()}_effect`,[planetName()[surveyTheme()]]); },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.space.spc_survey.survey_resort);
                 renderSpace();
                 return true;
             }

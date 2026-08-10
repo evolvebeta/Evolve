@@ -4,14 +4,14 @@ import { unlockAchieve, checkAchievements, drawAchieve, alevel, universeAffix, c
 import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, resetResBuffer, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, deepClone, exceededATimeThreshold, loopTimers, getWeaselTechLevelRequirement, calcQuantumLevel, drawPet } from './functions.js';
 import { races, traits, racialTrait, orbitLength, servantTrait, randomMinorTrait, biomes, planetTraits, shapeShift, fathomCheck, blubberFill, cleanRemoveTrait } from './races.js';
 import { defineResources, resource_values, spatialReasoning, craftCost, plasmidBonus, faithBonus, faithTempleCount, tradeRatio, craftingRatio, crateValue, containerValue, tradeSellPrice, tradeBuyPrice, atomic_mass, supplyValue, galaxyOffers } from './resources.js';
-import { defineJobs, job_desc, loadFoundry, farmerValue, jobName, jobScale, workerScale, limitCraftsmen, loadServants} from './jobs.js';
+import { defineJobs, job_desc, loadFoundry, farmerValue, jobName, jobScale, workerScale, limitCraftsmen, loadServants, craftsmanCap } from './jobs.js';
 import { defineIndustry, f_rate, manaCost, setPowerGrid, gridEnabled, gridDefs, nf_resources, replicator, replicatorLines, luxGoodPrice, smelterUnlocked, smelterFuelConfig, setupRituals, maxRitualNum, ritual_types, factoryLines, factoryCapacity, trimFactoryLines } from './industry.js';
 import { checkControlling, garrisonSize, armyRating, govTitle, govCivics, govEffect, weaponTechModifer } from './civics.js';
 import { actions, updateDesc, checkTechRequirements, drawEvolution, BHStorageMulti, storageMultipler, checkAffordable, checkPowerRequirements, drawCity, drawTech, gainTech, housingLabel, updateQueueNames, wardenLabel, planetGeology, resQueue, bank_vault, start_cataclysm, orbitDecayed, postBuild, skipRequirement, structName, templeCount, initStruct, casino_vault, casinoEarn, doCallbacks, cLabels } from './actions.js';
 import { renderSpace, convertSpaceSector, fuel_adjust, int_fuel_adjust, zigguratBonus, planetName, genPlanets, setUniverse, universe_types, gatewayStorage, piracy, spaceTech, universe_affixes, galaxyRegions, gatewayArmada, galaxy_ship_types, spaceSectors } from './space.js';
 import { renderFortress, bloodwar, soulForgeSoldiers, hellSupression, genSpireFloor, mechRating, mechCollect, updateMechbay, hellguard, buildMechQueue, mechCost } from './portal.js';
 import { asphodelResist, mechStationEffect, renderEdenic } from './edenic.js';
-import { renderTauCeti, syndicate, shipFuelUse, spacePlanetStats, genXYZcoord, shipCrewSize, tpStorageMultiplier, tritonWar, sensorRange, erisWar, calcAIDrift, drawMap, tauEnabled, shipCosts, buildTPShipQueue, trackInfestation, salvageShip, randomCoord, atShipyard, pinSalvage, beaconsActive, finalBeacons, checkTungstenSurvey, womlingVillagePop, womlingFarmFood, womlingArtisans, womlingArtisansPer, moveShips } from './truepath.js';
+import { renderTauCeti, syndicate, shipFuelUse, spacePlanetStats, genXYZcoord, shipCrewSize, tpStorageMultiplier, tritonWar, sensorRange, erisWar, calcAIDrift, drawMap, tauEnabled, shipCosts, buildTPShipQueue, trackInfestation, salvageShip, randomCoord, atShipyard, pinSalvage, beaconsActive, finalBeacons, checkTungstenSurvey, womlingVillagePop, womlingFarmFood, womlingArtisans, womlingArtisansPer, moveShips, facilityStudying, facilityProgress, facilityCrew, facilityResearchTotal, facilityFindings } from './truepath.js';
 import { arpa, buildArpa, sequenceLabs } from './arpa.js';
 import { events, eventList } from './events.js';
 import { defineGovernor, govern, govActive, removeTask } from './governor.js';
@@ -2490,6 +2490,11 @@ function fastLoop(){
             global.civic.meditator.display = true;
         }
 
+        if (global.space['descender']){
+            let ready = global.space.descender.count >= 100 ? 1 : 0;
+            if (global.space.descender.on > ready){ global.space.descender.on = ready; }
+        }
+
         // Moon Bases, Spaceports, Etc
         [
             { a: 'space', r: 'spc_moon', s: 'moon_base', g: 'moon' },
@@ -3398,6 +3403,17 @@ function fastLoop(){
             morale += high_tax * 0.5;
         }
 
+        // Somewhere to go that is not a work rotation. Lifts current morale rather than the ceiling, so
+        // it is felt straight away instead of raising room the player then has to fill. Read after the
+        // power pass so an unpowered resort stops counting the same tick its lights go out.
+        if (global.space['survey_resort'] && p_on['survey_resort']){
+            global.city.morale.resort = p_on['survey_resort'] * actions.space.spc_survey.survey_resort.morale();
+            morale += global.city.morale.resort;
+        }
+        else {
+            global.city.morale.resort = 0;
+        }
+
         if (((global.civic.govern.type !== 'autocracy' && !global.race['blood_thirst']) || global.race['immoral']) && global.civic.garrison.protest + global.civic.garrison.fatigue > 2){
             let immoral = global.race['immoral'] ? 1 + (traits.immoral.vars()[0] / 100) : 1;
             let warmonger = Math.round(Math.log2(global.civic.garrison.protest + global.civic.garrison.fatigue) * immoral);
@@ -3884,7 +3900,18 @@ function fastLoop(){
                 breakdown.p['Food'][`ᄂ${loc('sign_virgo')}+1`] = ((virgo - 1) * 100) + '%';
             }
 
-            let generated = food_base + (hunting * q_multiplier) + (biodome * red_synd * zigVal * virgo);
+            // Nitrogen pulled out of the Venusian atmosphere and fed into the cloud city growing decks.
+            let nitrogen_food = 0;
+            if (support_on['nitrogen_harvester']){
+                nitrogen_food = support_on['nitrogen_harvester'] * production('nitrogen_harvester','food') * production('psychic_boost','Food');
+                breakdown.p['Food'][actions.space.spc_venus.nitrogen_harvester.title()] = nitrogen_food + 'v';
+                if (nitrogen_food > 0){
+                    breakdown.p['Food'][`ᄂ${loc('space_red_ziggurat_title')}+1`] = ((zigVal - 1) * 100) + '%';
+                    breakdown.p['Food'][`ᄂ${loc('sign_virgo')}+2`] = ((virgo - 1) * 100) + '%';
+                }
+            }
+
+            let generated = food_base + (hunting * q_multiplier) + (biodome * red_synd * zigVal * virgo) + (nitrogen_food * zigVal * virgo);
             generated *= global_multiplier;
 
             let soldiers = global.civic.garrison.workers;
@@ -4576,6 +4603,29 @@ function fastLoop(){
                         messageQueue(loc('tau_gas2_alien_station_data6'),'success',false,['progress']);
                     }
                     drawTech();
+                }
+            }
+        }
+
+        // Researching the Alien Facility, scaled by scientist count
+        if (facilityStudying() && (!global.tech['facility_data'] || global.tech.facility_data < 6)){
+            let crew = workerScale(global.civic.scientist.workers,'scientist');
+            if (crew > 0){
+                global.space.alien_facility.research += (crew / facilityCrew) * time_multiplier;
+                let pct = facilityProgress();
+                let rank = global.tech['facility_data'] || 0;
+                for (let step of facilityFindings){
+                    if (rank < step.r && pct >= step.p){
+                        global.tech['facility_data'] = step.r;
+                        rank = step.r;
+                        if (step.r === 6){
+                            global.space.alien_facility.research = facilityResearchTotal;
+                            global.tech.resettle = 17;
+                        }
+                        messageQueue(loc(step.m,step.v ? step.v() : []),'success',false,['progress']);
+                        drawTech();
+                        break;
+                    }
                 }
             }
         }
@@ -5754,6 +5804,15 @@ function fastLoop(){
 
         // Lumber
         { //block scope
+            if (support_on['nitrogen_harvester'] && !global.race['kindling_kindred'] && !global.race['smoldering']){
+                let lumber = support_on['nitrogen_harvester'] * production('nitrogen_harvester','lumber') * production('psychic_boost','Lumber');
+                breakdown.p['Lumber'][actions.space.spc_venus.nitrogen_harvester.title()] = lumber + 'v';
+                if (lumber > 0){
+                    breakdown.p['Lumber'][`ᄂ${loc('space_red_ziggurat_title')}+1`] = ((zigVal - 1) * 100) + '%';
+                }
+                modRes('Lumber', lumber * hunger * global_multiplier * time_multiplier * zigVal);
+            }
+
             if (global.race['cataclysm'] || global.race['orbit_decayed']){
                 if (global.tech['mars'] && support_on['biodome'] && !global.race['kindling_kindred'] && !global.race['smoldering']){
                     let lumber = support_on['biodome'] * workerScale(global.civic.colonist.workers,'colonist') * production('biodome','lumber') * production('psychic_boost','Lumber');
@@ -7486,6 +7545,18 @@ function fastLoop(){
             modRes('Adamantite', adam_delta * time_multiplier);
         }
 
+        // Tungsten
+        if (global.resource.Tungsten.display && global.space['mineshaft'] && p_on['mineshaft']){
+            let mine_base = p_on['mineshaft'] * production('mineshaft') * production('psychic_boost','Tungsten');
+            let mine_delta = mine_base * global_multiplier * qs_multiplier * zigVal;
+            breakdown.p['Tungsten'][loc('space_mineshaft_title')] = mine_base + 'v';
+            if (mine_base > 0){
+                breakdown.p['Tungsten'][`ᄂ${loc('space_red_ziggurat_title')}`] = ((zigVal - 1) * 100) + '%';
+                breakdown.p['Tungsten'][`ᄂ${loc('quarantine')}`] = ((qs_multiplier - 1) * 100) + '%';
+            }
+            modRes('Tungsten', mine_delta * time_multiplier);
+        }
+
         // Stone from the Titan mines, once resettlement reopens regolith processing there.
         if (global.tech['resettle'] && global.resource.Stone.display && global.space['titan_mine']){
             let synd = syndicate('spc_titan');
@@ -9059,6 +9130,9 @@ function midLoop(){
             if (global.tech['theatre'] && !global.race['joyless']){
                 lCaps['entertainer'] += jobScale(p_on['resort'] * 2);
             }
+        }
+        if (global.space['survey_resort']){
+            lCaps['entertainer'] += jobScale(p_on['survey_resort'] || 0);
         }
         if (global.city['cement_plant']){
             lCaps['cement_worker'] += jobScale(global.city.cement_plant.count * 2);
@@ -11239,20 +11313,57 @@ function midLoop(){
         }
 
         if (global.city['foundry']){
+            if (!global.city.foundry.hasOwnProperty('hold')){ global.city.foundry['hold'] = {}; }
+            if (!global.city.foundry.hasOwnProperty('cap')){ global.city.foundry['cap'] = global.civic.craftsman.max || 0; }
+            if (!global.city.foundry.hasOwnProperty('rcap')){ global.city.foundry['rcap'] = {}; }
+            let hold = global.city.foundry.hold;
+            let rcap = global.city.foundry.rcap;
+
             let fworkers = global.civic.craftsman.workers;
+            // Don't hold Plywood if player has no Plywood resource
             if ((global.race['kindling_kindred'] || global.race['smoldering']) && global.city.foundry['Plywood'] > 0){
                 global.civic.craftsman.workers -= global.city.foundry['Plywood'];
                 global.city.foundry.crafting -= global.city.foundry['Plywood'];
                 global.city.foundry['Plywood'] = 0;
+                hold['Plywood'] = 0;
             }
             let craft_costs = craftCost();
             Object.keys(craft_costs).forEach(function (craft){
+                // Crafters cut loose because the building employing them was razed or switched off.
                 while (global.city.foundry[craft] > fworkers && global.city.foundry[craft] > 0){
                     global.city.foundry[craft]--;
                     global.city.foundry.crafting--;
+                    hold[craft] = (hold[craft] || 0) + 1;
                 }
                 fworkers -= global.city.foundry[craft];
             });
+
+            // Capacity has gbeen restored
+            let roomier = global.civic.craftsman.max > global.city.foundry.cap;
+            let dJob = global.civic[global.civic.d_job];
+            let restored = false;
+            Object.keys(craft_costs).forEach(function (craft){
+                let capped = ['Scarletite','Quantium'].includes(craft);
+                let ceiling = capped ? craftsmanCap(craft) : -1;
+                let reopened = capped && ceiling > (rcap.hasOwnProperty(craft) ? rcap[craft] : ceiling);
+                if (roomier || reopened){
+                    while ((hold[craft] || 0) > 0
+                        && typeof global.city.foundry[craft] === 'number'
+                        && global.city.foundry.crafting < global.civic.craftsman.max
+                        && dJob && dJob.workers > 0
+                        && (ceiling === -1 || global.city.foundry[craft] < ceiling)){
+                        global.city.foundry[craft]++;
+                        global.city.foundry.crafting++;
+                        global.civic.craftsman.workers++;
+                        dJob.workers--;
+                        hold[craft]--;
+                        restored = true;
+                    }
+                }
+                if (capped){ rcap[craft] = ceiling; }
+            });
+            if (restored){ loadFoundry(); }
+            global.city.foundry.cap = global.civic.craftsman.max;
         }
 
         if (global.tech['foundry'] === 3 && (global.race['kindling_kindred'] || global.race['smoldering'])){
