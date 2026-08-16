@@ -1,6 +1,6 @@
-import { global, p_on, support_on, sizeApproximation, keyMap, seededRandom } from './vars.js';
+import { global, p_on, support_on, sizeApproximation, keyMap, seededRandom, webWorker } from './vars.js';
 import { vBind, clearElement, popover, clearPopper, messageQueue, powerCostMod, powerModifier, spaceCostMultiplier, deepClone, calcPrestige, flib, darkEffect, adjustCosts, get_qlevel, timeCheck, timeFormat, buildQueue, getWeaselTechLevelRequirement } from './functions.js';
-import { races, traits, orbitLength } from './races.js';
+import { races, traits, orbitLength, geneBonus } from './races.js';
 import { spatialReasoning, unlockContainers } from './resources.js';
 import { armyRating, garrisonSize, soldierDeath, buildGarrison, govEffect } from './civics.js';
 import { jobScale, job_data, loadFoundry, limitCraftsmen, workerScale } from './jobs.js';
@@ -10,8 +10,8 @@ import { fuel_adjust, int_fuel_adjust, spaceTech, renderSpace, checkRequirements
 import { defineGovernor, removeTask, govActive } from './governor.js';
 import { defineIndustry, nf_resources, addSmelter, factoryData, setupRituals, cancelRituals } from './industry.js';
 import { arpa } from './arpa.js';
-import { matrix, retirement, gardenOfEden } from './resets.js';
-import { traitCostMod } from './races.js';
+import { matrix, retirement, gardenOfEden, zApocalypse } from './resets.js';
+import { traitCostMod, fathomCheck } from './races.js';
 import { loadTab } from './index.js';
 import { zombieGenociderTask, unlockFeat } from './achieve.js';
 import { createGLContext, webglSupported } from './glmap.js';
@@ -2287,9 +2287,22 @@ const outerTruth = {
                 return `<div>${loc('plus_max_resource',[`\$${$(this)[0].vault().toLocaleString()}`,loc('resource_Money_name')])}</div><div>${loc('plus_max_resource',[$(this)[0].soldiers(),loc('civics_garrison_soldiers')])}</div>`;
             },
             vault(){
-                let vault = 1000000000;
+                let vault = spatialReasoning(65000000);
                 if (global.tech['extra_vault']){
                     vault *= 1 + (global.tech.extra_vault * 0.1);
+                }
+                if (global.race['paranoid']){
+                    vault *= 1 - (traits.paranoid.vars()[0] / 100);
+                }
+                if (global.race['hoarder']){
+                    vault *= 1 + (traits.hoarder.vars()[0] / 100);
+                }
+                let fathom = fathomCheck('dracnid');
+                if (fathom > 0){
+                    vault *= 1 + (traits.hoarder.vars(1)[0] / 100 * fathom);
+                }
+                if (global.race['inflation']){
+                    vault *= 1 + (global.race.inflation / 125);
                 }
                 return vault;
             },
@@ -5495,14 +5508,7 @@ export function checkPathRequirements(era,region,action){
     }
 }
 
-// Structures the horde can raze, per infested region. A candidate MUST have a struct() definition on its
-// action — that is what creates the global[category][key] record holding the count/razed pair razing
-// works on — so anything without one is never a target. The remainder of the list is curated: orbital
-// structures (satellites, GPS, nav beacons, orbital stations/platforms) are out of reach of a ground
-// horde, and multi-segment megaprojects plus the powered "completed" forms they unlock (world_collider /
-// world_controller, mass_relay / m_relay, ai_core / ai_core2, jump_gate) are excluded so razing can never
-// unwind a finished project. `c` is the global category the structs live under.
-// spc_home is deliberately absent: Earth is a special location that never fights (see trackInfestation).
+// Structures the horde can raze, per infested region.
 const razeTargets = {
     spc_moon: { c: 'space', s: ['moon_base','iridium_mine','helium_mine','observatory'] },
     spc_red: { c: 'space', s: ['spaceport','red_tower','living_quarters','pylon','vr_center','garage','red_mine','fabrication','red_factory','biodome','exotic_lab','ziggurat','space_barracks'] },
@@ -5522,17 +5528,12 @@ const orbitalStrikeRate = 0.05;
 // remainder rolled as a fractional chance, and never more than razeCap in a single day.
 const zombiesPerRazing = 100000;
 const razeCap = 5;
-// Hordes that lie low: absent from the UI and unengaged until something gives them away. On spc_red
-// that is the first structure it razes; on spc_titan it is putting support back into orbit there and
-// getting a proper look at the surface (see zTitanWatch).
+// Starting infected Planets
 const hiddenInfestation = ['spc_red','spc_titan'];
-// Special cases that sit outside the system entirely: never fought, never counted on screen. Earth's
-// billions are a fact of the setting rather than something a fleet can work on.
+// Don't advertise
 const inertInfestation = ['spc_home'];
 
-// The war's day-to-day traffic — hulls engaging, raiders going down, landings, buildings lost. It runs
-// every game day on every front at once, so it is the one thing worth being able to turn off. Anything
-// that moves the arc forward calls messageQueue directly instead and is announced either way.
+// Daily war messages
 function zMessage(msg,type){
     if (fleetCmd()['zquiet']){ return; }
     messageQueue(msg,type,false,['combat']);
@@ -5567,7 +5568,7 @@ export function zAssaultBanner(region){
 
 export function zAssaultMethods(){
     return {
-        warn(){ return zUplinkWarning() || zAssault() ? true : false; },
+        warn(){ return zUplinkWarning() || (zAssault() && !zEndless()) ? true : false; },
         // Only the signature warning pulses; once it becomes a countdown it holds still so the number stays readable.
         pulse(){ return zUplinkWarning() ? 'zpulse' : ''; },
         warnText(){
@@ -5627,9 +5628,7 @@ function titanSupportMax(){
     return global.space['electrolysis'] && global.space.electrolysis['s_max'] > 0 ? global.space.electrolysis.s_max : 0;
 }
 
-// Titan's horde keeps its head down until you put more support back over it than the wreck you
-// inherited. Whatever plants came through the razing do not count — it takes a fresh one running
-// before you get a proper look at the surface, and before Titan joins the horde's own target list.
+// Titan's horde 
 function zTitanWatch(){
     if (titanReclaimed()){ return; }
     // Ordered behind the outer distress signals, so the stages cannot be leapfrogged.
@@ -5666,7 +5665,7 @@ const zFleetHulls = {
     destroyer:     { weight(){ return 1; },   avail(){ return global.tech['resettle'] && global.tech.resettle >= 11 ? true : false; }, horde(){ return 1700; } },
     cruiser:       { weight(){ return 1; },   avail(){ return global.tech['resettle'] && global.tech.resettle >= 14 ? true : false; }, horde(){ return 4100; } },
     battlecruiser: { weight(){ return global.tech['resettle'] && global.tech.resettle >= 19 ? 1 : 0.5; }, avail(){ return global.tech['resettle'] && global.tech.resettle >= 15 ? true : false; }, horde(){ return 10300; } },
-    dreadnought:   { weight(){ return 0.5; }, avail(){ return global.tech['resettle'] && global.tech.resettle >= 19 ? true : false; }, horde(){ return 24750; } }
+    dreadnought:   { weight(){ return global.tech['overmind'] ? 1 : 0.5; }, avail(){ return global.tech['resettle'] && global.tech.resettle >= 19 && global.tech.resettle < 20 || global.tech['overmind'] ? true : false; }, horde(){ return 24750; } }
 };
 
 // The classes cleared to fly right now.
@@ -5715,9 +5714,7 @@ const zFleetOddsEnd = 0.40;     // ...and once the ramp is complete.
 const zAssaultOdds = 0.60;       // stands in for the above during the assault.
 const zFleetLoadStart = 0.25;   // share of a hull's cargo that lands on the first day
 
-// --- The final assault ---------------------------------------------------------------------------
-// Severing the uplink is what provokes it. Everything the horde has been doing stops dead — no raid
-// lifts at all while it masses — and then it comes at everything at once for a hundred days.
+// --- The zombie assault ---------------------------------------------------------------------------
 const zUplinkSilent = 25;     // game days of nothing whatsoever after the uplink is cut
 const zUplinkWarn = 5;        // days the warning hangs over Earth before the assault proper
 const zUplinkSurvive = 100;   // days the assault runs
@@ -5740,9 +5737,14 @@ export function zUplinkWarning(){
     return d !== false && d >= zUplinkSilent && d < zUplinkSilent + zUplinkWarn;
 }
 
-// The hundred days themselves. resettle 19 is the marker, so anything can ask without a day count.
+// Brainless route activated
+export function zEndless(){
+    return global.tech['overmind'] ? true : false;
+}
+
+// zAssault active
 export function zAssault(){
-    return global.tech['resettle'] && global.tech.resettle === 19 ? true : false;
+    return (global.tech['resettle'] && global.tech.resettle === 19) || zEndless() ? true : false;
 }
 
 // Days still to survive, for the banner's countdown.
@@ -5753,8 +5755,101 @@ export function zAssaultLeft(){
     return left > 0 ? left : 0;
 }
 
-// Advance the uplink clock and move the arc on when it reaches each mark. Runs before the launch
-// gates below so the clock keeps ticking on the days nothing is allowed to fly.
+// Zombies still holding ground anywhere. Deliberately not infestationCount: that reports 0 for a horde
+// nobody has found yet, and one lying low on Mars or Titan has not been dealt with.
+export function zInfestationLeft(){
+    if (!global.race['zhorde']){ return 0; }
+    let left = 0;
+    Object.keys(global.race.zhorde).forEach(function(region){
+        // Earth's billions are a fact of the setting, not something a fleet can work on.
+        if (inertInfestation.includes(region)){ return; }
+        if (global.race.zhorde[region] > 0){ left += global.race.zhorde[region]; }
+    });
+    return left;
+}
+
+// Structures the horde pulled down that have not been put back up.
+export function zRazedLeft(){
+    let razed = 0;
+    Object.keys(razeTargets).forEach(function(region){
+        let cat = razeTargets[region].c;
+        if (!global[cat]){ return; }
+        razeTargets[region].s.forEach(function(s){
+            if (global[cat][s] && global[cat][s].razed > 0){ razed += global[cat][s].razed; }
+        });
+    });
+    return razed;
+}
+
+// The system swept clean: nothing left alive out there and nothing left in ruins. Only ever looked at
+// while the arc is sitting at 20, so it cannot fire before the assault or a second time after it.
+function zRecoveryWatch(){
+    if (!global.tech['resettle'] || global.tech.resettle !== 20){ return; }
+    if (zInfestationLeft() > 0 || zRazedLeft() > 0){ return; }
+    global.tech.resettle = 21;
+    drawTech();
+    renderSpace();
+    messageQueue(loc('zfleet_recovered'),'success',false,['combat','progress']);
+    zombieGenociderTask('z4');
+}
+
+// Everything still standing that the horde is able to take, across every region it can reach. Read
+// off razeTargets so it can never disagree with what razing actually removes.
+export function zRazeStanding(){
+    let standing = 0;
+    Object.keys(razeTargets).forEach(function(region){
+        let cat = razeTargets[region].c;
+        if (!global[cat]){ return; }
+        razeTargets[region].s.forEach(function(s){
+            if (global[cat][s] && global[cat][s].count > 0){ standing += global[cat][s].count; }
+        });
+    });
+    return standing;
+}
+
+// How long the screen bleeds before the reset actually runs, matching the pacing of the corrupted
+// AI's static, and how many runs of blood lead it down.
+const zBleedTime = 4000;
+const zBleedDrips = 26;
+
+// The screen bleeding out. A sheet of red runs down from the top edge with a scatter of drips leading
+// ahead of it, and the run ends underneath it.
+function zBleedOut(){
+    if (webWorker.w){
+        webWorker.w.terminate();
+    }
+    clearPopper();
+
+    let drips = ``;
+    for (let i=0; i<zBleedDrips; i++){
+        // Scattered rather than evenly spaced, so it reads as something running rather than a bar chart.
+        let left = +(seededRandom(0,100,true)).toFixed(2);
+        let width = +(seededRandom(0.4,2.6,true)).toFixed(2);
+        drips += `<div class="bleed-drip" style="left:${left}%;width:${width}rem"></div>`;
+    }
+    $(`body`).append(`<div id="zBleed" class="bleed-wrapper"><div class="bleed-sheet"></div>${drips}</div>`);
+
+    // The drips run ahead of the sheet and each at its own pace; the sheet then closes over the lot.
+    $(`#zBleed .bleed-drip`).each(function(){
+        $(this).animate({ height: `${Math.round(seededRandom(25,105,true))}%` },
+            Math.round(seededRandom(zBleedTime * 0.35,zBleedTime * 0.85,true)));
+    });
+    $(`#zBleed .bleed-sheet`).animate({ height: '100%' }, Math.round(zBleedTime * 0.9));
+
+    setTimeout(function(){
+        zApocalypse();
+    }, zBleedTime);
+}
+
+// Watch for the end. Only armed once the Overmind begins its endless assault.
+function zApocalypseWatch(){
+    if (!zEndless() || global.race['zapoc']){ return; }
+    if (zRazeStanding() > 0){ return; }
+    global.race['zapoc'] = true;
+    zBleedOut();
+}
+
+// Advance the uplink clock and move the arc on when it reaches each mark.
 function zUplinkWatch(fleet){
     if (!global.tech['resettle'] || global.tech.resettle < 18){ return; }
     if (typeof fleet.uz !== 'number'){ fleet.uz = 0; }
@@ -5780,7 +5875,7 @@ function zUplinkWatch(fleet){
     }
 }
 
-// Hulls in one sortie. Ordinarily a lone raider, or a pair once the horde has managed a strike on
+// Ships in one sortie. Ordinarily a lone raider, or a pair once the horde has managed a strike on
 // another star. The assault never sends fewer than two, and what it leaves behind afterwards still
 // flies in company more often than it used to.
 const zAssaultSizes = [[0.50,3],[0.35,4],[0.15,5]];
@@ -5798,9 +5893,18 @@ function zFleetSize(fleet){
     return fleet.tw && seededRandom(0,1,true) < zPairOdds ? zPairSize : 1;
 }
 
-// What the horde can fit. An ordinary raid is scavenged from wrecks and rolls the whole of each list;
-// the assault is built rather than salvaged, so it takes only from the good end.
+// The final tech list for zombie fleets, only the best.
+const zOvermindParts = {
+    power: 'elerium',
+    weapon: 'disruptor',
+    armor: 'neutronium',
+    engine: 'vacuum',
+    sensor: 'quantum'
+};
+
+// What the horde fleet ships can equip.
 function zFleetPartRange(part){
+    if (zEndless() && zOvermindParts.hasOwnProperty(part)){ return [zOvermindParts[part]]; }
     if (!zAssault()){ return zFleetParts[part]; }
     switch (part){
         case 'power':  return zFleetParts.power.slice(4);    // elerium, nothing else
@@ -5842,6 +5946,7 @@ function zFleetDay(){
     if (!fleet.s){ fleet.s = []; }
 
     zUplinkWatch(fleet);
+    zRecoveryWatch();
     zFleetMove(fleet);
 
     // The blockade runs on its own rules rather than act like a raid
@@ -5870,12 +5975,22 @@ function zFleetDay(){
     }
 
     zGroundFire(fleet);
+
+    // Last thing in the day, so a razing that finishes the job this morning ends the run this evening
+    // rather than a day later.
+    zApocalypseWatch();
 }
 
 const zGroundFireDay = 50;      // days after the first hull lifts before the surface starts shooting back
 const zGroundFireMin = 2;       // hull points an unarmoured ship in orbit loses per day once it does
 const zGroundFireMax = 9;
-const zGroundFireTargets = 2;   // ships the batteries can track and engage in one day
+const zGroundFireTargets = 2;         // ships the batteries can track and engage in one day
+const zAssaultGroundFireTargets = 5;  // ...and during the assault, with the whole surface firing at once
+
+// How many ships the surface can hold a firing solution on.
+function zGroundFireCount(){
+    return zAssault() ? zAssaultGroundFireTargets : zGroundFireTargets;
+}
 
 // Share of a hit each armour lets through. The ratio matches the 8 / 6 / 4 the wear-and-tear roll in
 // the main loop already uses, so neutronium plating turns aside half of what steel does wherever the
@@ -5894,11 +6009,7 @@ export function aerographeneSpeedBonus(){
     return Math.round((AEROGRAPHENE_SPEED - 1) * 100);
 }
 
-// Plating is described against steel, which is the zero point for both figures: it soaks a full hit
-// and carries no weight penalty. Both numbers are derived rather than written down — the soak from
-// the table combat reads, the speed by running shipSpeed twice on the design currently on the
-// drawing board. That last part matters: neutronium's weight costs a corvette about 5% and a
-// dreadnought about 17%, so any single fixed number would be wrong for most of the fleet.
+// Plating is described against steel, which is the zero point for both figures: it soaks a full hit.
 function armorDesc(armor){
     let desc = loc(`outer_shipyard_armor_${armor}_desc`);
     if (armor === 'steel'){ return `${desc} ${loc(`outer_shipyard_armor_baseline`)}`; }
@@ -5921,9 +6032,7 @@ function armorDesc(armor){
     return notes.length ? `${desc} ${notes.join(' ')}` : desc;
 }
 
-// Share of a hit each hull size takes, smallest to largest. A bigger ship spreads the same round over
-// more structure, so a round that guts a corvette barely marks a dreadnought. Explorers are not a size
-// tier and fall through to taking it in full.
+// Share of a hit each hull size takes, smallest to largest.
 const shipClassSoak = {
     corvette: 1,
     frigate: 0.85,
@@ -5948,7 +6057,8 @@ function zGroundFire(fleet){
 
     let hit = 0;
     // Drawn without replacement, so the same hull is never worked over twice in one day.
-    for (let i=0; i<zGroundFireTargets && overhead.length > 0; i++){
+    let targets = zGroundFireCount();
+    for (let i=0; i<targets && overhead.length > 0; i++){
         let ship = overhead.splice(Math.floor(seededRandom(0,overhead.length,true)),1)[0];
         // Armour soaks part of every hit, but never all of it — a barrage that lands still scores. A
         // flagship's escort screens it here the same as it does under fire in orbit.
@@ -5989,11 +6099,13 @@ function foeAccuracy(foe){
     return zSensorAccuracy.hasOwnProperty(foe.sensor) ? zSensorAccuracy[foe.sensor] : 0.25;
 }
 
-// Firepower turned into hull damage. The target's plating soaks part of it, its size soaks the rest,
-// and a flagship's escort screens what is left: the same round means far less to a dreadnought than to
-// a corvette. A hit still always scores.
+// How much harder the horde hits once the Overmind final assault is launched.
+const zOvermindDamage = 4;
+
+// Firepower turned into hull damage.
 function combatDamage(attacker,defender){
     let raw = shipAttackPower(attacker) / zCombatDamageDivisor;
+    if (attacker.enemy && zEndless()){ raw *= zOvermindDamage; }
     return Math.max(1,Math.round(raw * shipArmorFactor(defender) * shipClassFactor(defender) * (1 - fleetDamageSoak(defender))));
 }
 
@@ -6003,7 +6115,7 @@ function guardsAt(locationName){
     return global.space.shipyard.ships.filter(s => !s.inTransit && s.location.name === locationName);
 }
 
-// A ship shot out from under its crew. The hull is gone from the roster and the crew with it.
+// A ship shot out from under its crew. The ship is gone from the roster and the crew with it.
 function destroyPlayerShip(ship,locationName){
     let crew = shipCrewSize(ship);
     // Losing the flagship scatters the fleet it was holding together, so stand it down before the hull
@@ -6147,7 +6259,7 @@ export function zWarfareVars(){
         groundFireDay: zGroundFireDay,
         groundFireMin: zGroundFireMin,
         groundFireMax: zGroundFireMax,
-        groundFireTargets: zGroundFireTargets,
+        groundFireTargets: zGroundFireCount(),
         fleetCmd: fleetCmdRange,
         minHull: minHullToLaunch
     };
@@ -6960,8 +7072,15 @@ export function drawShipYard(){
                 engine: 'ion',
                 power: 'diesel',
                 sensor: 'radar',
+                special: 'none',
                 name: getRandomShipName()
             };
+        }
+
+        // A blueprint saved before the special slot existed has no entry for it.
+        global.space.shipyard.blueprint.special = shipSpecial(global.space.shipyard.blueprint);
+        if (!shipSpecialAllowed(global.space.shipyard.blueprint.special,global.space.shipyard.blueprint.class)){
+            global.space.shipyard.blueprint.special = 'none';
         }
 
         // Disable Explorer hull and emdrive engine when restarting ship yard
@@ -6985,6 +7104,7 @@ export function drawShipYard(){
         shipStats.append(`<div><span class="has-text-caution">${loc(`crew`)}</span> <span v-html="crewText()"></span></div>`);
         shipStats.append(`<div><span class="has-text-caution">${loc(`power`)}</span> <span v-html="powerText()"></span></div>`);
         shipStats.append(`<div><span class="has-text-caution">${loc(`firepower`)}</span> <span v-html="fireText()"></span></div>`);
+        shipStats.append(`<div v-show="bombardVis()"><span class="has-text-caution">${loc(`outer_shipyard_bombard`)}</span> <span v-html="bombardText()"></span></div>`);
         shipStats.append(`<div><span class="has-text-caution">${loc(`outer_shipyard_sensors`)}</span> <span v-html="sensorText()"></span></div>`);
         shipStats.append(`<div><span class="has-text-caution">${loc(`speed`)}</span> <span v-html="speedText()"></span></div>`);
         shipStats.append(`<div><span class="has-text-caution">${loc(`outer_shipyard_fuel`)}</span> <span v-html="fuelText()"></span></div>`);
@@ -6997,10 +7117,11 @@ export function drawShipYard(){
         let shipConfig = {
             class: ['corvette','frigate','destroyer','cruiser','battlecruiser','dreadnought','explorer'],
             power: ['solar','diesel','fission','fusion','elerium','antimatter'],
-            weapon: ['railgun','laser','p_laser','plasma','phaser','disruptor','gauss'],
+            weapon: shipWeapons,
             armor : ['steel','alloy','neutronium','aerographene'],
             engine: ['ion','tie','pulse','photon','vacuum','emdrive','electrokinetic'],
             sensor: ['visual','radar','lidar','quantum'],
+            special: shipSpecials,
         };
 
         Object.keys(shipConfig).forEach(function(k){
@@ -7009,7 +7130,10 @@ export function drawShipYard(){
                 values += `<b-dropdown-item aria-role="listitem" @click="setVal('${k}','${v}')" class="${k} a${idx}" data-val="${v}" v-show="avail('${k}','${idx}','${v}')">${loc(`outer_shipyard_${k}_${v}`)}</b-dropdown-item>`;
             });
 
-            options.append(`<b-dropdown :triggers="['hover', 'click']" aria-role="list">
+            // The special mount is not part of a hull until it has been researched, so the whole
+            // control stays out of the yard rather than sitting there reading "None".
+            let slot = k === 'special' ? ` v-show="slotOpen('${k}')"` : ``;
+            options.append(`<b-dropdown :triggers="['hover', 'click']" aria-role="list"${slot}>
                 <template #trigger>
                     <button class="button is-info">
                         <span>${loc(`outer_shipyard_${k}`)}: {{ lbl(b.${k}, '${k}') }}</span>
@@ -7072,14 +7196,26 @@ export function drawShipYard(){
                     else if (b === 'class' && v !== 'explorer' && global.space.shipyard.blueprint.class === 'explorer'){
                         global.space.shipyard.blueprint.engine = 'ion';
                     }
+                    // Remove special if not allowed on ship class
+                    if (b === 'class' && !shipSpecialAllowed(global.space.shipyard.blueprint.special,v)){
+                        global.space.shipyard.blueprint.special = 'none';
+                    }
                     global.space.shipyard.blueprint[b] = v;
                     updateCosts();
                     vBind({el: `#shipPlans`},'update');
+                },
+                slotOpen(k){
+                    return k === 'special' ? (global.tech['syard_special'] ? true : false) : true;
                 },
                 avail(k,i,v){
                     // Disable the Explorer hull and emdrive engine after new shipyard is unlocked
                     if (global.tech['resettle'] && (v === 'emdrive' || v === 'explorer')){
                         return false;
+                    }
+                    if (k === 'special'){
+                        // A mount the current hull has no room for is not offered at all.
+                        if (!shipSpecialAllowed(v,global.space.shipyard.blueprint.class)){ return false; }
+                        return global.tech['syard_special'] ? true : false;
                     }
                     if ((k === 'class' || k === 'engine') && global.tech['tauceti'] && (v === 'emdrive' || v === 'explorer')){
                         return true;
@@ -7109,6 +7245,13 @@ export function drawShipYard(){
                 },
                 fireText(){
                     return shipAttackPower(global.space.shipyard.blueprint);
+                },
+                // Only worth a line on the design once there is a mount fitted to rate.
+                bombardVis(){
+                    return shipBombardPower(global.space.shipyard.blueprint) > 0;
+                },
+                bombardText(){
+                    return shipBombardPower(global.space.shipyard.blueprint);
                 },
                 sensorText(){
                     return sensorRange(global.space.shipyard.blueprint) + 'km';
@@ -7479,6 +7622,8 @@ export function shipPower(ship, wiki){
             break;
     }
 
+    watts -= Math.round(shipSpecialPower[shipSpecial(ship)] * use_inflate);
+
     switch (ship.engine){
         case 'ion':
             watts -= Math.round((global.tech.syard_engine >= 6 ? 18 : 25) * use_inflate);
@@ -7516,6 +7661,37 @@ export function shipPower(ship, wiki){
     }
 
     return watts;
+}
+
+// --- Ship weapons -------------------------------------------------------------------------------
+// In unlock order: the index is what syard_weapon is measured against, so this order is load bearing.
+const shipWeapons = ['railgun','laser','p_laser','plasma','phaser','disruptor','gauss'];
+
+// --- The special slot ---------------------------------------------------------------------------
+const shipSpecials = ['none','massdriver'];
+
+// Ships allowed to carry mass drivers
+const massDriverHulls = ['cruiser','battlecruiser','dreadnought'];
+export function shipSpecialAllowed(special,shipClass){
+    return special === 'massdriver' ? massDriverHulls.includes(shipClass) : true;
+}
+
+// What special a ship has equiped.
+export function shipSpecial(ship){
+    return ship && ship.special && shipSpecials.includes(ship.special) ? ship.special : 'none';
+}
+
+// Power a special mount draws
+const shipSpecialPower = { none: 0, massdriver: 325 };
+
+// --- Orbital bombardment ------------------------------------------------------------------------
+const shipBombardRating = { cruiser: 500, battlecruiser: 900, dreadnought: 2000 };
+
+// The bombardment rating of a single hull, or 0 for anything not carrying a mass driver.
+export function shipBombardPower(ship){
+    if (!ship || shipSpecial(ship) !== 'massdriver'){ return 0; }
+    if (!shipSpecialAllowed('massdriver',ship.class)){ return 0; }
+    return shipBombardRating.hasOwnProperty(ship.class) ? shipBombardRating[ship.class] : 0;
 }
 
 export function shipAttackPower(ship){
@@ -7573,7 +7749,8 @@ export function shipAttackPower(ship){
 }
 
 export function shipSpeed(ship){
-    let mass = 1;
+    // Featherlight: avian hulls are built lighter than anyone else's.
+    let mass = 1 / geneBonus('featherlight');
     switch (ship.class){
         case 'corvette':
             mass = global.tech['syard_mass'] ? (ship.armor === 'neutronium' ? 1 : 0.95) : ship.armor === 'neutronium' ? 1.1 : 1;
@@ -7852,6 +8029,13 @@ export function shipCosts(bp){
             costs['Quantium'] = Math.round(60000 ** h_inflate);
             costs['Iron'] = Math.round(350000 ** h_inflate);
             break;
+    }
+
+    // The special mount
+    if (shipSpecial(bp) === 'massdriver'){
+        costs['Iridium'] = Math.round(costs['Iridium'] ** 1.2);
+        costs['Tungsten'] = Math.round(750000 ** h_inflate);
+        costs['Quantium'] = Math.round(40000 ** h_inflate);
     }
 
     if (bp.class === 'explorer'){
@@ -8535,12 +8719,16 @@ function tauEnableSoldiers(){
 
 // Take a `ship` and send it on its merry way to `locationName`
 function initializeShipTrip(ship, locationName, trip){
+    // Whether this ship is presently inside a wormhole, and which gate it is bound for.
+    let inGate = ship.inTransit && ship.path && ship.path[0] && ship.path[0].inGate ? true : false;
+    let gateExit = inGate ? ship.path[0].destination.name : false;
+
     // If a trip is already calculated then use that trip (for example when sending 
     // a fleet to account for its slower speed). Otherwise calculate steps for new path.
     let plannedTrip;
-    if (trip)
+    if (trip && !inGate)
         plannedTrip = trip;
-    else 
+    else
         plannedTrip = planShipTrip(ship, locationName);
 
     // We're already at the target location, or the location is unavailable (for any possible reason)
@@ -8572,8 +8760,10 @@ function initializeShipTrip(ship, locationName, trip){
     ship.destination.name = locationName;
     ship.destination.position = ship.path[ship.path.length - 1].destination.position;
 
-    // First step
-    ship.timeToNextStep = ship.path[0].totalTime;
+    // First step. A carried-over gate leg keeps the time it had left on it
+    if (!(inGate && ship.path[0].inGate && ship.path[0].destination.name === gateExit)){
+        ship.timeToNextStep = ship.path[0].totalTime;
+    }
 
     // Liftoff
     ship.inTransit = true;
@@ -10017,7 +10207,8 @@ function planShipTrip(ship, locationName){
                 name: step.location,
                 position: nextPosition
             },
-            totalTime: time
+            totalTime: time,
+            inGate: step.inGate ? true : false
         });
         
         currentPosition = nextPosition;
