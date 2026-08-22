@@ -1011,7 +1011,7 @@ const spaceProjects = {
         },
         red_mine: {
             id: 'space-red_mine',
-            title(){ return structName('mine'); },
+            title(){ return structName('red_mine'); },
             desc(){
                 return `<div>${loc('space_red_mine_desc')}</div><div class="has-text-special">${loc('space_support',[planetName().red])}</div>`;
             },
@@ -1038,8 +1038,8 @@ const spaceProjects = {
                 }
 
                 let decayed = decayPerks() ? `<div>${loc('plus_max_resource',[jobScale(1),loc(`job_miner`)])}</div><div>${loc('plus_max_resource',[jobScale(1),loc(`job_coal_miner`)])}</div>` : '';
-                let cat_stone = (global.race['cataclysm'] || decayPerks()) && !global.race['sappy'] ? `<div>${loc('space_red_mine_effect',[+(production('red_mine','stone')).toFixed(2),global.resource.Stone.name])}</div>` : ``;
-                let cat_asbestos = (global.race['cataclysm'] || decayPerks()) && global.race['smoldering'] ? `<div>${loc('space_red_mine_effect',[+(production('red_mine','asbestos')).toFixed(2),global.resource.Chrysotile.name])}</div>` : ``;
+                let cat_stone = (global.race['cataclysm'] || decayPerks() || global.tech['resettle']) && !global.race['sappy'] ? `<div>${loc('space_red_mine_effect',[+(production('red_mine','stone')).toFixed(2),global.resource.Stone.name])}</div>` : ``;
+                let cat_asbestos = (global.race['cataclysm'] || decayPerks()) && global.race['smoldering'] || global.tech['resettle'] ? `<div>${loc('space_red_mine_effect',[+(production('red_mine','asbestos')).toFixed(2),global.resource.Chrysotile.name])}</div>` : ``;
                 let cat_alum = global.race['cataclysm'] || decayPerks() ? `<div>${loc('space_red_mine_effect',[+(production('red_mine','aluminium')).toFixed(2),global.resource.Aluminium.name])}</div>` : ``;
                 return `<div class="has-text-caution">${loc('space_used_support',[planetName().red])}</div>${decayed}<div>${loc('space_red_mine_effect',[copper,global.resource.Copper.name])}</div><div>${loc('space_red_mine_effect',[titanium,global.resource.Titanium.name])}</div>${rival}${cat_asbestos}${cat_stone}${cat_alum}`;
             },
@@ -1470,6 +1470,48 @@ const spaceProjects = {
             },
             flair(){
                 return loc('space_red_space_barracks_flair');
+            }
+        },
+        botanical: {
+            id: 'space-botanical',
+            title(){ return loc('space_red_botanical_title'); },
+            desc(){
+                return `<div>${loc('space_red_botanical_desc',[planetName().red])}</div><div class="has-text-special">${loc('space_support',[planetName().red])}</div>`;
+            },
+            type: 'entertainment',
+            reqs: { mars: 7 },
+            path: ['truepath'],
+            cost: {
+                Money(offset){ return spaceCostMultiplier('botanical', offset, 85000000, 1.32); },
+                Alloy(offset){ return spaceCostMultiplier('botanical', offset, 550000, 1.32); },
+                Nano_Tube(offset){ return spaceCostMultiplier('botanical', offset, 400000, 1.32); },
+                Water(offset){ return spaceCostMultiplier('botanical', offset, 110000, 1.32); }
+            },
+            calm: 0.3,
+            effect(){
+                return `<div class="has-text-caution">${loc('space_used_support',[planetName().red])}</div>`
+                     + `<div>${loc('space_red_botanical_effect')}</div>`;
+            },
+            s_type: 'red',
+            support(){ return -1; },
+            powered(){ return 0; },
+            action(args){
+                if (payCosts($(this)[0])){
+                    incrementStruct($(this)[0]);
+                    global.civic.gardener.display = true;
+                    powerOnNewStruct($(this)[0]);
+                    return true;
+                }
+                return false;
+            },
+            struct(){
+                return {
+                    d: { count: 0, on: 0 },
+                    p: ['botanical','space']
+                };
+            },
+            flair(){
+                return loc('space_red_botanical_flair');
             }
         },
         wonder_statue: {
@@ -2876,7 +2918,7 @@ const spaceProjects = {
             reqs: { outer: 6 },
             path: ['truepath'],
             condition(){
-                return global.space.mass_relay.count && !global.tech['resettle'] >= 100 ? true : false;
+                return global.space.mass_relay.count >= 100 && !global.tech['resettle'] ? true : false;
             },
             wiki: false,
             queue_complete(){ return 0; },
@@ -6929,6 +6971,7 @@ const structDefinitions = {
     exotic_lab: { count: 0, on: 0 },
     ziggurat: { count: 0 },
     space_barracks: { count: 0, on: 0 },
+    botanical: { count: 0, on: 0 },
     biodome: { count: 0, on: 0 },
     laboratory: { count: 0, on: 0 },
     geothermal: { count: 0, on: 0 },
@@ -7736,14 +7779,18 @@ function genomeNamer(genome){
 }
 
 export function planetName(){
-    let type = races[global.race.species].type === 'hybrid' ? global.race.maintype : races[global.race.species].type;
+    // "Use real solar names" reads every world off the human race and its genus
+    let real = global.settings['solarNames'] ? true : false;
+    let species = real ? 'human' : global.race.species;
+    let type = real ? 'humanoid'
+        : (races[global.race.species].type === 'hybrid' ? global.race.maintype : races[global.race.species].type);
     let names = {
-        home: races[global.race.species].home,
-        red: races[global.race.species].solar.red,
-        hell: races[global.race.species].solar.hell,
-        gas: races[global.race.species].solar.gas,
-        gas_moon: races[global.race.species].solar.gas_moon,
-        dwarf: races[global.race.species].solar.dwarf,
+        home: races[species].home,
+        red: races[species].solar.red,
+        hell: races[species].solar.hell,
+        gas: races[species].solar.gas,
+        gas_moon: races[species].solar.gas_moon,
+        dwarf: races[species].solar.dwarf,
         titan: genusVars[type].solar.titan,
         enceladus: genusVars[type].solar.enceladus,
         triton: genusVars[type].solar.triton,
@@ -7761,17 +7808,15 @@ export function planetName(){
         haumea: genusVars[type].solar.haumea,
         makemake: genusVars[type].solar.makemake,
     };
-    // Anything the custom race named for itself wins over its genus's default — the advanced bodies
-    // included, since the gene lab can now name those too.
     let renameable = truepathSolarBodies;
-    if (global.race.species === 'custom'){
+    if (!real && global.race.species === 'custom'){
         for (let p of renameable){
             if (global.custom.race0.hasOwnProperty(p)){
                 names[p] = global.custom.race0[p];
             }
         }
     }
-    if (global.race.species === 'hybrid'){
+    if (!real && global.race.species === 'hybrid'){
         for (let p of renameable){
             if (global.custom.race1.hasOwnProperty(p)){
                 names[p] = global.custom.race1[p];

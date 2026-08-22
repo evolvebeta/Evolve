@@ -3,7 +3,7 @@ import { clearElement, popover, clearPopper, flib, fibonacci, eventActive, timeF
 import { actions, updateQueueNames, drawTech, drawCity, addAction, removeAction, wardenLabel, checkCosts, structName } from './actions.js';
 import { races, traits, cleanAddTrait, cleanRemoveTrait, combineTraits, traitSkin, fathomCheck, planetTraits, setTraitRank, traitRank,
          geneRoster, geneUnlocked, geneSlotOf, geneRankCap, geneRankCost, geneBreakCost, geneRank, syncGenes, genes,
-         geneBonus, geneSlots, genePermanent, geneTemp, geneSlotCost, geneBreaks, geneBreakUnlocked, geneSlotCount, geneSlotExtra, geneSlotLabel, geneSuited, geneDescKey,
+         geneBonus, geneSlots, genePermanent, geneTemp, geneSlotCost, geneBreaks, geneBreakUnlocked, geneSlotCount, geneSlotExtra, geneSlotLabel, geneSuited,
          geneSlotBase, geneSlotMatched, geneSlotAnswers, genePairSlot, geneRankStart,
          geneEffectiveBase, geneWeak, geneVars, geneEmergentList, geneEmergentRank} from './races.js';
 import { renderSpace } from './space.js';
@@ -2050,13 +2050,13 @@ function genetics(){
                     remove_list.push(trait);
 
                     major.append(purge);
-                    major.append($(`<span class="trait has-text-warning" id="raceTrait${trait}">${traitName[trait] ? traitName[trait] : traits[trait].name} (${loc(`arpa_genepool_rank`,[traitRank(trait)])})</span>`));
+                    major.append($(`<span class="trait has-text-warning" id="raceTrait${trait}">${traitName[trait] ? traitName[trait] : traits[trait].name()} (${loc(`arpa_genepool_rank`,[traitRank(trait)])})</span>`));
 
                     traitListing.append(major);
                 }
                 else {
                     null_list.push(trait);
-                    traitListing.append(`<div class="traitRow trait${trait}"><div class="trait has-text-warning${global.genes['mutation'] ? ' indent' : ''}">${traitName[trait] ? traitName[trait] : traits[trait].name} (${loc(`arpa_genepool_rank`,[traitRank(trait)])})</div></div>`);
+                    traitListing.append(`<div class="traitRow trait${trait}"><div class="trait has-text-warning${global.genes['mutation'] ? ' indent' : ''}">${traitName[trait] ? traitName[trait] : traits[trait].name()} (${loc(`arpa_genepool_rank`,[traitRank(trait)])})</div></div>`);
                 }
             }
         });
@@ -2118,7 +2118,7 @@ function genetics(){
                         let add = $(`<span class="add${trait} basic-button has-text-success" role="button" :aria-label="addCost('${trait}')" @click="gain('${trait}')">${loc('arpa_gain_button')}</span>`);
 
                         major.append(add);
-                        major.append($(`<span class="trait has-text-warning" id="raceTrait${trait}">${traitName[trait] ? traitName[trait] : traits[trait].name} (${loc(`arpa_genepool_rank`,[offspec_traits[trait] ? 0.5 : 1])})</span>`));
+                        major.append($(`<span class="trait has-text-warning" id="raceTrait${trait}">${traitName[trait] ? traitName[trait] : traits[trait].name()} (${loc(`arpa_genepool_rank`,[offspec_traits[trait] ? 0.5 : 1])})</span>`));
 
                         addListing.append(major);
                     }
@@ -2307,6 +2307,15 @@ export function sequenceLabs(){
 // --- Gene slots ---
 const geneView = { tab: 0 };
 
+// Limit breaks are paid in plasmids, or their antimatter counterpart in that universe.
+function geneBreakBank(){
+    return global.race.universe === 'antimatter' ? global.prestige.AntiPlasmid : global.prestige.Plasmid;
+}
+function geneBreakName(){
+    return global.race.universe === 'antimatter'
+        ? loc('resource_AntiPlasmid_plural_name') : loc('resource_Plasmid_plural_name');
+}
+
 function geneSlotPanel(parent,primary,primaryMethods){
     let panel = $(`<div id="geneSlots" class="geneSlots"></div>`);
     parent.append(panel);
@@ -2319,11 +2328,10 @@ function geneSlotPanel(parent,primary,primaryMethods){
         let marker = extra
             ? `<span class="slotBase slotBaseExtra">&bull;</span>`
             : `<span class="slotBase base${base}" v-bind:class="{ paired: answers(${i}), bonded: lit(${i}) }">${base}</span>`;
-        // An extra slot's gene is fixed there: nothing to fill, nothing to empty.
+        // An extra slot's gene is fixed there: nothing to fill, nothing to swap out.
         let clear = extra ? `` :
-            `<button id="geneClear${i}" class="button geneClear" v-show="filled(${i})" @click="clearSlot(${i})" :aria-label="clearLabel(${i})">&times;</button>`;
-        let act = `<button id="geneRank${i}" class="button" v-show="canRank(${i})" @click="rankUp(${i})" :aria-label="rankLabel(${i})">${loc('arpa_gene_rank_btn')}</button>
-                <button id="geneBreak${i}" class="button" v-show="canBreak(${i})" @click="breakCap(${i})" :aria-label="breakLabel(${i})">${loc('arpa_gene_break_btn')}</button>`
+            `<button id="geneClear${i}" class="button geneClear" v-show="filled(${i})" @click="replaceGene(${i})" :aria-label="replaceLabel(${i})">&times;</button>`;
+        let act = `<button id="geneRank${i}" class="button" v-show="canRank(${i})" @click="rankUp(${i})" :aria-label="rankLabel(${i})">{{ rankBtn(${i}) }}</button>`
             + (extra ? `` : `
                 <button id="geneFill${i}" class="button is-info" v-show="!filled(${i}) && pickable().length > 0" @click="pickGene(${i})" :aria-label="slotCostLabel(${i})">${loc('arpa_gene_fill_btn')}</button>`);
         // Mirrored across the rung: the remove button sits outside the action on both halves.
@@ -2410,8 +2418,8 @@ function geneSlotPanel(parent,primary,primaryMethods){
                         rank: rank,
                         at: rank > 0 ? loc('arpa_genepool_rank',[rank]) : loc('arpa_gene_emergent_off'),
                         desc: vars.length
-                            ? loc(geneDescKey(g),vars.map(function(v){ return +(v * (rank || 1)).toFixed(2); }))
-                            : (traits[g] ? traits[g].desc : '')
+                            ? traits[g].desc(vars.map(function(v){ return +(v * (rank || 1)).toFixed(2); }))
+                            : (traits[g] ? traits[g].desc() : '')
                     };
                 });
             },
@@ -2441,14 +2449,14 @@ function geneSlotPanel(parent,primary,primaryMethods){
             answers(i){ return geneSlotAnswers(i); },
             // Fully lit: right slot and bonded with its partner.
             lit(i){ return geneSlotAnswers(i) && geneSlotMatched(i); },
-            clearLabel(i){
+            replaceLabel(i){
                 let s = geneSlots()[i];
-                return s && s.g ? loc('arpa_gene_clear_pop',[traitSkin('name',s.g)]) : loc('arpa_gene_clear');
+                return s && s.g ? loc('arpa_gene_replace_pop',[traitSkin('name',s.g)]) : loc('arpa_gene_replace');
             },
             geneName(g){ return traitSkin('name',g); },
             geneDesc(g){
                 if (!traits[g]){ return ''; }
-                return traits[g].vars ? loc(geneDescKey(g),traits[g].vars()) : traits[g].desc;
+                return traits[g].vars ? traits[g].desc(traits[g].vars()) : traits[g].desc();
             },
             unlocked(g){ return geneUnlocked(g); },
             temporary(g){ return geneTemp(g) && !genePermanent(g); },
@@ -2463,78 +2471,81 @@ function geneSlotPanel(parent,primary,primaryMethods){
             },
             canRank(i){
                 let s = geneSlots()[i];
-                return s && s.g && s.r < geneRankCap(i) ? true : false;
+                if (!s || !s.g){ return false; }
+                // At the ceiling there is still a rank to buy, so long as it can be broken through.
+                return s.r < geneRankCap(i) || geneBreakUnlocked() ? true : false;
             },
-            canBreak(i){
-                if (!geneBreakUnlocked()){ return false; }
+            atCap(i){
                 let s = geneSlots()[i];
                 return s && s.g && s.r >= geneRankCap(i) ? true : false;
+            },
+            rankBtn(i){
+                return this.atCap(i) ? loc('arpa_gene_break_btn') : loc('arpa_gene_rank_btn');
             },
             rankLabel(i){
                 let s = geneSlots()[i];
                 if (!s || !s.g){ return ''; }
-                return loc('arpa_gene_rank_up',[geneRankCost(s.r + 1,s.g,i),global.resource.Genes.name]);
+                let cost = geneRankCost(s.r + 1,s.g,i);
+                if (!this.atCap(i)){
+                    return loc('arpa_gene_rank_up',[cost,global.resource.Genes.name]);
+                }
+                return loc('arpa_gene_rank_break',[geneBreakCost(i),geneBreakName(),cost,global.resource.Genes.name]);
             },
             slotCostLabel(i){
                 return loc('arpa_gene_slot',[geneSlotCost(i),global.resource.Genes.name]);
             },
-            breakLabel(i){
-                let plasmid = global.race.universe === 'antimatter'
-                    ? loc('resource_AntiPlasmid_plural_name') : loc('resource_Plasmid_plural_name');
-                return loc('arpa_gene_break',[geneBreakCost(i),plasmid]);
-            },
             pickGene(i){
                 if (this.filled(i) || geneSlotExtra(i)){ return; }
+                this.openGenePicker(i);
+            },
+            replaceGene(i){
+                if (!this.filled(i) || geneSlotExtra(i)){ return; }
+                this.openGenePicker(i);
+            },
+            openGenePicker(i){
                 let modal = this.$buefy.modal.open({
                     hasModalCard: false,
                     content: '<div id="modalBox" class="modalBox"></div>'
                 });
                 let checkExist = setInterval(function(){
-                    if ($('#modalBox').length > 0){
+                    if (document.getElementById('modalBox')){
                         clearInterval(checkExist);
                         genePickModal(i,modal);
                     }
                 }, 50);
-            },
-            clearSlot(i){
-                let s = geneSlots()[i];
-                if (!s || !s.g){ return; }
-                // A granted extra slot keeps its gene for good.
-                if (geneSlotExtra(i)){ return; }
-                let gene = s.g;
-                geneSlots()[i] = false;
-                delete geneBreaks()[i];
-                afterGeneChange(gene);
             },
             rankUp(i){
                 let s = geneSlots()[i];
                 if (!s || !s.g){ return; }
 
                 let rankCap = geneRankCap(i);
-                if (s.r >= rankCap){ return; }
+                if (s.r >= rankCap && !geneBreakUnlocked()){ return; }
 
                 let keyMult = keyMultiplier();
-                if (keyMult > rankCap - s.r)
-                    keyMult = rankCap - s.r;
+                let bought = 0;
 
-                for (let n = 0; n < keyMult; n++){
+                if (s.r >= rankCap){
+                    let bank = geneBreakBank();
+                    let breakCost = geneBreakCost(i);
+                    let rankCost = geneRankCost(s.r + 1,s.g,i);
+                    if (bank.count < breakCost || global.resource.Genes.amount < rankCost){ return; }
+                    bank.count -= breakCost;
+                    geneBreaks()[i] = (geneBreaks()[i] || 0) + 1;
+                    global.resource.Genes.amount -= rankCost;
+                    s.r++;
+                    bought = 1;
+                    rankCap = geneRankCap(i);
+                }
+
+                let remain = Math.min(keyMult - bought, rankCap - s.r);
+                for (let n = 0; n < remain; n++){
                     let cost = geneRankCost(s.r + 1,s.g,i);
-                    if (global.resource.Genes.amount < cost){ return; }
+                    if (global.resource.Genes.amount < cost){ break; }
                     global.resource.Genes.amount -= cost;
                     s.r++;
+                    bought++;
                 }
-                afterGeneChange(s.g);
-            },
-            breakCap(i){
-                if (!geneBreakUnlocked()){ return; }
-                let s = geneSlots()[i];
-                if (!s || !s.g || s.r < geneRankCap(i)){ return; }
-                let cost = geneBreakCost(i);
-                let bank = global.race.universe === 'antimatter' ? global.prestige.AntiPlasmid : global.prestige.Plasmid;
-                if (bank.count < cost){ return; }
-                bank.count -= cost;
-                geneBreaks()[i] = (geneBreaks()[i] || 0) + 1;
-                afterGeneChange(s.g);
+                if (bought > 0){ afterGeneChange(s.g); }
             },
             unlock(gene){
                 if (genePermanent(gene) || !geneTemp(gene)){ return; }
@@ -2553,15 +2564,18 @@ function geneSlotPanel(parent,primary,primaryMethods){
         popover(`geneClearPop${i}`, function(){
             let s = geneSlots()[i];
             if (!s || !s.g){ return ``; }
-            return loc('arpa_gene_clear_pop',[traitSkin('name',s.g)]);
+            let cost = geneSlotCost(i);
+            let afford = global.resource.Genes.amount >= cost ? 'has-text-success' : 'has-text-danger';
+            return `<div class="has-text-warning">${loc('arpa_gene_replace_pop',[traitSkin('name',s.g)])}</div>`
+                 + `<div class="${afford}">${loc('arpa_gene_replace_cost',[cost,global.resource.Genes.name])}</div>`;
         },
         {
             elm: `#geneClear${i}`,
             classes: `has-background-light has-text-dark`
         });
 
-        // The price of the next rank, and of the next ceiling. Kept off the buttons so a rung fits
-        // on one line, and coloured by whether it can actually be paid right now.
+        // The price of the next rank, and of the ceiling it has to break through to get there. Kept
+        // off the button so a rung fits on one line, and coloured by what can be paid right now.
         popover(`geneRankPop${i}`, function(){
             let s = geneSlots()[i];
             if (!s || !s.g){ return ``; }
@@ -2569,7 +2583,16 @@ function geneSlotPanel(parent,primary,primaryMethods){
             let afford = global.resource.Genes.amount >= cost ? 'has-text-success' : 'has-text-danger';
             let note = geneSlotMatched(i) ? `` :
                 `<div class="has-text-caution">${loc('arpa_gene_unbonded')}</div>`;
-            return `<div class="${afford}">${loc('arpa_gene_rank_up',[cost,global.resource.Genes.name])}</div>`
+            let breaking = ``;
+            if (s.r >= geneRankCap(i)){
+                let bank = geneBreakBank();
+                let bCost = geneBreakCost(i);
+                let bAfford = bank.count >= bCost ? 'has-text-success' : 'has-text-danger';
+                breaking = `<div class="${bAfford}">${loc('arpa_gene_break',[bCost,geneBreakName()])}</div>`
+                         + `<div class="has-text-caution">${loc('arpa_gene_break_to',[geneRankCap(i) + genes.gene_break_ranks])}</div>`;
+            }
+            return breaking
+                 + `<div class="${afford}">${loc('arpa_gene_rank_up',[cost,global.resource.Genes.name])}</div>`
                  + `<div class="has-text-caution">${loc('arpa_gene_at_rank',[s.r,geneRankCap(i)])}</div>`
                  + note;
         },
@@ -2593,31 +2616,15 @@ function geneSlotPanel(parent,primary,primaryMethods){
             classes: `has-background-light has-text-dark`
         });
 
-        popover(`geneBreakPop${i}`, function(){
-            let s = geneSlots()[i];
-            if (!s || !s.g){ return ``; }
-            let cost = geneBreakCost(i);
-            let bank = global.race.universe === 'antimatter' ? global.prestige.AntiPlasmid : global.prestige.Plasmid;
-            let afford = bank.count >= cost ? 'has-text-success' : 'has-text-danger';
-            let plasmid = global.race.universe === 'antimatter'
-                ? loc('resource_AntiPlasmid_plural_name') : loc('resource_Plasmid_plural_name');
-            return `<div class="${afford}">${loc('arpa_gene_break',[cost,plasmid])}</div>`
-                 + `<div class="has-text-caution">${loc('arpa_gene_break_to',[geneRankCap(i) + genes.gene_break_ranks])}</div>`;
-        },
-        {
-            elm: `#geneBreak${i}`,
-            classes: `has-background-light has-text-dark`
-        });
-
         popover(`geneSlotPop${i}`, function(){
             let s = geneSlots()[i];
             if (!s || !s.g || !traits[s.g]){ return ``; }
-            // The figures in force right now, which are the weak ones on an unbonded rung.
+            // The figures in force right now, which are halved on an unbonded rung.
             let vars = traits[s.g].vars ? geneVars(s.g) : [];
             let total = vars.length
-                ? loc(geneDescKey(s.g),vars.map(function(v){ return +(v * s.r).toFixed(2); }))
-                : traits[s.g].desc;
-            let each = vars.length ? loc(geneDescKey(s.g),vars) : ``;
+                ? traits[s.g].desc(vars.map(function(v){ return +(v * s.r).toFixed(2); }))
+                : traits[s.g].desc();
+            let each = vars.length ? traits[s.g].desc(vars) : ``;
             let rate = each && each !== total
                 ? `<div class="has-text-caution">${loc('arpa_gene_per_rank',[each])}</div>`
                 : ``;
@@ -2662,7 +2669,12 @@ function genePickModal(slot,modal){
     // read the grid rather than something to remember from the strand behind the modal.
     let want = geneSlotBase(slot);
     let badge = want ? ` <span class="pickBase base${want}">${want}</span>` : ``;
-    $('#modalBox').append($(`<p id="modalBoxTitle" class="has-text-warning modalTitle">${loc('arpa_gene_pick',[geneSlotLabel(slot)])}${badge}</p>`));
+    // The same grid serves an empty slot and a swap; only the heading tells them apart.
+    let held = geneSlots()[slot];
+    let title = held && held.g
+        ? loc('arpa_gene_replace_title',[geneSlotLabel(slot),traitSkin('name',held.g)])
+        : loc('arpa_gene_pick',[geneSlotLabel(slot)]);
+    $('#modalBox').append($(`<p id="modalBoxTitle" class="has-text-warning modalTitle">${title}${badge}</p>`));
 
     let body = $(`<div id="genePick" class="modalBody genePick"></div>`);
     $('#modalBox').append(body);
@@ -2699,17 +2711,19 @@ function genePickModal(slot,modal){
             let cost = geneSlotCost(slot,gene);
             if (global.resource.Genes.amount < cost){ return; }
             if (geneSlotOf(gene) !== false){ return; }
+            let prev = geneSlots()[slot];
+            let displaced = prev && prev.g && prev.g !== gene ? prev.g : false;
             global.resource.Genes.amount -= cost;
             geneSlots()[slot] = { g: gene, r: 1 };
             delete geneBreaks()[slot];
             clearPopper();
             if (modal){ modal.close(); }
-            afterGeneChange(gene);
+            afterGeneChange(gene,displaced);
         });
 
         popover(`genePickPop_${gene}`,function(){
             let vars = traits[gene] && traits[gene].vars ? traits[gene].vars() : [];
-            let desc = vars.length ? loc(geneDescKey(gene),vars) : (traits[gene] ? traits[gene].desc : '');
+            let desc = vars.length ? traits[gene].desc(vars) : (traits[gene] ? traits[gene].desc() : '');
             let cost = geneSlotCost(slot,gene);
             let afford = global.resource.Genes.amount >= cost ? 'has-text-success' : 'has-text-danger';
             // What this gene would be worth in this particular slot: answering its base doubles the
@@ -2736,11 +2750,14 @@ function genePickModal(slot,modal){
 }
 
 // Anything that has to happen once a gene's live rank changes.
-function afterGeneChange(gene){
+function afterGeneChange(gene,also){
     syncGenes();
-    if (gene === 'mastery'){ calc_mastery(true); }
-    if (gene === 'persuasive' || gene === 'logistician'){ updateTrades(); }
-    if (gene === 'queuemaster'){ calcQueueMax(); buildQueue(); }
+    [gene,also].forEach(function(g){
+        if (!g){ return; }
+        if (g === 'mastery'){ calc_mastery(true); }
+        if (g === 'persuasive' || g === 'logistician'){ updateTrades(); }
+        if (g === 'queuemaster'){ calcQueueMax(); buildQueue(); }
+    });
     genetics();
 }
 

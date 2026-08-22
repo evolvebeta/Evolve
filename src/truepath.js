@@ -253,7 +253,7 @@ const outerTruth = {
         },
         titan_mine: {
             id: 'space-titan_mine',
-            title(){ return structName('mine'); },
+            title(){ return structName('titan_mine'); },
             desc(){
                 return `<div>${loc('space_red_mine_desc')}</div><div class="has-text-special">${loc('space_support',[planetName().titan])}</div>`;
             },
@@ -327,6 +327,9 @@ const outerTruth = {
                 if (global.resource.Tungsten.display){
                     res.push('Tungsten');
                 }
+                if (global.resource.Water.display && global.tech['resettle']){
+                    res.push('Water');
+                }
                 return res;
             },
             heavy(res){
@@ -370,6 +373,8 @@ const outerTruth = {
                         return 64;
                     case 'Adamantite':
                         return 72;
+                    case 'Water':
+                        return 2;
                     default:
                         return 0;
                 }
@@ -518,6 +523,7 @@ const outerTruth = {
                 desc += split + '</div>';
                 return desc;
             },
+            wide: true,
             // Metals the works divides its pool between, in the order the UI lists them. The effect text,
             // the industry panel and the production loop all read this one list.
             res(){
@@ -4098,7 +4104,7 @@ const tauCetiModules = {
                 if (global.tech['isolation']){
                     desc = desc + `<div>${loc('tau_red_womling_generate',[global.resource.Furs.name])}</div>`;
                 }
-                desc = desc + `<div>${loc('tau_red_womling_farm_effect2',[food / 2 * farmers,global.resource.Food.name])}</div>`;
+                desc = desc + `<div>${loc('tau_red_womling_farm_effect2',[food / 2 * farmers,loc('resource_Food_name')])}</div>`;
                 return desc;
             },
             s_type: 'tau_red',
@@ -4330,7 +4336,7 @@ const tauCetiModules = {
             path: ['truepath'],
             cost: {
                 Money(offset){ return spaceCostMultiplier('womling_rangers', offset, 38000000, 1.28, 'tauceti'); },
-                Food(offset){ return spaceCostMultiplier('womling_rangers', offset, 2000000, 1.28, 'tauceti'); },
+                Food(offset){ return spaceCostMultiplier('womling_rangers', offset, global.race['artifical'] ? 20000 : 2000000, 1.28, 'tauceti'); },
                 Cement(offset){ return spaceCostMultiplier('womling_rangers', offset, 1800000, 1.28, 'tauceti'); },
                 Unobtainium(offset){ return spaceCostMultiplier('womling_rangers', offset, 675000, 1.28, 'tauceti'); },
             },
@@ -5511,7 +5517,7 @@ export function checkPathRequirements(era,region,action){
 // Structures the horde can raze, per infested region.
 const razeTargets = {
     spc_moon: { c: 'space', s: ['moon_base','iridium_mine','helium_mine','observatory'] },
-    spc_red: { c: 'space', s: ['spaceport','red_tower','living_quarters','pylon','vr_center','garage','red_mine','fabrication','red_factory','biodome','exotic_lab','ziggurat','space_barracks'] },
+    spc_red: { c: 'space', s: ['spaceport','red_tower','living_quarters','pylon','vr_center','garage','red_mine','fabrication','red_factory','biodome','exotic_lab','ziggurat','space_barracks','botanical'] },
     spc_venus: { c: 'space', s: ['cloud_city','nitrogen_harvester','cloud_quarters','industrial_complex','workshop','university'] },
     spc_hell: { c: 'space', s: ['geothermal','hell_smelter','spc_casino','swarm_plant'] },
     spc_titan: { c: 'space', s: ['titan_spaceport','electrolysis','hydrogen_plant','titan_quarters','titan_mine','storehouse','titan_bank','g_factory','sam','decoder','ai_colonist','metalworks'] },
@@ -5807,8 +5813,7 @@ export function zRazeStanding(){
     return standing;
 }
 
-// How long the screen bleeds before the reset actually runs, matching the pacing of the corrupted
-// AI's static, and how many runs of blood lead it down.
+// How long the screen bleeds before the reset actually runs.
 const zBleedTime = 4000;
 const zBleedDrips = 26;
 
@@ -5989,7 +5994,9 @@ const zAssaultGroundFireTargets = 5;  // ...and during the assault, with the who
 
 // How many ships the surface can hold a firing solution on.
 function zGroundFireCount(){
-    return zAssault() ? zAssaultGroundFireTargets : zGroundFireTargets;
+    let targets = zAssault() ? zAssaultGroundFireTargets : zGroundFireTargets;
+    if (global.race.universe === 'micro'){ targets *= 2; } // Not everything in life is fair.
+    return targets;
 }
 
 // Share of a hit each armour lets through. The ratio matches the 8 / 6 / 4 the wear-and-tear roll in
@@ -6090,8 +6097,12 @@ function playerAccuracy(scan,foe){
 
 // The horde aims with whatever each hull was built with, one ship at a time.
 const zSensorAccuracy = { visual: 0.15, radar: 0.3, lidar: 0.45, quantum: 0.6 };
-function foeAccuracy(foe){
-    return zSensorAccuracy.hasOwnProperty(foe.sensor) ? zSensorAccuracy[foe.sensor] : 0.25;
+const zHomeAccuracy = 2;    // accuracy multiplier for the horde while the fight is over Earth
+function foeAccuracy(foe,locationName){
+    let acc = zSensorAccuracy.hasOwnProperty(foe.sensor) ? zSensorAccuracy[foe.sensor] : 0.25;
+    if (locationName === 'spc_home'){ acc *= zHomeAccuracy; }
+    // Accuracy over 100% is reduced to 100%
+    return Math.min(1,acc);
 }
 
 // How much harder the horde hits once the Overmind final assault is launched.
@@ -6194,7 +6205,7 @@ function zEngage(locationName,foes){
         let live = guards.filter(s => s.damage < 100);
         if (live.length === 0){ return; }
         let ship = live[Math.floor(seededRandom(0,live.length,true))];
-        if (seededRandom(0,1,true) >= foeAccuracy(foe)){ return; }
+        if (seededRandom(0,1,true) >= foeAccuracy(foe,locationName)){ return; }
         let hit = combatDamage(foe,ship);
         ship.damage += hit;
         taken += hit;
@@ -6740,6 +6751,10 @@ function infestationCombat(region){
     if (global.race['chameleon']){ // Good at hiding from zombies
         zombiesPerRazingFinal *= 1 + (traits.chameleon.vars()[2] / 100);
         zombiesPerRazingFinal = Math.round(zombiesPerRazingFinal);
+    }
+    if (global.race.universe === 'micro'){
+        // Looking for easy prestige farming? Nope. Lets make it interesting.
+        zombiesPerRazingFinal *= 0.5;
     }
     if (global.tech['overmind']){
         zombiesPerRazingFinal *= 0.25;
@@ -7773,7 +7788,7 @@ export function shipSpeed(ship){
     let boost = 1;
     switch (ship.location?.name ?? ""){
         case 'spc_dwarf':
-            boost = p_on['m_relay'] && !ship.inTransit && global.space['m_relay'] && global.space.m_relay.charged >= 10000 ? 3 : 1;
+            boost = p_on['m_relay'] && !ship.inTransit && global.space['m_relay'] && !global.tech['resettle'] && global.space.m_relay.charged >= 10000 ? 3 : 1;
             break;
         case 'tau_gas2':
             boost = p_on['tcm_relay'] && !ship.inTransit && global.tauceti['tcm_relay'] && global.tauceti.tcm_relay.charged >= 10000 ? 3 : 1;
@@ -8973,8 +8988,13 @@ function calcLandingPoint(startingPosition, planet, speed, elapsed) {
     return genXYZcoord(planet);
 }
 
+// Whether the syndicate is operating at all
+export function syndicateActive(){
+    return !global.tech['isolation'] && global.tech['syndicate'] && global.race['truepath'] && global.space['syndicate'] ? true : false;
+}
+
 export function syndicate(region,extra){
-    if (!global.tech['isolation'] && global.tech['syndicate'] && global.race['truepath'] && global.space['syndicate'] && global.space.syndicate.hasOwnProperty(region)){
+    if (syndicateActive() && global.space.syndicate.hasOwnProperty(region)){
         let divisor = 1000;
 
         let rival = 0;
@@ -10135,7 +10155,7 @@ function locSystemName(locationName){
 // fromLoc's system to toLoc's system, or null when cannot find a path.
 // Uses A* to find optimal route when more gates are involved.
 // Does not account for travel within a system, so solution might not be optimal in extreme edge cases
-function findWormholeRoute(fromLoc, toLoc, interstellar){
+function findWormholeRoute(fromLoc, toLoc){
     let fromSys = locSystem(fromLoc);
     let toSys = locSystem(toLoc);
     if (fromSys === toSys){ 
@@ -10213,31 +10233,24 @@ function findWormholeRoute(fromLoc, toLoc, interstellar){
     }
 
     if (total_path.length === 0){
-        // Gate path not found, maybe interstellar?
-        if (interstellar){
-            // Go to best location to start journey, then launch from there
-            let bestVal = Infinity;
-            let bestSys = null;
+        // No gate route to that system, which is not the same as no way there
+        let bestVal = Infinity;
+        let bestSys = null;
 
-            Object.entries(f_score).forEach(([sys, val]) => {
-                if (val < bestVal){
-                    bestVal = val;
-                    bestSys = sys;
-                }
-            });
-
-            if (bestVal === Infinity)
-                return null;
-
-            let curSys = bestPos;
-            while (curSys !== fromSys){
-                total_path.unshift(curSys); 
-                curSys = came_from[curSys];
+        Object.entries(f_score).forEach(([sys, val]) => {
+            if (val < bestVal){
+                bestVal = val;
+                bestSys = sys;
             }
-        }
-        else {
-            // Can't go interstellar
+        });
+
+        if (bestVal === Infinity)
             return null;
+
+        let curSys = bestSys;
+        while (curSys !== fromSys){
+            total_path.unshift(curSys);
+            curSys = came_from[curSys];
         }
     }
      
@@ -10280,9 +10293,6 @@ function planShipTrip(ship, locationName){
     // before being able to change course
     let inGate = (ship.inTransit && ship.path[0].inGate);
 
-    // Onpy allow starworthy ships to cross interstellar space, other ships must use jump gates to travel
-    let interstellar = (ship.class === 'explorer');
-
     let path = [];
     let currentPosition = ship.location.position;
     let currentTime = 0;
@@ -10292,15 +10302,15 @@ function planShipTrip(ship, locationName){
         currentPosition = ship.path[0].destination.position;
         currentTime = ship.timeToNextStep;
 
-        route = findWormholeRoute(ship.path[0].destination.name, locationName, interstellar);
+        route = findWormholeRoute(ship.path[0].destination.name, locationName);
     }
     else if (ship.inTransit){
         // Find path wrt current star. findWormholeRoute only cares about the system the location is in.
         let currentLocation = nearestStar(ship.location.position);
-        route = findWormholeRoute(currentLocation, locationName, interstellar);
+        route = findWormholeRoute(currentLocation, locationName);
     }
     else{
-        route = findWormholeRoute(ship.location.name, locationName, interstellar);
+        route = findWormholeRoute(ship.location.name, locationName);
     }
 
     if (!route)
@@ -13058,8 +13068,8 @@ function buildSolarMap(parentNode, keep) {
                     // Lock on so zooming pulls in on it rather than following the cursor away.
                     // Draw after to immediately recenter on clicked body
                     starLockOn = hit;
+                    recenterOn(genXYZcoord(hit));
                     drawMap();
-                    // Finding the cow is the whole of it — there is nothing else to do out there.
                     if (cowGlyph(hit)){
                         unlockFeat('secret_cow', global.race.universe === 'micro' ? true : false);
                     }

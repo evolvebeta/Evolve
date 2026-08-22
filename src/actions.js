@@ -7,7 +7,7 @@ import { defineResources, unlockCrates, unlockContainers, crateValue, containerV
 import { loadFoundry, defineJobs, jobScale, workerScale, job_data } from './jobs.js';
 import { loadIndustry, defineIndustry, nf_resources, gridDefs, addSmelter, factoryData, cancelRituals } from './industry.js';
 import { defineGovernment, defineGarrison, buildGarrison, commisionGarrison, foreignGov, armyRating, garrisonSize, govEffect } from './civics.js';
-import { spaceTech, interstellarTech, galaxyTech, incrementStruct, universe_affixes, renderSpace, piracy, fuel_adjust, isStargateOn, spaceSectors, checkRequirements } from './space.js';
+import { spaceTech, interstellarTech, galaxyTech, incrementStruct, universe_affixes, renderSpace, piracy, fuel_adjust, isStargateOn, spaceSectors, checkRequirements, planetName } from './space.js';
 import { renderFortress, fortressTech, warlordSetup } from './portal.js';
 import { edenicTech, renderEdenic } from './edenic.js';
 import { tauCetiTech, renderTauCeti, loneSurvivor } from './truepath.js';
@@ -6555,6 +6555,11 @@ export function setAction(c_action,action,type,old,prediction){
         }
     });
 
+    let popClasses = c_action.hasOwnProperty('class') ? c_action.class : false;
+    if (action === 'tech' && c_action['wide'] && !popClasses){
+        popClasses = 'has-background-light has-text-dark pop-desc w30';
+    }
+
     popover(id,function(){ return undefined; },{
         in: function(obj){
             actionDesc(obj.popper,c_action,global[action][type],old,action,type);
@@ -6564,7 +6569,7 @@ export function setAction(c_action,action,type,old,prediction){
         },
         attach: action === 'starDock' ? 'body .modal' : '#main',
         wide: c_action['wide'],
-        classes: c_action.hasOwnProperty('class') ? c_action.class : false,
+        classes: popClasses,
         touchToggle: true,
     });
 }
@@ -8473,6 +8478,14 @@ export function structName(type){
         {
             return halloween.active ? loc(`events_halloween_mine`) : loc('city_mine');
         }
+        case 'red_mine':
+        {
+            return global.tech['resettle'] ? loc('space_mine',[planetName().red]) : (halloween.active ? loc(`events_halloween_mine`) : loc('city_mine'));
+        }
+        case 'titan_mine':
+        {
+            return global.tech['resettle'] ? loc('space_mine',[planetName().titan]) : (halloween.active ? loc(`events_halloween_mine`) : loc('city_mine'));
+        }
         case 'coal_mine':
         {
             return halloween.active ? loc(`events_halloween_coal_mine`) : loc('city_coal_mine');
@@ -9855,6 +9868,11 @@ function attachQueuePopovers(){
         let segments = global.r_queue.queue[i].id.split("-");
         c_action = actions[segments[0]][segments[1]];
 
+        let qClasses = c_action.hasOwnProperty('class') ? c_action.class : false;
+        if (segments[0] === 'tech' && c_action['wide'] && !qClasses){
+            qClasses = 'has-background-light has-text-dark pop-desc w30';
+        }
+
         popover(id,function(){ return undefined; },{
             in: function(obj){
                 actionDesc(obj.popper,c_action,global[segments[0]][segments[1]],false);
@@ -9862,7 +9880,8 @@ function attachQueuePopovers(){
             out: function(){
                 clearPopper(id);
             },
-            wide: c_action['wide']
+            wide: c_action['wide'],
+            classes: qClasses
         });
     }
 }

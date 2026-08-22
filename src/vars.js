@@ -1556,13 +1556,17 @@ if (convertVersion(global['version']) <= 105000){
         };
 
         let phage = 0;
-        Object.keys(global.genes.minor).forEach(function(t){
-            phage += spent(global.genes.minor[t], t === 'mastery' ? 2 : 1);
-        });
+        if (Array.isArray(global.genes.minor)){
+            Object.keys(global.genes.minor).forEach(function(t){
+                phage += spent(global.genes.minor[t], t === 'mastery' ? 2 : 1);
+            });
+        }
         let genes = 0;
-        Object.keys(global.race.minor).forEach(function(t){
-            genes += spent(global.race.minor[t], t === 'mastery' ? 5 : 1);
-        });
+        if (Array.isArray(global.race.minor)){
+            Object.keys(global.race.minor).forEach(function(t){
+                genes += spent(global.race.minor[t], t === 'mastery' ? 5 : 1);
+            });
+        }
 
         // Guarded individually: this runs while the save is still being assembled, and a throw here
         // would take the game down before it ever drew a frame.
@@ -1577,8 +1581,12 @@ if (convertVersion(global['version']) <= 105000){
         }
 
         // Zero the ranks themselves, and the live trait values they were feeding.
-        Object.keys(global.genes.minor).forEach(function(t){ delete global.race[t]; });
-        Object.keys(global.race.minor).forEach(function(t){ delete global.race[t]; });
+        if (Array.isArray(global.genes.minor)){
+            Object.keys(global.genes.minor).forEach(function(t){ delete global.race[t]; });
+        }
+        if (Array.isArray(global.race.minor)){
+            Object.keys(global.race.minor).forEach(function(t){ delete global.race[t]; });
+        }
         global.genes.minor = {};
         global.race.minor = {};
 
@@ -1633,12 +1641,12 @@ if (convertVersion(global['version']) <= 105000){
 
 global['version'] = '1.5.0';
 delete global['revision'];
-global['beta'] = 32;
+global['beta'] = 33;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
 }
-['Plasmid','AntiPlasmid','Phage','Dark','Harmony','AICore','Artifact','Blood_Stone','Supercoiled'].forEach(function (res){
+['Plasmid','AntiPlasmid','Phage','Dark','Harmony','AICore','Artifact','Blood_Stone','Supercoiled','TALENs','Exons'].forEach(function (res){
     if (!global.prestige.hasOwnProperty(res)){
         global.prestige[res] = { count: 0 };
     }
@@ -1923,6 +1931,10 @@ if (typeof global.settings.boring === 'undefined'){
 if (typeof global.settings.pauseOnLoad === 'undefined'){
     global.settings['pauseOnLoad'] = false;
 }
+// Show every world under the name a human would see it by, whatever species is being played.
+if (typeof global.settings.solarNames === 'undefined'){
+    global.settings['solarNames'] = false;
+}
 if (!global.settings.hasOwnProperty('mtorder')){
     global.settings['mtorder'] = [];
 }
@@ -1948,8 +1960,9 @@ export function setupStats(){
         'reset','plasmid','antiplasmid','universes','phage','starved','tstarved','died','tdied',
         'sac','tsac','know','tknow','portals','dkills','attacks','cfood','tfood','cstone','tstone',
         'clumber','tlumber','mad','bioseed','cataclysm','blackhole','ascend','descend','apotheosis',
-        'terraform','aiappoc','matrix','retire','eden','zappoc','geck','dark','harmony','blood','cores','artifact',
-        'supercoiled','cattle','tcattle','murders','tmurders','psykill','tpsykill','pdebt','uDead','zkills'
+        'terraform','aiappoc','matrix','retire','eden','zappoc','enslaved','geck','dark','harmony',
+        'blood','cores','artifact','supercoiled','talens','exons','cattle','tcattle','murders',
+        'tmurders','psykill','tpsykill','pdebt','uDead','zkills'
     ].forEach(function(k){
         if (!global.stats.hasOwnProperty(k)){
             global.stats[k] = 0;

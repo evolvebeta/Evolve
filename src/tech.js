@@ -9051,6 +9051,27 @@ const techs = {
             return false;
         }
     },
+    botanical: {
+        id: 'tech-botanical',
+        title(){ return loc('tech_botanical',[planetName().red]); },
+        desc(){ return loc('tech_botanical',[planetName().red]); },
+        category: 'entertainment',
+        era: 'matrioshka',
+        path: ['truepath'],
+        reqs: { mars: 6, resettle: 13 },
+        grant: ['mars',7],
+        cost: {
+            Knowledge(){ return 26250000; },
+        },
+        effect(){ return loc('tech_botanical_effect',[planetName().red]); },
+        action(){
+            if (payCosts($(this)[0])){
+                initStruct(actions.space.spc_red.botanical);
+                return true;
+            }
+            return false;
+        }
+    },
     dyson_sphere: {
         id: 'tech-dyson_sphere',
         title(){ return loc('tech_dyson_sphere'); },
@@ -15024,7 +15045,14 @@ const techs = {
             Knowledge(){ return 32000000; },
             Cipher(){ return 500000; }
         },
-        effect(){ return loc('tech_bleed_overmind_effect',[actions.space.spc_venus.alien_facility.title()]); },
+        wide: true,
+        effect(){
+            let desc = `<div>${loc('tech_bleed_overmind_effect',[actions.space.spc_venus.alien_facility.title()])}</div>`;
+            let gains = calcPrestige('za');
+            let plasmidType = global.race.universe === 'antimatter' ? loc('resource_AntiPlasmid_plural_name') : loc('resource_Plasmid_plural_name');
+            let prestige = `<div class="has-text-caution">${loc('tech_bleed_overmind_effect_gains',[gains.plasmid, plasmidType, gains.phage, loc('resource_Phage_name'), gains.talens, loc('resource_TALENs_name')])}</div>`;
+            return desc + prestige;
+        },
         action(){
             if (payCosts($(this)[0])){
                 if (!global['sim']){
@@ -15045,7 +15073,7 @@ const techs = {
         category: 'progress',
         era: 'matrioshka',
         path: ['truepath'],
-        reqs: { resettle: 21 },
+        reqs: { resettle: 21, locked: 1 },
         grant: ['resettle',22],
         cost: {
             Knowledge(){ return 31255000; }
