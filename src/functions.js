@@ -317,7 +317,7 @@ export function powerGrid(type,reset){
             power_structs = ['prtl_spire:port','prtl_spire:base_camp','prtl_spire:mechbay'];
             break;
         case 'titan':
-            power_structs = ['spc_titan:titan_quarters','spc_titan:titan_mine','spc_titan:g_factory','spc_titan:decoder','spc_titan:metalworks'];
+            power_structs = ['spc_titan:titan_quarters','spc_titan:titan_mine','spc_titan:g_factory','spc_titan:decoder','spc_titan:metalworks','spc_titan:comedy_club'];
             break;
         case 'enceladus':
             power_structs = ['spc_enceladus:water_freighter','spc_enceladus:operating_base','spc_enceladus:zero_g_lab'];
@@ -2912,7 +2912,7 @@ export function trickOrTreatBind(id,trick){
 }
 
 function single_emblem(achieve,size,icon,iconName,fool,uAffix){
-    return global.stats.achieve[achieve] && (fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]) > 0 ? `<p class="flair" title="${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}"><svg class="star${fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]}" version="1.1" x="0px" y="0px" width="${size}px" height="${size}px" viewBox="${svgViewBox(icon)}" xml:space="preserve">${svgIcons(icon)}</svg><span class="is-sr-only">${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}</span></p>` : '';
+    return global.stats.achieve[achieve] && (fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]) > 0 ? `<p class="flair" title="${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}" role="presentation"><svg class="star${fool ? global.stats.achieve[achieve][uAffix] - 1 : global.stats.achieve[achieve][uAffix]}" version="1.1" x="0px" y="0px" width="${size}px" height="${size}px" viewBox="${svgViewBox(icon)}" xml:space="preserve" aria-label="${sLevel(global.stats.achieve[achieve][uAffix])} ${iconName}" role="img">${svgIcons(icon)}</svg></p>` : '';
 }
 
 export function format_emblem(achieve,size,baseIcon,fool,universe){
