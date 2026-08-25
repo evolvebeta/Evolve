@@ -57,6 +57,7 @@ export function set_ulevel(u_level){
 }
 export var hell_reports = {};
 export var hell_graphs = {};
+export var battle_log = [];
 export var message_logs = {
     view: 'all'
 };
@@ -1637,11 +1638,13 @@ if (convertVersion(global['version']) <= 105000){
     }
 }
 
-
+if (global['space'] && global.space['shipyard'] && global.space.shipyard.hasOwnProperty('battles')){
+    delete global.space.shipyard.battles;
+}
 
 global['version'] = '1.5.0';
 delete global['revision'];
-global['beta'] = 34;
+global['beta'] = 35;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -1953,6 +1956,13 @@ if (!global.settings.hasOwnProperty('mapView')){
         global.settings.mapView[k] = true;
     }
 });
+// How far out from the star being looked at the map draws anything, in light years. A number rather
+// than a toggle, so it sits outside the loop above. -1 is the map module's "no limit" sentinel and
+// the default: the whole star field is drawn, and the setting is there to thin it out when you want
+// to see one neighbourhood rather than all of them. The map module clamps and steps the rest.
+if (!global.settings.mapView.hasOwnProperty('starRange')){
+    global.settings.mapView['starRange'] = -1;
+}
 
 export function setupStats(){
     // Stat Counters

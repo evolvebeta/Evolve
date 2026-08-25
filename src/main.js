@@ -1,7 +1,7 @@
 import { global, save, seededRandom, webWorker, intervals, keyMap, atrack, resizeGame, breakdown, sizeApproximation, keyMultiplier, power_generated, p_on, support_on, int_on, gal_on, spire_on, set_qlevel, quantum_level, callback_queue, active_rituals, suppressReactivity, restoreReactivity, decayPerks, writeSave } from './vars.js';
 import { loc } from './locale.js';
 import { unlockAchieve, checkAchievements, drawAchieve, alevel, universeAffix, challengeIcon, unlockFeat, checkAdept } from './achieve.js';
-import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, resetResBuffer, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, deepClone, exceededATimeThreshold, loopTimers, getWeaselTechLevelRequirement, calcQuantumLevel, drawPet } from './functions.js';
+import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, resetResBuffer, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, deepClone, exceededATimeThreshold, loopTimers, getWeaselTechLevelRequirement, calcQuantumLevel, drawPet, actionReqs } from './functions.js';
 import { races, traits, racialTrait, orbitLength, servantTrait, randomMinorTrait, biomes, planetTraits, shapeShift, fathomCheck, blubberFill, cleanRemoveTrait, syncGenes, geneBonus, geneFlat, geneRank, traitSkin, grantRandomMinorTrait, geneVars, grantEvolveGenes, mutationGenes} from './races.js';
 import { defineResources, resource_values, spatialReasoning, craftCost, plasmidBonus, faithBonus, faithTempleCount, tradeRatio, craftingRatio, crateValue, containerValue, tradeSellPrice, tradeBuyPrice, atomic_mass, supplyValue, galaxyOffers } from './resources.js';
 import { defineJobs, job_data, loadFoundry, farmerValue, jobScale, workerScale, limitCraftsmen, loadServants, craftsmanCap , craftsmanMax} from './jobs.js';
@@ -1181,8 +1181,7 @@ function setElHeight(el,value){
 
 function fastLoop(){
     if (!global.race['no_craft']){
-        // keyMultiplier() is the same for every button this tick, so compute it once instead
-        // of per element.
+        // keyMultiplier() is the same for every button this tick, so compute it once instead of per element.
         const km = keyMultiplier();
         const crafts = document.querySelectorAll('.craft');
         for (let i=0; i<crafts.length; i++){
@@ -10941,11 +10940,6 @@ function midLoop(){
             }
         });
 
-        // Ruminant raises the population ceiling, and it has to do so before anything is evicted
-        // against it. Applied after, the check below compares a population that has already grown
-        // into the raised cap against the unraised one and turns the difference out of doors --
-        // every tick, forever, which is a stream of abandonment messages and a homeless count that
-        // never stops climbing. Steward does not touch this cap at all: it is warehouse space.
         if (caps[global.race.species] > 0){
             caps[global.race.species] = Math.round(caps[global.race.species] * geneBonus('ruminant'));
         }
@@ -10985,19 +10979,32 @@ function midLoop(){
             breakdown.c.Knowledge[loc('space_dwarf_collider_title')] = gain+'v';
         }
 
-        // Ignited Matrioshka Brain (True Path) boosts the Knowledge cap by 50%, like the World Collider.
+        // Ignited Matrioshka Brain (True Path).
         if (global.tech['m_ignite'] && global.tech.m_ignite >= 2){
             let gain = Math.round(caps['Knowledge'] * 0.5);
             caps['Knowledge'] += gain;
             breakdown.c.Knowledge[loc('tech_matrioshka_brain')] = gain+'v';
         }
 
-        // Once Positronium is unlocked (element_zero), the Matrioshka Brain provides 1 Positronium of
+        // The Server Farm (True Path) on the ringworld.
+        if (p_on['server_farm']){
+            let gain = Math.round(caps['Knowledge'] * 0.5);
+            caps['Knowledge'] += gain;
+            breakdown.c.Knowledge[loc('tau_star_server_farm')] = gain+'v';
+            if (global.tech['shadow'] && global.tech.shadow === 1){
+                global.tech.shadow = 2;
+                drawTech();
+            }
+        }
+
+        // Once Positronium is unlocked (element_zero), the Matrioshka Brain or Server Farm provides 1 Positronium of
         // storage per 1000 maximum Knowledge (rounded down). The Knowledge cap is finalized just above.
-        if (global.resource.Positronium.display){
-            let store = Math.floor(caps['Knowledge'] / 1000);
-            caps['Positronium'] += store;
-            breakdown.c.Positronium[loc('tech_matrioshka_brain')] = store+'v';
+        if (global.resource.Positronium.display && (global.tech['tau_roid'] && global.tech.tau_roid >= 6)){
+            if ((global.tech['shadow'] && p_on['server_farm']) || (global.tech['m_ignite'] && global.tech.m_ignite >= 2)){
+                let store = Math.floor(caps['Knowledge'] / 1000);
+                caps['Positronium'] += store;
+                breakdown.c.Positronium[global.tech['shadow'] ? loc('tau_star_server_farm') : loc('tech_matrioshka_brain')] = store+'v';
+            }
         }
 
         if (global.eden['fortress'] && global.tech.hasOwnProperty('celestial_warfare')){
@@ -11011,16 +11018,6 @@ function midLoop(){
         }
 
         let tempCrates = caps['Crates'], tempContainers = caps['Containers'];
-        // Steward is warehouse space, so it applies to resources that are actually stored and to
-        // nothing else. The exempt list is every cap whose number means something other than "how
-        // much can be kept": money, the population itself, knowledge, the crate and container pools,
-        // and the special meters, which are all defined non-stackable for the same reason.
-        //
-        // Archivist stacks on top for Knowledge, which is its own gene and its own ceiling.
-        // Run before crates and containers are subtracted, so what they consume is measured against
-        // the raised cap.
-        // Every special meter that shares the caps table with the real resources. Anything not
-        // listed here is something a warehouse could actually hold.
         const stewardExempt = ['Money','Knowledge','Omniscience','Crates','Containers','Slave','Authority',
                                'Zen','Mana','Energy','Sus','Cipher'];
         Object.keys(caps).forEach(function (res){
@@ -11477,7 +11474,7 @@ function midLoop(){
                 }
                 else {
                     global.race.mutation++;
-                    let trait = randomMinorTrait(1);
+                    randomMinorTrait();
                     let gene_multi = 1 + (global.genes['synthesis'] ? global.genes['synthesis'] : 0);
                     let gene = mutationGenes(global.race.mutation) * gene_multi;
                     if (global.stats.achieve['creator']){
@@ -11507,7 +11504,7 @@ function midLoop(){
                         global.prestige.Plasmid.count += plasma;
                     }
                     arpa('Crispr');
-                    messageQueue(loc('gene_therapy',[loc('trait_' + trait + '_name'),gene,plasma,plasmid_type,global.resource.Genes.name]),'success',false,['progress']);
+                    messageQueue(loc('gene_therapy_reward',[gene,global.resource.Genes.name,plasma,plasmid_type]),'success',false,['progress']);
                 }
                 arpa('Genetics');
                 drawTech();
@@ -11855,12 +11852,13 @@ function midLoop(){
             let q_techs = {}; let remove = [];
             checkTechRequirements('club',q_techs);
             for (let i=0; i<global.r_queue.queue.length; i++){
-                Object.keys(actions.tech[global.r_queue.queue[i].type].reqs).forEach(function(req){
+                let qReqs = actionReqs(actions.tech[global.r_queue.queue[i].type]);
+                Object.keys(qReqs).forEach(function(req){
                     if (skipRequirement(req, global.tech[req] || 0)){ return; }
                     if (
-                        (!global.tech[req] || global.tech[req] < actions.tech[global.r_queue.queue[i].type].reqs[req])
+                        (!global.tech[req] || global.tech[req] < qReqs[req])
                         &&
-                        (!q_techs[req] || (q_techs[req] && q_techs[req].v < actions.tech[global.r_queue.queue[i].type].reqs[req]))
+                        (!q_techs[req] || (q_techs[req] && q_techs[req].v < qReqs[req]))
                         ){
                         remove.push(i);
                     }
@@ -12953,8 +12951,7 @@ function longLoop(){
                         if (ship.damage < 0){ ship.damage = 0; }
                     }
                     // Wear and tear from fighting syndicate.
-                    if (syndicateActive() && !atShipyard(ship) && Math.rand(0, 10) === 0){
-                        // A ship under way wears by where it is bound; one parked, by where it sits.
+                    if (syndicateActive() && !atShipyard(ship) && !ship.inTransit && Math.rand(0, 10) === 0){
                         let dm = (ship.inTransit ? ship.destination.name : ship.location.name) === 'spc_triton' ? 2 : 1;
                         switch (ship.armor){
                             case 'steel':
