@@ -7,7 +7,7 @@ import { actions } from './actions.js';
 import { planetName } from './space.js';
 import { unlockFeat } from './achieve.js';
 import { createGLContext, webglSupported } from './glmap.js';
-import { foeDetected, resolveBody, shipRefStar, syndicate, tempCoord, tempOffset, tempParent, venusBlockade } from './truepath.js';
+import { foeDetected, moveShips, moveTempCoordinates, resolveBody, shipPointAhead, shipRefStar, syndicate, tempCoord, tempOffset, tempParent, venusBlockade } from './truepath.js';
 import { loc } from './locale.js';
 
 // Every fixed figure the star table and the solar map are tuned by, gathered in one place. Values
@@ -20,6 +20,54 @@ const starConstants = {
     // Jupiter's size in this table, so it reads as a gas giant next to whatever else the system has.
     COW_SIZE: 0.634,
     AU_PER_LY: 63241.077,
+
+    // --- Ringworld rendering ---
+    // Radius and band width relative to the host star.
+    RINGWORLD_RADIUS: 1.5,
+    RINGWORLD_WIDTH: 0.08,
+    // Band depth relative to its width.
+    RINGWORLD_THICK: 0.15,
+    // Base tilt and precession swing, in radians.
+    RINGWORLD_TILT: 0.6,
+    RINGWORLD_TILT_SWING: 0.30,
+    // Precession period in game days.
+    RINGWORLD_PRECESS: 75,
+    // Visibility thresholds for coarse and detailed rendering.
+    RINGWORLD_MIN_PX: 3,
+    RINGWORLD_DETAIL_PX: 22,
+    // Panels per half-ring at each detail level.
+    RINGWORLD_STEPS: 24,
+    RINGWORLD_STEPS_HI: 40,
+    // Rim-wall position and floor recess.
+    RINGWORLD_WALL_AT: 0.72,
+    RINGWORLD_FLOOR_DROP: 0.45,
+    // Rotation period in game days.
+    RINGWORLD_SPIN: 12,
+    // Repeating surface, seam, and support counts.
+    RINGWORLD_PATCHES: 20,
+    RINGWORLD_SEAMS: 36,
+    RINGWORLD_RIBS: 24,
+    // Inner surface, shell, rim, and seam colors.
+    RINGWORLD_LIT: 'ffe3b0',
+    RINGWORLD_SEA: '1d3f6b',
+    RINGWORLD_LAND: '3f6b46',
+    RINGWORLD_ARID: 'b8a173',
+    RINGWORLD_SHELL: '6f7b8a',
+    RINGWORLD_EDGE: '9aa7b6',
+    RINGWORLD_RIM: 'cfd9e6',
+    RINGWORLD_SEAM: '2a3038',
+
+    // --- Map rendering ---
+    // Target animation-frame render rate.
+    MAP_FPS: 30,
+    // Frame-interval tolerance to avoid skipping an otherwise eligible refresh.
+    MAP_FRAME_LEAD_MS: 4,
+    // Maximum render lead beyond the last simulation step.
+    MAP_AHEAD_MAX: 2,
+    // Maximum render catch-up speed multiplier.
+    MAP_CATCHUP: 3,
+    // Re-sync rendering after a larger simulation gap.
+    MAP_RESYNC_DAYS: 1,
     // Orbit: outside whatever the star already has, and never closer in than a gas giant belongs.
     COW_ORBIT_CLEAR: 1.8,
     COW_ORBIT_MIN: 2.5,
@@ -339,6 +387,39 @@ const starConstants = {
     // Glyphs engraved around the gate's ring. Constellation and planetary symbols, matching the astrological signs the game
     // already renders in the top bar — so this set is known to display here.
     GATE_GLYPHS: ['♈︎','♉︎','♊︎','♋︎','♌︎','♍︎','♎︎','♏︎','♐︎','♑︎','♒︎','♓︎','☉︎','☽︎','☿︎','♀︎','♂︎','♃︎','♄︎','♅︎','♆︎'],
+    // Gate cross-section entries: band fraction, depth, radial normal, and axial normal.
+    GATE_PROFILE: [
+        [0,    -0.55, -1,    0   ],
+        [0,     0.55, -0.6,  0.8 ],
+        [0.16,  1,     0,    1   ],
+        [0.62,  1,     0.7,  0.7 ],
+        [0.66,  0.55,  0,    1   ],
+        [0.74,  0.55, -0.7,  0.7 ],
+        [0.78,  1,     0,    1   ],
+        [0.86,  1,     0.6,  0.8 ],
+        [1,     0.58,  1,    0   ],
+        [1,    -0.58,  0.6, -0.8 ],
+        [0.86, -1,     0,   -1   ],
+        [0.78, -1,    -0.7, -0.7 ],
+        [0.74, -0.55,  0,   -1   ],
+        [0.66, -0.55,  0.7, -0.7 ],
+        [0.62, -1,     0,   -1   ],
+        [0.16, -1,    -0.6, -0.8 ]
+    ],
+    // Simplified cross-section for low-detail and small gates.
+    GATE_PROFILE_LOW: [
+        [0,    -0.6, -1,    0  ],
+        [0,     0.6, -0.6,  0.8],
+        [0.18,  1,    0,    1  ],
+        [0.82,  1,    0.6,  0.8],
+        [1,     0.6,  1,    0  ],
+        [1,    -0.6,  0.6, -0.8],
+        [0.82, -1,    0,   -1  ],
+        [0.18, -1,   -0.6, -0.8]
+    ],
+    // Camera-space key light and view half-vector for gate facets.
+    GATE_LIGHT: [-0.4202, -0.6804, -0.6004],
+    GATE_HALF: [-0.2349, -0.3803, -0.8945],
     // The value is chosen for Saturn's real 26.7 degrees.
     RING_TILT: 26.7 * Math.PI / 180,
     // Points per half ring.
@@ -2641,6 +2722,10 @@ function startAngle(id){
     return startAngleCache[id];
 }
 
+// Per-frame render offset from the last simulated map day.
+var renderAhead = 0;
+var drawAhead = 0;
+
 // Days the run has lasted, stored at map resolution.
 export const starInfo = { days: 0, sys: {} };
 let orbitsSynced = false;
@@ -2670,7 +2755,7 @@ function anglePeriod(id){
 export function orbitAngle(id, ahead = 0){
     let period = anglePeriod(id);
     if (!(period > 0)){ return 0; }
-    let deg = startAngle(id) + 360 * (runDays() + ahead) / period;
+    let deg = startAngle(id) + 360 * (runDays() + drawAhead + ahead) / period;
     return ((deg % 360) + 360) % 360;
 }
 
@@ -3129,7 +3214,17 @@ export function randomCoord(target, minAU, maxAU, spreadAU){
     };
 }
 
+// Per-frame body-position cache used while drawing the map.
+var posMemo = false;
 export function genXYZcoord(planet){
+    if (!posMemo || typeof planet !== 'string'){ return solveXYZcoord(planet); }
+    let at = posMemo[planet];
+    if (!at){ at = posMemo[planet] = solveXYZcoord(planet); }
+    // Return a copy so callers cannot mutate the frame cache.
+    return { x: at.x, y: at.y, z: at.z };
+}
+
+function solveXYZcoord(planet){
     // Stars first, and by identity rather than by working anything out.
     const fixed = starData[planet];
     if (fixed && fixed.startype){ return { x: fixed.x, y: fixed.y, z: fixed.z }; }
@@ -3138,7 +3233,7 @@ export function genXYZcoord(planet){
     if (temp){
         let parent = tempParent(temp);
         if (!parent){ return { x: temp.x, y: temp.y, z: temp.z }; }
-        let base = genXYZcoord(parent), off = tempOffset(temp, 0);
+        let base = genXYZcoord(parent), off = tempOffset(temp, drawAhead);
         return { x: base.x + off.x, y: base.y + off.y, z: base.z + off.z };
     }
     // spc_survey is whichever moon the survey turned up, so it orbits as that body does.
@@ -3359,6 +3454,8 @@ function starRangeLabel(){
 var mapAnchor = { x: 0, y: 0, z: 0 };
 // The table, indexed the ways the draw actually uses it.
 var mapStarIds = [], mapDrawnAsStar = [], mapBodiesOf = {};
+// Cached ids for bodies drawn in the Sun's reference frame.
+var mapHomeIds = [], mapHomeOrbitIds = [];
 // The table only changes when a system is dealt or the cow moves, which is rare, but the index used to be rebuilt on
 // every frame regardless.
 let indexedVersion = -1;
@@ -3368,12 +3465,19 @@ function indexBodies(){
     mapStarIds = [];
     mapDrawnAsStar = [];
     mapBodiesOf = {};
+    mapHomeIds = [];
+    mapHomeOrbitIds = [];
     // for-in over the plain object, rather than Object.entries, so nothing is allocated to walk it.
     for (const id in starData){
         const b = starData[id];
         if (b.startype){ mapStarIds.push(id); }
         if (b.startype || b.bodystar){ mapDrawnAsStar.push(id); }
         if (b.star){ (mapBodiesOf[b.star] || (mapBodiesOf[b.star] = [])).push(id); }
+        else {
+            mapHomeIds.push(id);
+            // Only Sun-orbiting bodies define the home-system bounds.
+            if (!b.startype && !b.moon){ mapHomeOrbitIds.push(id); }
+        }
     }
 }
 // The index is built by drawMap, which always runs before any pointer or camera event can fire.
@@ -3774,7 +3878,7 @@ function sphereTexture(kind, S, id, sun, lumpy, opts){
     const cache = opts.cache || sphereCache;
     const spin = spinOf(id);
     // A still subject is rendered facing one way and left there.
-    const turn = !opts.still && spin.hours ? (mapDays * 24 / spin.hours) * 360 * starConstants.SPIN_SCALE : 0;
+    const turn = !opts.still && spin.hours ? ((mapDays + drawAhead) * 24 / spin.hours) * 360 * starConstants.SPIN_SCALE : 0;
     const step = opts.step || sphereAngleStep();
     const qy = Math.round(mapYaw / step), qp = Math.round(mapPitch / step);
     const qs = Math.round((((turn % 360) + 360) % 360) / starConstants.SPHERE_SPIN_STEP);
@@ -4004,7 +4108,7 @@ function rockId(field, i){
 function rockRoll(field, i){
     const spin = spinOf(rockId(field, i));
     if (!spin.hours){ return 0; }
-    return (mapDays * 24 / spin.hours) * 360 * starConstants.SPIN_SCALE * Math.PI / 180;
+    return ((mapDays + drawAhead) * 24 / spin.hours) * 360 * starConstants.SPIN_SCALE * Math.PI / 180;
 }
 // The rasterised surface for one face, lit so that turning it by `roll` on the way down puts the light back where the
 // star is.
@@ -4421,67 +4525,173 @@ function tauJumpGate(){
         && actions.tauceti?.tau_home?.jump_gate?.condition?.() ? true : false;
 }
 
-// The sun gate is a stargate, not a world, so it is drawn as an open ring with space showing through the middle.
-function drawGate(ctx, x, y, r, color, seed){
-    let lw = r * 0.42;              // ring thickness
-    let mid = r - lw / 2;           // centreline the stroke is laid along
+// Return radial and orbital-normal axes for an upright gate.
+function gateFrame(radial, incline){
+    const length = Math.hypot(radial.x, radial.y, radial.z) || 1;
+    const inc = incline * Math.PI / 180;
+    return {
+        u: { x: radial.x / length, y: radial.y / length, z: radial.z / length },
+        v: { x: 0, y: -Math.sin(inc), z: Math.cos(inc) }
+    };
+}
+
+// Shade a gate facet from its camera-space normal.
+function gateMetal(nx, ny, nz){
+    const len = Math.hypot(nx, ny, nz) || 1;
+    nx /= len; ny /= len; nz /= len;
+    const L = starConstants.GATE_LIGHT, H = starConstants.GATE_HALF;
+    const d = nx * L[0] + ny * L[1] + nz * L[2];
+    const h = nx * H[0] + ny * H[1] + nz * H[2];
+    // Use a broad specular highlight on low-poly facets.
+    const spec = h > 0 ? Math.pow(h, 10) : 0;
+    // Preserve form on unlit facets.
+    const lum = Math.min(1.05, 0.19 + 0.42 * (d > 0 ? d * d : 0) + 0.26 * spec + (d < 0 ? -d * 0.14 : 0));
+    return `rgb(${Math.min(255, Math.round(24 + 176 * lum + 22 * spec))},${Math.min(255, Math.round(30 + 186 * lum + 26 * spec))},${Math.min(255, Math.round(38 + 196 * lum + 34 * spec))})`;
+}
+
+// Draw a 3D metallic gate in its local frame.
+function drawGate(ctx, x, y, r, color, seed, frame){
+    const high = mapTextureDetail() === 'high' && !mapCameraMoving;
+    const px = r * mapScale;                       // how big it lands on screen
+    const u = frame.u, v = frame.v;
+    // Project the gate basis into screen and depth coordinates.
+    const n = { x: u.y*v.z - u.z*v.y, y: u.z*v.x - u.x*v.z, z: u.x*v.y - u.y*v.x };
+    const cu = { x: pX(u), y: pY(u), z: pD(u) };
+    const cv = { x: pX(v), y: pY(v), z: pD(v) };
+    const cn = { x: pX(n), y: pY(n), z: pD(n) };
+    // Glyphs use the face nearest the camera.
+    const sf = cn.z > 0 ? -1 : 1;
+    // Keep proportions constant across detail levels.
+    const band = r * 0.32;                         // width of the hoop
+    const ri = r - band, t = band * 0.40;          // bore radius, and half the hoop's thickness
+
+    if (px < 4){
+        // Use a simple ellipse below four screen pixels.
+        const mid = ri + band / 2;
+        ctx.save();
+        ctx.strokeStyle = '#8e99a3';
+        ctx.lineWidth = Math.max(band, 1.1 / mapScale);
+        ctx.beginPath();
+        for (let i = 0; i <= 12; i++){
+            const a = i * Math.PI * 2 / 12, ca = Math.cos(a) * mid, sa = Math.sin(a) * mid;
+            const sx = x + cu.x * ca + cv.x * sa, sy = y + cu.y * ca + cv.y * sa;
+            if (i){ ctx.lineTo(sx, sy); } else { ctx.moveTo(sx, sy); }
+        }
+        ctx.stroke();
+        ctx.restore();
+        return;
+    }
+
+    const prof = high && px >= 14 ? starConstants.GATE_PROFILE : starConstants.GATE_PROFILE_LOW;
+    const steps = high ? Math.max(12, Math.min(48, Math.round(px * 0.45)))
+                       : Math.max(10, Math.min(20, Math.round(px * 0.3)));
+    let faces = [];
+    // Add a projected facet; sort overrides its mean depth.
+    const facet = (corners, a, nr, nt, nk, fill, sort) => {
+        const ca = Math.cos(a), sa = Math.sin(a);
+        const rx = cu.x*ca + cv.x*sa, ry = cu.y*ca + cv.y*sa, rz = cu.z*ca + cv.z*sa;
+        const tx = cv.x*ca - cu.x*sa, ty = cv.y*ca - cu.y*sa, tz = cv.z*ca - cu.z*sa;
+        const nz = rz*nr + tz*nt + cn.z*nk;
+        if (nz > 0){ return; }                     // turned away from the camera
+        let pts = [], d = 0;
+        for (const c of corners){
+            const rad = ri + band * c[1];
+            const cc = Math.cos(c[0]) * rad, ss = Math.sin(c[0]) * rad, hh = t * c[2];
+            pts.push(x + cu.x*cc + cv.x*ss + cn.x*hh, y + cu.y*cc + cv.y*ss + cn.y*hh);
+            d += cu.z*cc + cv.z*ss + cn.z*hh;
+        }
+        faces.push({ d: sort === undefined ? d / corners.length : sort, pts: pts,
+                     fill: fill || gateMetal(rx*nr + tx*nt + cn.x*nk, ry*nr + ty*nt + cn.y*nk, nz) });
+    };
+
+    // The hoop itself.
+    for (let i = 0; i < steps; i++){
+        const a0 = i * Math.PI * 2 / steps, a1 = (i + 1) * Math.PI * 2 / steps, am = (a0 + a1) / 2;
+        for (let j = 0; j < prof.length; j++){
+            const s = prof[j], e = prof[(j + 1) % prof.length];
+            facet([[a0, s[0], s[1]], [a1, s[0], s[1]], [a1, e[0], e[1]], [a0, e[0], e[1]]], am, s[2], 0, s[3]);
+        }
+    }
+
+    // Add nine clamp blocks to both gate faces.
+    if (px >= 6){
+        const raise = 1.58;                        // how far the plate stands off the face
+        const grip = -0.55;                        // how far down the outer wall the clamp reaches
+        const wi = 0.05, wo = 0.13;                // angular half-widths at the bore end and the rim end
+        const p0 = 0.30, p1 = 1.10;                // across the band, from past the glyphs to over the rim
+        const lamp = hexShade(color, 1.4);
+        // Keep each clamp's facets adjacent in painter order.
+        const nudge = r * 1e-4;
+        for (let side = 1; side >= -1; side -= 2){
+            // Build both face variants from the same local geometry.
+            const foot = side, top = side * raise, hold = side * grip;
+            for (let i = 0; i < 9; i++){
+                const a = i * Math.PI * 2 / 9 - Math.PI / 2;
+                const i0 = a - wi, i1 = a + wi, o0 = a - wo, o1 = a + wo;
+                const at = cu.z*Math.cos(a) + cv.z*Math.sin(a);
+                const block = at * (ri + band * 0.7) + cn.z * top * t;
+                facet([[i0,p0,foot],[i1,p0,foot],[i1,p0,top],[i0,p0,top]], a, -0.9, 0, 0.44*side, false, block);           // its inner end
+                facet([[o0,p1,top],[o1,p1,top],[o1,p1,hold],[o0,p1,hold]], a, 0.99, 0, 0.14*side, false, block - nudge);   // the grip over the rim
+                if (high){
+                    facet([[i0,p0,foot],[o0,p1,hold],[o0,p1,top],[i0,p0,top]], a, 0.12, -0.99, 0.08*side, false, block - nudge);
+                    facet([[i1,p0,foot],[o1,p1,hold],[o1,p1,top],[i1,p0,top]], a, 0.12, 0.99, 0.08*side, false, block - nudge);
+                }
+                facet([[i0,p0,top],[i1,p0,top],[o1,p1,top],[o0,p1,top]], a, 0, 0, side, false, block - nudge * 2);         // the plate
+                // Add a colored inset to each clamp.
+                const lit = side * (raise + 0.03);
+                facet([[a-wi*0.62,p0+0.20,lit],[a+wi*0.62,p0+0.20,lit],
+                       [a+wo*0.52,p0+0.56,lit],[a-wo*0.52,p0+0.56,lit]], a, 0, 0, side, lamp, block - nudge * 3);
+            }
+        }
+    }
 
     ctx.save();
-    // Halo, so a gate is picked out at a glance from the rocks sharing its orbit.
-    ctx.strokeStyle = hexRGBA(color, 0.25);
-    ctx.lineWidth = lw * 2.4;
-    ctx.beginPath();
-    ctx.arc(x, y, mid, 0, Math.PI * 2, true);
-    ctx.stroke();
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 0.7 / mapScale;
+    // Paint far facets before near facets.
+    faces.sort((p, q) => q.d - p.d);
+    for (const f of faces){
+        ctx.fillStyle = f.fill;
+        ctx.strokeStyle = f.fill;                  // covers the seams between neighbouring facets
+        ctx.beginPath();
+        ctx.moveTo(f.pts[0], f.pts[1]);
+        for (let i = 2; i < f.pts.length; i += 2){ ctx.lineTo(f.pts[i], f.pts[i+1]); }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+    }
 
-    // The ring, lit across the diagonal like every other body on the map.
-    let sheen = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
-    sheen.addColorStop(0, hexShade(color, 1.5));
-    sheen.addColorStop(0.5, hexShade(color, 1));
-    sheen.addColorStop(1, hexShade(color, 0.55));
-    ctx.strokeStyle = sheen;
-    ctx.lineWidth = lw;
-    ctx.beginPath();
-    ctx.arc(x, y, mid, 0, Math.PI * 2, true);
-    ctx.stroke();
-
-    // Nine chevrons around the ring, as on the gate itself — only legible, and only worth the
-    // strokes, once the gate is more than a few pixels across.
-    if (r * mapScale >= 6){
-        ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-        ctx.lineWidth = Math.max(lw * 0.22, 0.4 / mapScale);
+    // Draw glyphs on the camera-facing face when legible.
+    if (px >= 15 && Math.abs(cn.z) > 0.22){
+        const glyphs = gateGlyphs(seed);
+        const mid = ri + band * 0.37, size = band * 0.44;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         for (let i = 0; i < 9; i++){
-            let a = (i / 9) * Math.PI * 2 - Math.PI / 2;
-            let ca = Math.cos(a), sa = Math.sin(a);
-            ctx.beginPath();
-            ctx.moveTo(x + ca * (mid - lw / 2), y + sa * (mid - lw / 2));
-            ctx.lineTo(x + ca * (mid + lw / 2), y + sa * (mid + lw / 2));
-            ctx.stroke();
-        }
-
-        // A glyph in each of the nine segments the notches divide the ring into — offset half a segment so they sit between the
-        // notches rather than on top of them, and turned to stand upright on the ring.
-        if (r * mapScale >= 18){
-            let glyphs = gateGlyphs(seed);
-            ctx.fillStyle = 'rgba(0,0,0,0.72)';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            // Sized and drawn in screen pixels, undoing the map scale for the text only.
-            ctx.font = `${lw * mapScale * 0.78}px serif`;
-            for (let i = 0; i < 9; i++){
-                let a = ((i + 0.5) / 9) * Math.PI * 2 - Math.PI / 2;
-                ctx.save();
-                ctx.translate(x + Math.cos(a) * mid, y + Math.sin(a) * mid);
-                ctx.rotate(a + Math.PI / 2);
-                ctx.scale(1 / mapScale, 1 / mapScale);
-                ctx.fillText(glyphs[i], 0, 0);
-                ctx.restore();
+            const a = ((i + 0.5) / 9) * Math.PI * 2 - Math.PI / 2;
+            const ca = Math.cos(a), sa = Math.sin(a), rad = ca * mid, tan = sa * mid, hh = sf * t * 1.002;
+            const ox = x + cu.x*rad + cv.x*tan + cn.x*hh, oy = y + cu.y*rad + cv.y*tan + cn.y*hh;
+            // Project glyph axes from the visible gate face.
+            const tx = (cv.x*ca - cu.x*sa) * sf, ty = (cv.y*ca - cu.y*sa) * sf;
+            const rx = cu.x*ca + cv.x*sa, ry = cu.y*ca + cv.y*sa;
+            // Skip degenerate edge-on glyph planes.
+            if (!Number.isFinite(tx + ty + rx + ry) || Math.abs(tx*ry - ty*rx) < 1e-7){ continue; }
+            ctx.save();
+            // Project the glyph plane in screen pixels.
+            ctx.transform(tx / mapScale, ty / mapScale, rx / mapScale, ry / mapScale, ox, oy);
+            ctx.font = `${size * mapScale}px serif`;
+            if (high){
+                // Offset a light lip beneath the engraved glyph.
+                ctx.fillStyle = 'rgba(214,226,236,0.5)';
+                ctx.fillText(glyphs[i], size * mapScale * 0.05, size * mapScale * 0.06);
             }
+            ctx.fillStyle = 'rgba(12,18,24,0.86)';
+            ctx.fillText(glyphs[i], 0, 0);
+            ctx.restore();
         }
     }
     ctx.restore();
 }
-
 let ringHiTable = false;
 // Opacity of the ring at a given radius. Not a step function: the real rings shade into one another
 // almost everywhere, and only the two gaps in the A ring have hard edges.
@@ -4684,6 +4894,192 @@ function drawRings(ctx, x, y, r, color, near, tilt, sun){
     }
 }
 
+// Return whether Tau Ceti's Ringworld is complete.
+function ringworldBuilt(starId){
+    return starId === 'tauceti' && global.tauceti && global.tauceti['ringworld']
+        && global.tauceti.ringworld.count >= 1000 ? true : false;
+}
+
+// Render the Ringworld as depth-sorted near and far bands.
+// Its tilt follows the shared map clock.
+function ringworldTilt(){
+    const turn = (runDays() + drawAhead) / starConstants.RINGWORLD_PRECESS;
+    return starConstants.RINGWORLD_TILT
+         + starConstants.RINGWORLD_TILT_SWING * Math.sin(turn * Math.PI * 2);
+}
+
+function drawRingworld(ctx, x, y, r, near){
+    const rad = r * starConstants.RINGWORLD_RADIUS;
+    const across = rad * mapScale;
+    if (across < starConstants.RINGWORLD_MIN_PX){ return; }
+
+    const lean = ringworldTilt();
+    const ct = Math.cos(lean), st = Math.sin(lean);
+    // Ring axis normal.
+    const ax = 0, ay = -st, az = ct;
+    const half = Math.max(rad * starConstants.RINGWORLD_WIDTH, 0.6 / mapScale) / 2;
+    const deep = Math.max(half * 2 * starConstants.RINGWORLD_THICK, 0.5 / mapScale) / 2;
+
+    // Select the requested near or far half.
+    const A = camSY * camSP;
+    const B = ct * camCY * camSP + st * camCP;
+    const cross = Math.atan2(-A, B);
+    const mid = cross + Math.PI / 2;
+    const nearFirst = (A * Math.cos(mid) + B * Math.sin(mid)) < 0;
+    const start = (nearFirst === near) ? cross : cross + Math.PI;
+
+    const hi = mapTextureDetail() === 'high' && !mapCameraMoving && across >= starConstants.RINGWORLD_DETAIL_PX;
+    const steps = hi ? starConstants.RINGWORLD_STEPS_HI : starConstants.RINGWORLD_STEPS;
+
+    // View vector in map depth coordinates.
+    const vx = camSY * camSP, vy = camCY * camSP, vz = camCP;
+    // Rim facing the camera.
+    const along = ax * vx + ay * vy + az * vz;
+    const rimK = along < 0 ? 1 : -1;
+    const rimFace = Math.abs(along);
+
+    // Surface rotation offset.
+    const turn = Math.PI * 2;
+    const spin = ((runDays() + drawAhead) / starConstants.RINGWORLD_SPIN) * turn;
+    // Map a longitude to a repeating surface division.
+    const divide = (t, count) => Math.floor(((((t - spin) % turn) + turn) % turn) / turn * count);
+    // Return a division boundary inside this panel.
+    const cutIn = (t0, t1, count) => {
+        const step = turn / count;
+        const t = spin + Math.ceil((t0 - spin) / step) * step;
+        return (t > t0 + 1e-12 && t < t1 - 1e-12) ? t : false;
+    };
+
+    // Project a point on the band.
+    const ring = (t) => ({ x: Math.cos(t), y: Math.sin(t) * ct, z: Math.sin(t) * st });
+    const at = (t, k, j) => {
+        const n = ring(t);
+        const R = rad + j * deep;
+        const px = R * n.x + k * half * ax;
+        const py = R * n.y + k * half * ay;
+        const pz = R * n.z + k * half * az;
+        return [x + (px * camCY - py * camSY), y + (px * camSY + py * camCY) * camCP - pz * camSP];
+    };
+    const quad = (a, b, c, d) => {
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.lineTo(c[0], c[1]);
+        ctx.lineTo(d[0], d[1]);
+        ctx.closePath();
+        ctx.fill();
+    };
+    const mix = (a, b, f) => [0,1,2].map(i => a[i] + (b[i] - a[i]) * f);
+
+    // Use recessed floor strips only at high detail.
+    const wallAt = starConstants.RINGWORLD_WALL_AT;
+    const strips = hi
+        ? [[-1, -wallAt, true], [-wallAt, wallAt, false], [wallAt, 1, true]]
+        : [[-1, 1, true]];
+
+    ctx.save();
+    ctx.setLineDash([]);
+    ctx.shadowColor = 'transparent';
+
+    for (let i = 0; i < steps; i++){
+        const t0 = start + (i / steps) * Math.PI;
+        const t1 = start + ((i + 1) / steps) * Math.PI;
+        const n = ring(start + ((i + 0.5) / steps) * Math.PI);
+        // The inner face is visible when the outer face points away.
+        const facing = n.x * vx + n.y * vy + n.z * vz;
+        const lit = facing > 0;
+        const square = Math.abs(facing);
+        // Draw the visible face at its depth offset.
+        const side = lit ? -1 : 1;
+
+        for (const [k0, k1, isWall] of strips){
+            // Recess the inner floor between rim walls.
+            const j = lit && !isWall ? side * (1 - starConstants.RINGWORLD_FLOOR_DROP) : side;
+            if (lit){
+                const daylight = shadeRGB(starConstants.RINGWORLD_LIT, 0.55 + 0.6 * square);
+                if (isWall){
+                    // Bright rim wall material.
+                    ctx.fillStyle = rgba(mix(daylight, shadeRGB(starConstants.RINGWORLD_RIM, 0.8 + 0.4 * square), 0.55), 1);
+                    quad(at(t0, k0, j), at(t0, k1, j), at(t1, k1, j), at(t1, k0, j));
+                }
+                else {
+                    // Split panels at surface-patch boundaries.
+                    const cut = cutIn(t0, t1, starConstants.RINGWORLD_PATCHES);
+                    const spans = cut ? [[t0, cut], [cut, t1]] : [[t0, t1]];
+                    for (const [a, b] of spans){
+                        const roll = texSeed(`ringworld${divide((a + b) / 2, starConstants.RINGWORLD_PATCHES)}`) % 100;
+                        const ground = roll < 55 ? starConstants.RINGWORLD_SEA
+                                     : roll < 85 ? starConstants.RINGWORLD_LAND
+                                                 : starConstants.RINGWORLD_ARID;
+                        ctx.fillStyle = rgba(mix(daylight, shadeRGB(ground, 0.85 + 0.5 * square), 0.62), 1);
+                        quad(at(a, k0, j), at(a, k1, j), at(b, k1, j), at(b, k0, j));
+                    }
+                }
+            }
+            else {
+                // Shade the unlit outer shell.
+                ctx.fillStyle = rgba(isWall
+                    ? shadeRGB(starConstants.RINGWORLD_SHELL, 0.95 - 0.3 * square)
+                    : shadeRGB(starConstants.RINGWORLD_SHELL, 0.75 - 0.35 * square), 1);
+                quad(at(t0, k0, j), at(t0, k1, j), at(t1, k1, j), at(t1, k0, j));
+            }
+        }
+
+        // Draw the near cut edge.
+        ctx.fillStyle = hexShadeRGBA(starConstants.RINGWORLD_EDGE, 0.45 + 0.5 * rimFace, 1);
+        quad(at(t0, rimK, -1), at(t0, rimK, 1), at(t1, rimK, 1), at(t1, rimK, -1));
+    }
+
+    if (hi){
+        // Highlight the outer rim.
+        ctx.lineWidth = Math.max(deep / 2, 0.25 / mapScale);
+        ctx.strokeStyle = hexShadeRGBA(starConstants.RINGWORLD_RIM, 1, 0.5);
+        ctx.beginPath();
+        for (let i = 0; i <= steps; i++){
+            const p = at(start + (i / steps) * Math.PI, rimK, 1);
+            if (i === 0){ ctx.moveTo(p[0], p[1]); } else { ctx.lineTo(p[0], p[1]); }
+        }
+        ctx.stroke();
+        // Draw underside support ribs.
+        ctx.lineWidth = Math.max(half / 2, 0.3 / mapScale);
+        ctx.strokeStyle = hexShadeRGBA(starConstants.RINGWORLD_SEAM, 1, 0.45);
+        for (let s = 0; s < starConstants.RINGWORLD_RIBS; s++){
+            const u = (((spin + s * (turn / starConstants.RINGWORLD_RIBS) - start) % turn) + turn) % turn;
+            if (u >= Math.PI){ continue; }
+            const t = start + u;
+            const n = ring(t);
+            // Ribs appear only on the visible outer face.
+            if ((n.x * vx + n.y * vy + n.z * vz) > 0){ continue; }
+            const a = at(t, -1, 1), b = at(t, 1, 1);
+            ctx.beginPath();
+            ctx.moveTo(a[0], a[1]);
+            ctx.lineTo(b[0], b[1]);
+            ctx.stroke();
+        }
+
+        // Draw structural seams across the band.
+        ctx.lineWidth = Math.max(half / 6, 0.25 / mapScale);
+        ctx.strokeStyle = hexShadeRGBA(starConstants.RINGWORLD_SEAM, 1, 0.5);
+        for (let s = 0; s < starConstants.RINGWORLD_SEAMS; s++){
+            const seam = spin + s * (turn / starConstants.RINGWORLD_SEAMS);
+            // Draw each seam in only one half.
+            const u = (((seam - start) % turn) + turn) % turn;
+            if (u >= Math.PI){ continue; }
+            const t = start + u;
+            const n = ring(t);
+            const lit = (n.x * vx + n.y * vy + n.z * vz) > 0;
+            const j = lit ? -(1 - starConstants.RINGWORLD_FLOOR_DROP) : 1;
+            const a = at(t, -wallAt, j), b = at(t, wallAt, j);
+            ctx.beginPath();
+            ctx.moveTo(a[0], a[1]);
+            ctx.lineTo(b[0], b[1]);
+            ctx.stroke();
+        }
+    }
+
+    ctx.restore();
+}
+
 // Saturn is flagged in the table. Past Sol, roughly a quarter of the gas giants carry rings too, and which ones is
 // Choose this effect deterministically from the body id.
 function hasRings(planet, id){
@@ -4769,7 +5165,7 @@ function lumpNorm(seed){
 // Rotate the surface texture and silhouette together.
 function lumpSpin(id){
     const spin = spinOf(id);
-    const turn = spin.hours ? (mapDays * 24 / spin.hours) * 360 * starConstants.SPIN_SCALE : 0;
+    const turn = spin.hours ? ((mapDays + drawAhead) * 24 / spin.hours) * 360 * starConstants.SPIN_SCALE : 0;
     return mapYaw + turn * Math.PI / 180;
 }
 // Lay the outline down as a path. `spin` turns it, which is what makes it read as a solid object
@@ -5014,11 +5410,13 @@ function drawBody(ctx, x, y, r, color, opts){
         return;
     }
     if (opts.gate){
-        drawGate(ctx, x, y, r, color, opts.seed);
+        drawGate(ctx, x, y, r, color, opts.seed, opts.gateFrame);
         return;
     }
     ctx.fillStyle = "#" + color;
     if (opts.star){
+        // Draw the far half before the star and the near half after it.
+        if (opts.ringworld){ drawRingworld(ctx, x, y, r, false); }
         // The flat disc goes down first even though the texture's own disc is opaque. Zoomed out a
         // star is a pixel or two across.
         ctx.beginPath();
@@ -5030,6 +5428,7 @@ function drawBody(ctx, x, y, r, color, opts){
         const sst = sphereStarSize(r);
         ctx.drawImage(sst ? sphereStarTexture(color, sst) : starTexture(color),
                       x - half, y - half, half * 2, half * 2);
+        if (opts.ringworld){ drawRingworld(ctx, x, y, r, true); }
         return;
     }
     // Rings straddle the body, so the far half goes down first and the near half last — that ordering is what reads as the
@@ -5102,7 +5501,108 @@ function mapContext(canvas){
     return mapCtx;
 }
 
+// --- Map simulation and rendering ----------------------------------------------------------------
+// Simulation advances on game loops; render loops only draw its current state.
+
+// Return whether a loop owns the current map refresh rate.
+export function mapPaintsOn(loop){
+    if (webWorker.offline){ return loop === 'longLoop'; }
+    if (!document.getElementById('mapCanvas')){ return false; }
+    const rate = mapRefreshRate();
+    return loop === (rate === 'fast' ? 'frame' : rate === 'slow' ? 'midLoop' : 'fastLoop');
+}
+
+// Wall-clock time of the last simulation step.
+var mapSimAt = 0;
+// Rendered map day and its previous wall-clock update.
+var mapDrawnDays = 0;
+var mapDrawnAt = 0;
+// Last animation-frame render time.
+var mapLastFrame = 0;
+// Pending animation-frame request, or false when inactive.
+var mapFrameReq = false;
+
+// Advance map movement and orbital time for one simulation step.
+export function advanceSolarMap(ticks){
+    if (!global.race['truepath']){ return; }
+    // Match offline day scaling used by longLoop.
+    let days = ticks / webWorker.longRatio;
+    if (webWorker.offline){ days *= webWorker.offlineScale; }
+
+    advanceOrbits(days);
+    moveTempCoordinates(days);
+    moveShips(days);
+    // Advance surface rotation.
+    advanceMapDays(days);
+
+    const now = Date.now();
+    // Keep render interpolation aligned with simulation time; re-anchor after long gaps.
+    mapSimAt += ticks * webWorker.mt;
+    if (mapSimAt > now || now - mapSimAt > starConstants.MAP_AHEAD_MAX * webWorker.mt){ mapSimAt = now; }
+}
+
+// Unsimulated wall-clock time, capped for render interpolation.
+export function mapAhead(){
+    if (!mapSimAt || !webWorker.s || webWorker.offline){ return 0; }
+    const ahead = (Date.now() - mapSimAt) / webWorker.mt;
+    return ahead > 0 ? Math.min(ahead, starConstants.MAP_AHEAD_MAX) : 0;
+}
+
+// Render the current map state without advancing simulation.
+export function paintSolarMap(){
+    if (!global.race['truepath']){ return; }
+    if (!document.getElementById('mapCanvas')){ return; }
+    const now = Date.now();
+    const target = starInfo.days + mapAhead() / webWorker.longRatio;
+    const elapsed = mapDrawnAt ? Math.min(now - mapDrawnAt, 1000) : 0;
+    mapDrawnAt = now;
+    const gap = target - mapDrawnDays;
+    if (!mapDrawnDays || Math.abs(gap) > starConstants.MAP_RESYNC_DAYS){
+        mapDrawnDays = target;
+    }
+    else if (gap > 0){
+        // Do not render ahead of the current simulation target.
+        mapDrawnDays = Math.min(target, mapDrawnDays + elapsed * starConstants.MAP_CATCHUP / (webWorker.mt * webWorker.longRatio));
+    }
+    // Hold the rendered clock until the simulation catches up.
+    renderAhead = mapDrawnDays - starInfo.days;
+    drawMap();
+}
+
+// Start or stop animation-frame map rendering for the active refresh setting.
+export function syncMapFrames(){
+    const want = mapPaintsOn('frame');
+    if (want === (mapFrameReq !== false)){ return; }
+    if (!want){
+        cancelAnimationFrame(mapFrameReq);
+        mapFrameReq = false;
+        mapLastFrame = 0;
+        return;
+    }
+    mapLastFrame = 0;
+    const frame = function(){
+        // Stop when the map closes or frame rendering is no longer selected.
+        if (!mapPaintsOn('frame')){ mapFrameReq = false; mapLastFrame = 0; return; }
+        mapFrameReq = requestAnimationFrame(frame);
+        const now = Date.now();
+        // Limit rendering to the configured map frame rate.
+        if (now - mapLastFrame < 1000 / starConstants.MAP_FPS - starConstants.MAP_FRAME_LEAD_MS){ return; }
+        mapLastFrame = now;
+        paintSolarMap();
+    };
+    mapFrameReq = requestAnimationFrame(frame);
+}
+
 export function drawMap() {
+    // Cache body positions for this draw only.
+    posMemo = Object.create(null);
+    // Use one render offset for every body in this frame.
+    drawAhead = isFinite(renderAhead) ? renderAhead : 0;
+    try { drawMapFrame(); }
+    finally { posMemo = false; drawAhead = 0; }
+}
+
+function drawMapFrame() {
     let canvas = document.getElementById("mapCanvas");
     if (!canvas){ return; }
     let ctx = mapContext(canvas);
@@ -5146,17 +5646,17 @@ export function drawMap() {
     // inside that star's own block below, and only for stars that survive culling.
     let planetLocation = {};
     if (!homeCulled){
-        for (const id in starData){
-            if (starData[id].star){ continue; }
+        for (const id of mapHomeIds){
             planetLocation[id] = genXYZcoord(id);
         }
     }
 
     // Orbits, gathered by the body each one circles rather than drawn here.
     let orbitsBy = {};
-    for (let [id, planet] of Object.entries(starData)) {
+    // Other star systems are drawn in their own reference frames.
+    for (const id of mapHomeIds) {
         if (homeCulled){ break; }
-        if (planet.star){ continue; }   // Tau Ceti orbits are drawn separately in a star-local frame
+        const planet = starData[id];
         if (planet.startype){ continue; }
         if (planet.parent ? !mapView().moonOrbits : !mapView().planetOrbits){ continue; }
         // Uses the parent-relative distance for a moon, so its ring only appears once you are zoomed
@@ -5229,7 +5729,7 @@ export function drawMap() {
         ctx.save();
         ctx.translate(pX(ref), pY(ref));
         ctx.beginPath();
-        let here = rel(ship.location.position, ref);
+        let here = rel(shipPointAhead(ship, drawAhead), ref);
 
         let span = 0;
         let prev = here;
@@ -5322,16 +5822,14 @@ export function drawMap() {
     {
         // Home-system bodies that actually orbit the Sun, for sizing the system against them. Its
         // orbits are roomy enough that this comes back 1 and nothing here changes.
-        let homeOrbits = Object.entries(starData)
-            .filter(([id, planet]) => !planet.star && !planet.startype && !planet.moon)
-            .map(([id]) => id);
-        let homeScale = homeCulled ? 1 : systemScale(starData.spc_sun.size, homeOrbits, ORIGIN);
+        let homeScale = homeCulled ? 1 : systemScale(starData.spc_sun.size, mapHomeOrbitIds, ORIGIN);
         let bodies = [];
-        for (let [id, planet] of Object.entries(starData)) {
+        for (const id of mapHomeIds) {
             if (homeCulled){ break; }
+            const planet = starData[id];
             // Stars other than the Sun (which sits at the origin) are drawn in their own translated
-            // frame below, along with Tau-Ceti-style orbiting bodies (planet.star).
-            if (planet.star || (planet.startype && id !== 'spc_sun')){ continue; }
+            // frame below; neither belongs in this index.
+            if (planet.startype && id !== 'spc_sun'){ continue; }
             if ((global.race['orbit_decayed'] || global.race['tidal_decay']) && id === 'spc_moon'){ continue; }
             if (actions.space[id] && actions.space[id].info.showDest && !actions.space[id].info.showDest().r){ continue; }
             let p = planetLocation[id];
@@ -5370,7 +5868,7 @@ export function drawMap() {
         }
         for (let b of bodies){
             if ((global.race['orbit_decayed'] || global.race['tidal_decay']) && ['spc_moon'].includes(b.id)){ continue; }
-            drawBody(ctx, b.bx, b.by, b.size, setColor(b.id), { id: b.id, sun: sunDirection(planetLocation[b.id]), star: !!b.planet.startype, gate: !!b.planet.gate, kind: bodyKind(b.planet, b.id), seed: texSeed(b.id), rings: hasRings(b.planet, b.id), ringTilt: ringTilt(b.planet, b.id), glyph: cowGlyph(b.id), lumpy: bodyLumpy(b.planet, b.id), debris: homeDebris(b.id) });
+            drawBody(ctx, b.bx, b.by, b.size, setColor(b.id), { id: b.id, sun: sunDirection(planetLocation[b.id]), star: !!b.planet.startype, gate: !!b.planet.gate, gateFrame: b.planet.gate ? gateFrame(planetLocation[b.id], orbitIncline(b.id)) : false, kind: bodyKind(b.planet, b.id), seed: texSeed(b.id), rings: hasRings(b.planet, b.id), ringTilt: ringTilt(b.planet, b.id), glyph: cowGlyph(b.id), lumpy: bodyLumpy(b.planet, b.id), debris: homeDebris(b.id) });
 
             if (orbitsBy[b.id] && !((global.race['orbit_decayed'] || global.race['tidal_decay']) && b.id === 'spc_home')){
                 strokeOrbitGroup(ctx, orbitsBy[b.id], ORIGIN, planetLocation[b.id], true);
@@ -5410,7 +5908,7 @@ export function drawMap() {
         ctx.fillStyle = foe ? "#ff0000" : "#0000ff";
         ctx.strokeStyle = foe ? "#ff0000" : "#0000ff";
         let ref = shipRefStar(ship);
-        let here = rel(ship.location.position, ref);
+        let here = rel(shipPointAhead(ship, drawAhead), ref);
         ctx.save();
         ctx.translate(pX(ref), pY(ref));
         ctx.beginPath();
@@ -5433,7 +5931,7 @@ export function drawMap() {
         ctx.fillStyle = mark.foe ? "#ff5555" : "#009aff";
         let ship = mark.ship;
         let ref = shipRefStar(ship);
-        let here = rel(ship.location.position, ref);
+        let here = rel(shipPointAhead(ship, drawAhead), ref);
         ctx.save();
         ctx.translate(pX(ref), pY(ref));
         ctx.scale(1 / mapScale, 1 / mapScale);
@@ -5474,10 +5972,11 @@ export function drawMap() {
             ctx.scale(1 / mapScale, 1 / mapScale);
         else
             ctx.scale(1 / starConstants.systemLabelMinScale, 1 / starConstants.systemLabelMinScale);
-        for (let [id, planet] of Object.entries(starData)) {
+        for (const id of mapHomeIds) {
             if (homeCulled){ break; }
             if (!mapView().planetNames){ break; }
-            if (planet.star || planet.startype){ continue; }   // all star labels handled separately (below)
+            const planet = starData[id];
+            if (planet.startype){ continue; }   // all star labels handled separately (below)
             if (mapScale < starConstants.planetLabelMinScale){ continue; }   // zoomed out: planet names give way to star labels
             if (actions.space[id] && (actions.space[id].info.showDest ? actions.space[id].info.showDest().l : global.settings.space[id.substring(4)]) ){
                 // bodyName() rather than the action's own name, so the wreck of the home world is
@@ -5585,6 +6084,22 @@ export function drawMap() {
             members.push({ id: starId, planet: star, q: { x: 0, y: 0, z: 0 }, isStar: true,
                 pr: Math.max(star.size / 10 * scale, 1 / mapScale) });
         }
+        const home = members.find(m => m.id === 'tau_home');
+        if (home && tauJumpGate()){
+            const phase = (runDays() + drawAhead) / 12 * Math.PI * 2;
+            const inc = orbitIncline('tau_home');
+            // Place the Tau Ceti gate on a radial orbit around tau_home.
+            const radial = { x: Math.cos(phase), y: Math.sin(phase) * Math.cos(inc * Math.PI / 180), z: Math.sin(phase) * Math.sin(inc * Math.PI / 180) };
+            const frame = gateFrame(radial, inc);
+            const hoop = home.pr * 0.4;
+            // Clear tau_home, including the clamp overhang.
+            const distance = home.pr + hoop * 1.5;
+            members.push({ id: 'tau_home_gate', q: {
+                x: home.q.x + radial.x * distance,
+                y: home.q.y + radial.y * distance,
+                z: home.q.z + radial.z * distance
+            }, pr: hoop, gate: true, gateFrame: frame });
+        }
         members.sort((a,b) => pD(b.q) - pD(a.q));   // furthest first
         // Every far half goes down before any body does, the same order the home system uses: a body on the far side of its
         // orbit is drawn before its primary, so laying that half down later would run the line over the world riding on it.
@@ -5599,16 +6114,16 @@ export function drawMap() {
         }
         for (let m of members){
             let px = pX(m.q), py = pY(m.q);
-            drawBody(ctx, px, py, m.pr, setColor(m.id), { id: m.id, sun: sunDirection(m.q), star: m.isStar || !!m.planet.bodystar, kind: bodyKind(m.planet, m.id), seed: texSeed(m.id), rings: hasRings(m.planet, m.id), ringTilt: ringTilt(m.planet, m.id), glyph: cowGlyph(m.id), lumpy: bodyLumpy(m.planet, m.id) });
+            if (m.gate){
+                drawBody(ctx, px, py, m.pr, '31a557', { gate: true, gateFrame: m.gateFrame, seed: texSeed(m.id) });
+                continue;
+            }
+            drawBody(ctx, px, py, m.pr, setColor(m.id), { id: m.id, sun: sunDirection(m.q), star: m.isStar || !!m.planet.bodystar, kind: bodyKind(m.planet, m.id), seed: texSeed(m.id), rings: hasRings(m.planet, m.id), ringTilt: ringTilt(m.planet, m.id), glyph: cowGlyph(m.id), lumpy: bodyLumpy(m.planet, m.id), ringworld: m.isStar && ringworldBuilt(m.id) });
             if (m.isStar && starOrbits.length){ strokeOrbitGroup(ctx, starOrbits, sc, sc, true); }
             // The near half of each moon ring, drawn first so it doesn't disappear behind it.
             if (moonOrbits[m.id]){ strokeOrbitGroup(ctx, moonOrbits[m.id], sc, moonPrimary[m.id], true); }
             // Drawn in the star's own translated frame, so shift back to map coordinates to record it.
             addPickable(m.id, pX(sc) + px, pY(sc) + py, m.pr, m.sep);
-            // Tau Ceti's jump gate rides alongside the home planet like a moon.
-            if (m.id === 'tau_home' && tauJumpGate()){
-                drawBody(ctx, px + m.pr * 0.9, py + m.pr * 0.9, m.pr * 0.35, '31a557', { gate: true, seed: texSeed('tau_home_jump_gate') });
-            }
         }
 
         // Names
@@ -6075,36 +6590,38 @@ export function buildSolarMap(parentNode, keep, openAt) {
             }
             return false;
         }),
-      $(`<input type="button" value="+" style="position: absolute; width: 30px; height: 30px; top: 32px; right: 2px;">`)
+      $(`<input type="button" value="+" style="position: absolute; width: 30px; height: 30px; bottom: 34px; right: 2px;">`)
         .on("click", () => {
             mapScale /= 0.8;
             mapShift.x = canvasOffset.x + (mapShift.x - canvasOffset.x) / 0.8;
             mapShift.y = canvasOffset.y + (mapShift.y - canvasOffset.y) / 0.8;
             drawMap();
         }),
-      $(`<input type="button" value="-" style="position: absolute; width: 30px; height: 30px; top: 64px; right: 2px;">`)
+      $(`<input type="button" value="-" style="position: absolute; width: 30px; height: 30px; bottom: 2px; right: 2px;">`)
         .on("click", () => {
             mapScale *= 0.8;
             mapShift.x = canvasOffset.x + (mapShift.x - canvasOffset.x) * 0.8;
             mapShift.y = canvasOffset.y + (mapShift.y - canvasOffset.y) * 0.8;
             drawMap();
         }),
-      $(`<input type="button" value="${loc('space_sun_info_name')}" style="position: absolute; height: 30px; top: 2px; left: 2px;">`)
+    );
+
+    // Keep system shortcuts together so translated labels do not need fixed offsets.
+    const systemNav = $('<div class="mapSystemNav" style="position: absolute; top: 2px; left: 2px; display: flex; gap: 4px;"></div>').appendTo(currentNode);
+    $(`<input type="button" value="${loc('space_sun_info_name')}" style="height: 30px;">`)
         .on("click", () => {
             mapScale = 20.0;
-            // This is the "back to the default view of Sol" control — it already restores the
-            // opening zoom, so it restores the opening bearing with it.
             mapYaw = mapDefaultYaw('spc_sun');
             starLockOn = 'spc_sun';
             camUpdate();
             recenterOn(genXYZcoord('spc_sun'));
             drawMap();
         })
-    );
+        .appendTo(systemNav);
 
-    // Center on the Tau Ceti star: only available (and only useful) once the system is unlocked.
+    // Center on Tau Ceti once its system is unlocked.
     if (global.tech['tau_home'] && global.tech.tau_home >= 2){
-        $(`<input type="button" value="${loc('tab_tauceti')}" style="position: absolute; height: 30px; top: 34px; left: 2px;">`)
+        $(`<input type="button" value="${loc('tab_tauceti')}" style="height: 30px;">`)
             .on("click", () => {
                 mapScale = 20.0;
                 mapYaw = mapDefaultYaw('tauceti');
@@ -6113,7 +6630,7 @@ export function buildSolarMap(parentNode, keep, openAt) {
                 recenterOn(genXYZcoord('tauceti'));
                 drawMap();
             })
-            .appendTo(currentNode);
+            .appendTo(systemNav);
     }
 
     // --- Find a star ------------------------------------------------------------------------------
