@@ -1,3 +1,4 @@
+import { $ } from './dom.js';
 import { global } from './vars.js';
 import { loc } from './locale.js';
 import { clearElement, easterEgg } from './functions.js';
@@ -242,6 +243,9 @@ export function seasonDesc(type){
 }
 
 function moonDescription(){
+    if (global.race['iceage'] && !global.tech['surface']){
+        return loc('lack_of_moon');
+    }
     if (global.race['orbit_decayed']){
         return loc('moon0'); // New Moon
     }

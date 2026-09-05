@@ -1,3 +1,4 @@
+import { $ } from '../dom.js';
 import { global } from './../vars.js';
 import { loc } from './../locale.js';
 import { clearElement, popover, getEaster, getHalloween, getTraitDesc } from './../functions.js';
@@ -53,6 +54,7 @@ const evolutionPath = {
     sand: ['phagocytosis', 'sand'],
     small: ['phagocytosis', 'mammals', 'dwarfism'],
     synthetic: ['exterminate'],
+    primordial: ['phagocytosis', 'primordial'],
 };
 
 Object.keys(evolutionPath).forEach(function (key) {

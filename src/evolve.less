@@ -1063,7 +1063,7 @@ Misc ---------> Main template
             }
 
             .divide-line {
-                border-top: rgba(128,128,128,.45) solid .0625rem;
+                border-top: @secondary-border solid .0625rem;
             }
         }
 
@@ -1224,7 +1224,7 @@ Misc ---------> Main template
 
         // .basic-button
         .basic-button {
-            border: rgba(128,128,128,.45) solid .0625rem;
+            border: @primary-border solid .0625rem;
         }
 
         .basic-button:hover {
@@ -1276,7 +1276,7 @@ Misc ---------> Main template
         // Trade
         .add,
         .sub {
-            border: rgba(128,128,128,.45) solid .0625rem;
+            border: @primary-border solid .0625rem;
             transition: all 200ms ease;
         }
 
@@ -1287,11 +1287,11 @@ Misc ---------> Main template
         }
 
         .current {
-            border-top: rgba(128,128,128,.45) solid .0625rem;
-            border-bottom: rgba(128,128,128,.45) solid .0625rem;
+            border-top: @primary-border solid .0625rem;
+            border-bottom: @primary-border solid .0625rem;
         }
         .current.infoOnly {
-            border: rgba(128,128,128,.45) solid .0625rem;
+            border: @primary-border solid .0625rem;
         }
 
         // UI Bars
@@ -1600,7 +1600,7 @@ Misc ---------> Main template
         }
 
         .gridHeader {
-            border-top: rgba(128,128,128,.45) solid .0625rem;
+            border-top: @secondary-border solid .0625rem;
             margin: .25rem 0 .25rem 1rem;
             padding-top: .25rem;
         }
@@ -1635,7 +1635,7 @@ Misc ---------> Main template
         // .market-item
         .market-item {
             .order {
-                border: rgba(128,128,128,.45) solid .0625rem;
+                border: @primary-border solid .0625rem;
                 transition: all 200ms ease;
             }
 
@@ -1703,19 +1703,19 @@ Misc ---------> Main template
             background: @modalBox-background;
 
             p {
-                border-bottom: rgba(128,128,128,.45) solid .0625rem;
+                border-bottom: @secondary-border solid .0625rem;
             }
 
             .market-item {
-                border-top: rgba(128,128,128,.45) solid .0625rem;
+                border-top: @secondary-border solid .0625rem;
             }
 
             .divide {
-                border-top: rgba(128,128,128,.45) solid .0625rem;
+                border-top: @secondary-border solid .0625rem;
             }
 
             .smelting {
-                border-top: rgba(128,128,128,.45) solid .0625rem;
+                border-top: @secondary-border solid .0625rem;
             }
         }
 
@@ -1723,7 +1723,7 @@ Misc ---------> Main template
             background: none;
 
             .header {
-                border-bottom: rgba(128,128,128,.45) solid .0625rem;
+                border-bottom: @secondary-border solid .0625rem;
             }
 
             .avail {
@@ -2194,15 +2194,15 @@ html.gruvboxDark {
 
     .add,
     .sub {
-        border: rgba(128,128,128,.45) solid .0625rem;
+        border: @secondary-border solid .0625rem;
     }
 
     .current {
-        border-top: rgba(128,128,128,.45) solid .0625rem;
-        border-bottom: rgba(128,128,128,.45) solid .0625rem;
+        border-top: @secondary-border solid .0625rem;
+        border-bottom: @secondary-border solid .0625rem;
     }
     .current.infoOnly {
-        border: rgba(128,128,128,.45) solid .0625rem;
+        border: @secondary-border solid .0625rem;
     }
 
     .popper {
@@ -2238,15 +2238,15 @@ html.gruvboxDarkRG {
 
     .add,
     .sub {
-        border: rgba(128,128,128,.45) solid .0625rem;
+        border: @secondary-border solid .0625rem;
     }
 
     .current {
-        border-top: rgba(128,128,128,.45) solid .0625rem;
-        border-bottom: rgba(128,128,128,.45) solid .0625rem;
+        border-top: @secondary-border solid .0625rem;
+        border-bottom: @secondary-border solid .0625rem;
     }
     .current.infoOnly {
-        border: rgba(128,128,128,.45) solid .0625rem;
+        border: @secondary-border solid .0625rem;
     }
 
     .popper {
@@ -2325,15 +2325,15 @@ html.dracula {
 
     .add,
     .sub {
-        border: rgba(128,128,128,.45) solid .0625rem;
+        border: @secondary-border solid .0625rem;
     }
 
     .current {
-        border-top: rgba(128,128,128,.45) solid .0625rem;
-        border-bottom: rgba(128,128,128,.45) solid .0625rem;
+        border-top: @secondary-border solid .0625rem;
+        border-bottom: @secondary-border solid .0625rem;
     }
     .current.infoOnly {
-        border: rgba(128,128,128,.45) solid .0625rem;
+        border: @secondary-border solid .0625rem;
     }
 
     .popper {
@@ -4284,9 +4284,13 @@ a {
     }
 }
 
-// Hidden outside mobile layouts.
+// Hidden outside mobile layouts. .storage-total belongs here with the multipliers: the mobile
+// storage rows are a grid with a dedicated "total" area, but the desktop rows are still the flex
+// layout whose columns line up by the fixed margins on .storage-header below — an extra inline
+// span between the resource name and the crate control pushes those columns out of register.
 .marketRouteMultiplier,
-.storageMultiplier {
+.storageMultiplier,
+.storage-total {
     display: none;
 }
 
@@ -6422,6 +6426,92 @@ div.bigbang {
     }
 }
 
+.ecoTraits{
+    margin-bottom: .5rem;
+    border-bottom: .0625rem solid;
+    border-top: .0625rem solid;
+    padding: 1rem;
+    border-radius: 1rem;
+
+    .traitListing {
+        &:not(:first-child) {
+            margin-top: 0.5rem;
+        }
+        .gene {
+            margin-top: .125rem;
+            margin-bottom: .125rem;
+        }
+        .majorgene {
+            padding: 0 0.5rem 0.1rem;
+            margin-top: .125rem;
+            margin-bottom: .125rem;
+            font-size: 1.2em;
+        }
+    }
+    .block {
+        display: block;
+    }
+    .traitBox {
+        display: flex;
+        flex-wrap: wrap;
+    }
+    .traitHeading {
+        margin-bottom: .25rem;
+    }
+
+    .traitRow {
+        width: calc(100% / 3);
+    }
+}
+
+#fightLogContent {
+    text-align: left;
+    div {
+        margin-bottom:0.25rem;
+    }
+    h3 {
+        font-weight: 700;
+        margin-right: 0.25rem;
+    }
+}
+
+#mTabCivil .empowered, .TTEmpowered, #perkUnderground .empowered {
+    text-shadow: @bulma-info 0px 0 5px, @bulma-info 0px 0 5px, @bulma-info 0px 0 5px;
+}
+
+#modalBox .modalBoxTitle:has(.empowered) {
+    display: none;
+}
+
+#srperkUnderground{
+    .fossils{
+        margin-left: 1rem;
+    }
+}
+.extinction_fading{
+    transition: opacity 10s;
+    opacity: 1;
+    opacity: 0;
+}
+
+.blast {
+    transition: transform 2s, filter 5s;
+    transform: scale(0.95);
+    &.away{
+        transform: scale(0);
+        filter: blur(5px);
+    }
+}
+.blast_burn{
+    transition: box-shadow 5s;
+    box-shadow: 0 0 150px 50px Orange;
+    z-index:1;
+    &.away_burn{
+        transition: box-shadow 2s;
+        box-shadow: 0 0 150px 100px Orange;
+    }
+}
+
 // --- The screen bleeding out ---------------------------------------------------------------------
 .bleed-wrapper {
     position: fixed;
@@ -7039,6 +7129,9 @@ div.bigbang {
             }
 
             .storage-total {
+                // Re-enables the element the desktop rules hide, the same way the multiplier
+                // selectors above do.
+                display: block;
                 grid-area: total;
                 white-space: nowrap;
                 text-align: right;
