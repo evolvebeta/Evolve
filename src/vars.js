@@ -1655,11 +1655,11 @@ if (convertVersion(global['version']) <= 105000){
         global.race.geneSlots = slots;
         global.race.geneBreak = rebuilt;
     }
-}
 
-if(convertVersion(global['version']) && true){
-    global.underground = global.underground || {};
-    global.surface = global.surface || {};
+    if (!global.hasOwnProperty('underground')){
+        global.underground = global.underground || {};
+        global.surface = global.surface || {};
+    }
 }
 
 if (global['space'] && global.space['shipyard'] && global.space.shipyard.hasOwnProperty('battles')){
