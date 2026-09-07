@@ -9,11 +9,13 @@ import { races, traits } from './../races.js';
 import { getHalloween, svgIcons, svgViewBox, techInEra, actionReqs } from './../functions.js';
 import { planetName } from './../space.js';
 import { actionDesc, sideMenu, getSolarName } from './functions.js';
+import { traitPageOf } from './species.js';
 import { shipCapacitorSaving, surveyTheme } from './../truepath.js';
 
 const isHalloween = getHalloween();
 const standard_tech = techList('standard');
 const truepath_tech = techList('truepath');
+const iceage_tech = techList('iceage');
 
 const extraInformation = {
     club: global.race['soul_eater'] ? [
@@ -2280,6 +2282,10 @@ const extraInformationTP = {
     ]
 };
 
+const extraInformationIA = {
+
+};
+
 const extraRequirements = {
     theology1 : {
         title: loc('wiki_tech_req_theology1'),
@@ -2698,12 +2704,12 @@ const specialRequirements = {
                 {
                     title: loc(`wiki_tech_special_trait`,[loc(`trait_evil_name`)]),
                     color: global.race['evil'] ? true : false,
-                    link: 'wiki.html#traits-species-genus_evil'
+                    link: 'wiki.html#major_traits-species-genus_evil'
                 },
                 {
                     title: loc(`wiki_tech_special_trait_not`,[loc(`trait_soul_eater_name`)]),
                     color: !global.race['soul_eater'],
-                    link: 'wiki.html#traits-species-special_soul_eater'
+                    link: 'wiki.html#major_traits-species-special_soul_eater'
                 }
             ]
         }
@@ -2759,7 +2765,7 @@ const specialRequirements = {
                 {
                     title: loc(`wiki_tech_special_trait`,[loc(`trait_detritivore_name`)]),
                     color: global.race['detritivore'] ? true : false,
-                    link: 'wiki.html#traits-species-genus_detritivore'
+                    link: 'wiki.html#major_traits-species-genus_detritivore'
                 }
             ]
         }
@@ -2989,7 +2995,7 @@ const specialRequirements = {
                 {
                     title: loc(`wiki_tech_special_trait`,[loc(`trait_terrifying_name`)]),
                     color: global.race['terrifying'] ? true : false,
-                    link: 'wiki.html#traits-species-major_terrifying'
+                    link: 'wiki.html#major_traits-species-major_terrifying'
                 }
             ]
         }
@@ -3006,7 +3012,7 @@ const specialRequirements = {
                 {
                     title: loc(`wiki_tech_special_trait`,[loc(`trait_terrifying_name`)]),
                     color: global.race['terrifying'] ? true : false,
-                    link: 'wiki.html#traits-species-major_terrifying'
+                    link: 'wiki.html#major_traits-species-major_terrifying'
                 }
             ]
         }
@@ -4436,7 +4442,13 @@ const extraTechPositions = {
 
 function getTechTrees(path){
     let techTrees = {};
-    let techs = path === 'truepath' ? truepath_tech : standard_tech;
+    let techs = standard_tech;
+    if (path === 'truepath') {
+        techs = truepath_tech;
+    }
+    else if (path === 'iceage'){
+        techs = iceage_tech;
+    }
     Object.keys(techs).forEach(function (actionName){
         let action = actions.tech[actionName];
         if (!techTrees[action.grant[0]]){
@@ -4478,32 +4490,34 @@ function getTechTrees(path){
             era: 'civilized'
         }
     ];
-    techTrees['theology'][5] = [
-        {
-            name: 'deify',
-            title: loc('tech_deify'),
-            era: 'early_space'
-        },
-        {
-            name: 'study',
-            title: loc('tech_study'),
-            era: 'early_space'
-        }
-    ];
-    techTrees['ancient_study'][1] = [
-        {
-            name: 'study',
-            title: loc('tech_study'),
-            era: 'early_space'
-        }
-    ];
-    techTrees['ancient_deify'][1] = [
-        {
-            name: 'deify',
-            title: loc('tech_deify'),
-            era: 'early_space'
-        }
-    ];
+    if (path !== 'iceage'){
+        techTrees['theology'][5] = [
+            {
+                name: 'deify',
+                title: loc('tech_deify'),
+                era: 'early_space'
+            },
+            {
+                name: 'study',
+                title: loc('tech_study'),
+                era: 'early_space'
+            }
+        ];
+        techTrees['ancient_study'][1] = [
+            {
+                name: 'study',
+                title: loc('tech_study'),
+                era: 'early_space'
+            }
+        ];
+        techTrees['ancient_deify'][1] = [
+            {
+                name: 'deify',
+                title: loc('tech_deify'),
+                era: 'early_space'
+            }
+        ];
+    }
     if (path === 'truepath'){
         techTrees['unify'][1] = [
             {
@@ -4538,6 +4552,11 @@ function addInformation(parent,key,path){
     if (extraInformationTP.hasOwnProperty(key) && path === 'truepath'){
         for (let i=0; i<extraInformationTP[key].length; i++){
             extra.append(`<div>${extraInformationTP[key][i]}</div>`);
+        }
+    }
+    else if (extraInformationIA.hasOwnProperty(key) && path === 'iceage'){
+        for (let i=0; i<extraInformationIA[key].length; i++){
+            extra.append(`<div>${extraInformationIA[key][i]}</div>`);
         }
     }
     else if (extraInformation.hasOwnProperty(key)){
@@ -4680,7 +4699,7 @@ function addRequirements(parent,key,keyName,path,pageEra){
                         break;
                     case 'trait':
                         subText = loc(`trait_${subreq.name}_name`);
-                        link = `wiki.html#traits-species-${traits[subreq.name].type}_${subreq.name}`;
+                        link = `wiki.html#${traitPageOf(subreq.name)}-species-${traits[subreq.name].type}_${subreq.name}`;
                         color = global.race[subreq.name];
                         break;
                     case 'tech':

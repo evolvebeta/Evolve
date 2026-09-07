@@ -8,7 +8,7 @@ import { actions } from './actions.js';
 import { planetName } from './space.js';
 import { unlockFeat } from './achieve.js';
 import { createGLContext, webglSupported } from './glmap.js';
-import { foeDetected, moveShips, moveTempCoordinates, resolveBody, shipPointAhead, shipRefStar, syndicate, tempCoord, tempOffset, tempParent, venusBlockade } from './truepath.js';
+import { foeDetected, moveShips, moveTempCoordinates, resolveBody, shipPatrol, shipPointAhead, shipRefStar, syndicate, syndicateShips, tempCoord, tempOffset, tempParent, venusBlockade } from './truepath.js';
 import { loc } from './locale.js';
 
 // Every fixed figure the star table and the solar map are tuned by, gathered in one place. Values
@@ -5693,6 +5693,11 @@ function drawMapFrame() {
                 shipMarks.push({ ship, count: 1 });
             }
         }
+        // Plot detected syndicate corsairs on the solar map.
+        for (let corsair of syndicateShips()){
+            if (!corsair.inTransit || !foeDetected(corsair)){ continue; }
+            shipMarks.push({ ship: corsair, count: 1, foe: true });
+        }
         // Infested hulls inbound from Earth. They never fleet up, and they are drawn in red so a raid
         // reads as a threat at a glance rather than as one more ship of yours.
         if (global.race['zfleet'] && global.race.zfleet.s){
@@ -5938,7 +5943,13 @@ function drawMapFrame() {
         ctx.scale(1 / mapScale, 1 / mapScale);
         // Offset in screen pixels too, so the name sits by the dot at every zoom instead of
         // drifting further out the further you zoom in.
-        let label = mark.count > 1 ? loc(mark.cargo ? 'outer_shipyard_cargo_fleet_map' : 'outer_shipyard_fleet_map',[mark.count]) : ship.name;
+        // Label patrol fleets by their active order.
+        let patrolling = shipPatrol(ship) ? true : false;
+        let label = mark.count > 1
+            ? loc(mark.cargo
+                ? (patrolling ? 'outer_shipyard_cargo_patrol_map' : 'outer_shipyard_cargo_fleet_map')
+                : (patrolling ? 'outer_shipyard_patrol_map' : 'outer_shipyard_fleet_map'),[mark.count])
+            : ship.name;
         ctx.fillText(label, pX(here) * mapScale + starConstants.SHIP_LABEL_PX, pY(here) * mapScale - starConstants.SHIP_LABEL_PX);
         ctx.restore();
     }
@@ -6455,7 +6466,7 @@ export function buildSolarMap(parentNode, keep, openAt) {
             }
         })
         .on("wheel", (e) => {
-            if(e.originalEvent.deltaY < 0) {
+            if(e.deltaY < 0) {
                 mapScale /= 0.8;
 
                 if (starLockOn) {
@@ -6466,7 +6477,7 @@ export function buildSolarMap(parentNode, keep, openAt) {
                 else {
                     // Zoom wrt cursor position, moving center of screen as needed
                     let rect = document.getElementById("mapCanvas").getBoundingClientRect();
-                    let cx = e.originalEvent.clientX - rect.left, cy = e.originalEvent.clientY - rect.top;
+                    let cx = e.clientX - rect.left, cy = e.clientY - rect.top;
 
                     //temporarily shift to cursor location
                     mapShift.x += (canvasOffset.x - cx);
@@ -6494,7 +6505,7 @@ export function buildSolarMap(parentNode, keep, openAt) {
                 else {
                     // Zoom wrt cursor position, moving center of screen as needed
                     let rect = document.getElementById("mapCanvas").getBoundingClientRect();
-                    let cx = e.originalEvent.clientX - rect.left, cy = e.originalEvent.clientY - rect.top;
+                    let cx = e.clientX - rect.left, cy = e.clientY - rect.top;
 
                     //temporarily shift to cursor location
                     mapShift.x += (canvasOffset.x - cx);
@@ -6515,7 +6526,7 @@ export function buildSolarMap(parentNode, keep, openAt) {
         })
         .on("touchstart", (e) => {
             if (!touchMap()){ return; }
-            let t = e.originalEvent.touches;
+            let t = e.touches;
             if (t.length === 1){
                 touching = 'pan';
                 tap = { x: t[0].clientX, y: t[0].clientY, moved: false };
@@ -6533,7 +6544,7 @@ export function buildSolarMap(parentNode, keep, openAt) {
         })
         .on("touchmove", (e) => {
             if (!touchMap()){ return; }
-            let t = e.originalEvent.touches;
+            let t = e.touches;
             if (touching === 'pan' && t.length === 1){
                 if (tap && (Math.abs(t[0].clientX - tap.x) > CLICK_SLOP_PX || Math.abs(t[0].clientY - tap.y) > CLICK_SLOP_PX)){
                     tap.moved = true;
@@ -6565,7 +6576,7 @@ export function buildSolarMap(parentNode, keep, openAt) {
         // A finger that lifts without having really moved is a tap, and does what a click does.
         .on("touchend touchcancel", (e) => {
             if (!touchMap()){ return; }
-            let lifted = e.originalEvent.changedTouches;
+            let lifted = e.changedTouches;
             if (touching === 'pan' && tap && !tap.moved && lifted && lifted.length){
                 let hit = starAt(lifted[0]) || bodyAt(lifted[0]);
                 if (hit){
@@ -6579,7 +6590,7 @@ export function buildSolarMap(parentNode, keep, openAt) {
             }
             // Lifting one of two fingers leaves the other one panning rather than stranding the map
             // mid-gesture, so the pan is re-seated from where that finger actually is.
-            let left = e.originalEvent.touches;
+            let left = e.touches;
             if (left && left.length === 1){
                 touching = 'pan';
                 tap = false;

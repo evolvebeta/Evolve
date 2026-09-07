@@ -11,7 +11,7 @@ import { defineGovernment, defineGarrison, buildGarrison, commisionGarrison, for
 import { spaceTech, interstellarTech, galaxyTech, incrementStruct, universe_affixes, renderSpace, piracy, fuel_adjust, isStargateOn, spaceSectors, checkRequirements, planetName } from './space.js';
 import { renderFortress, fortressTech, warlordSetup } from './portal.js';
 import { edenicTech, renderEdenic } from './edenic.js';
-import { tauCetiTech, renderTauCeti, loneSurvivor } from './truepath.js';
+import { tauCetiTech, renderTauCeti, loneSurvivor, detectorTemplate } from './truepath.js';
 import { arpa, gainGene, gainBlood } from './arpa.js';
 import { production, highPopAdjust } from './prod.js';
 import { techList, techPath } from './tech.js';
@@ -2012,6 +2012,7 @@ export const actions = {
                 };
             },
         },
+        detector: detectorTemplate('city'),
         shed: {
             id: 'city-shed',
             title(){
@@ -6122,7 +6123,13 @@ export function checkCityRequirements(action){
 }
 
 function checkTechPath(tech){
-    let path = global.race['truepath'] ? 'truepath' : 'standard';
+    let path = 'standard';
+    if (global.race['truepath']){
+        path = 'truepath';
+    }
+    else if (global.race['iceage']){
+        path = 'iceage';
+    }
     if ((!techPath[path].includes(techEra(actions.tech[tech])) && !actions.tech[tech].hasOwnProperty('path')) || (actions.tech[tech].hasOwnProperty('path') && !actions.tech[tech].path.includes(path))){
         return false;
     }
@@ -7699,7 +7706,9 @@ export function actionDesc(parent,c_action,obj,old,action,a_type,bres){
     let tc = timeCheck(c_action,false,true);
     if (c_action.cost && !old){
         let empty = true;
-        var cost = $('<div class="costList"></div>');
+        // Store the paying world on the cost list.
+        const pool = actionPool(c_action);
+        var cost = $(`<div class="costList"${pool ? ` data-pool="${pool}"` : ``}></div>`);
 
         var costs = type !== 'genes' && type !== 'blood' ? adjustCosts(c_action) : c_action.cost;
         Object.keys(costs).forEach(function (res){
@@ -7835,7 +7844,7 @@ export function actionDesc(parent,c_action,obj,old,action,a_type,bres){
                         let color = 'has-text-dark';
                         let aria = '';
                         // Against the store this building would actually be paid from.
-                        if (poolHeld(f_res, actionPool(c_action)) < res_cost){
+                        if (poolHeld(f_res, pool) < res_cost){
                             if (tc.r === f_res){
                                 color = 'has-text-danger';
                                 aria = ' <span class="is-sr-only">(blocking resource)</span>';
