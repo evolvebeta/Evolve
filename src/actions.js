@@ -1,7 +1,7 @@
 import { $ } from './dom.js';
 import { global, save, seededRandom, webWorker, keyMultiplier, keyMap, srSpeak, sizeApproximation, p_on, support_on, int_on, gal_on, spire_on, tmp_vars, setupStats, callback_queue, decayPerks, writeSave, writeBackup } from './vars.js';
 import { loc } from './locale.js';
-import { timeCheck, timeFormat, vBind, popover, clearPopper, togglePopover, flib, tagEvent, clearElement, costMultiplier, darkEffect, genCivName, powerModifier, powerCostMod, calcPrestige, adjustCosts, modRes, messageQueue, buildQueue, format_emblem, shrineBonusActive, calc_mastery, calcPillar, calcGenomeScore, getShrineBonus, eventActive, easterEgg, getHalloween, trickOrTreat, deepClone, hoovedRename, get_qlevel, techEra, actionReqs, poolStock, poolHeld, poolCap, actionPool } from './functions.js';
+import { timeCheck, timeFormat, vBind, popover, clearPopper, togglePopover, flib, tagEvent, clearElement, costMultiplier, darkEffect, genCivName, powerModifier, powerCostMod, calcPrestige, adjustCosts, modRes, messageQueue, buildQueue, format_emblem, shrineBonusActive, calc_mastery, calcPillar, calcGenomeScore, getShrineBonus, eventActive, easterEgg, getHalloween, trickOrTreat, deepClone, hoovedRename, get_qlevel, techEra, actionReqs, poolStock, poolHeld, poolCap, actionPool, modalCloseButton } from './functions.js';
 import { unlockAchieve, challengeIcon, alevel, universeAffix, checkAdept } from './achieve.js';
 import { races, traits, genus_def, neg_roll_traits, randomMinorTrait, cleanAddTrait, combineTraits, biomes, planetTraits, setJType, altRace, setTraitRank, setImitation, shapeShift, basicRace, fathomCheck, traitCostMod, renderSupernatural, blubberFill, traitRank, syncGenes, geneBonus, grantRandomMinorTrait, geneVars, grantEvolveGenes} from './races.js';
 import { defineResources, unlockCrates, unlockContainers, crateValue, containerValue, galacticTrade, spatialReasoning, resource_values, initResourceTabs, marketItem, containerItem, tradeSummery, faithBonus, templePlasmidBonus, faithTempleCount, showZoneFor } from './resources.js';
@@ -1167,56 +1167,7 @@ export const actions = {
             touchlabel: loc(`harvest`)
         },
         stone: buildTemplate('stone'),
-        chrysotile: {
-            id: 'city-chrysotile',
-            title(){
-                if (global.tech['conjuring'] && global.tech['conjuring'] >= 2){
-                    return loc('city_chrysotile_conjour');
-                }
-                else {
-                    return loc(`city_gather`,[global.resource.Chrysotile.name]);
-                }                
-            },
-            desc(){
-                let gain = this.val(false);
-                if (global.tech['conjuring'] && global.tech['conjuring'] >= 2){
-                    return loc('city_stone_conjour_desc',[gain,global.resource.Chrysotile.name]);
-                }
-                else {
-                    return loc('city_stone_desc',[gain,global.resource.Chrysotile.name]);
-                }                
-            },
-            category: 'outskirts',
-            reqs: { primitive: 2 },
-            trait: ['smoldering'],
-            not_trait: ['cataclysm','lone_survivor'],
-            queue_complete(){ return 0; },
-            cost: {
-                Mana(){ return global.tech['conjuring'] && global.tech['conjuring'] >= 2 ? 1 : 0; },
-            },
-            action(args){
-                if (!global.settings.pause){
-                    if (global['resource']['Chrysotile'].amount < global['resource']['Chrysotile'].max){
-                        modRes('Chrysotile',this.val(true),true);
-                    }
-                }
-                return false;
-            },
-            val(spend){
-                let gain = global.race['strong'] ? traits.strong.vars()[0] : 1;
-                if (global.genes['enhance']){
-                    gain *= 2;
-                }
-                if (global.tech['conjuring'] && global.tech['conjuring'] >= 2 && global.resource.Mana.amount >= 1){
-                    gain *= 10;
-                    if (global['resource']['Chrysotile'].amount < global['resource']['Chrysotile'].max && spend){
-                        modRes('Mana',-1,true);
-                    }
-                }
-                return gain;
-            },
-            touchlabel: loc(`harvest`)
-        },
+        chrysotile: buildTemplate('chrysotile'),
         slaughter: {
             id: 'city-slaughter',
             title(){ return loc('city_evil'); },
@@ -3461,7 +3412,7 @@ export const actions = {
                 if (global.city.ptrait.includes('permafrost')){
                     base += planetTraits.permafrost.vars()[1];
                 }
-                if (global.tech['science'] >= 4){
+                if (global.tech['science'] >= 4 && global.city.library){
                     multiplier += global.city.library.count * 0.02;
                 }
                 if (global.space['observatory'] && global.space.observatory.count > 0){
@@ -4564,6 +4515,60 @@ export function buildTemplate(key, region){
                     if (global.tech['conjuring'] && global.tech['conjuring'] >= 2 && global.resource.Mana.amount >= 1){
                         gain *= 10;
                         if (global['resource']['Stone'].amount < global['resource']['Stone'].max && spend){
+                            modRes('Mana',-1,true);
+                        }
+                    }
+                    return gain;
+                },
+                touchlabel: loc(`harvest`)
+            }
+            return tKey(action,tName,region);
+        }
+        case 'chrysotile':
+        {
+            let action = {
+                id: `${region}-chrysotile`,
+                title(){
+                    if (global.tech['conjuring'] && global.tech['conjuring'] >= 2){
+                        return loc('city_chrysotile_conjour');
+                    }
+                    else {
+                        return loc(`city_gather`,[global.resource.Chrysotile.name]);
+                    }                
+                },
+                desc(){
+                    let gain = this.val(false);
+                    if (global.tech['conjuring'] && global.tech['conjuring'] >= 2){
+                        return loc('city_stone_conjour_desc',[gain,global.resource.Chrysotile.name]);
+                    }
+                    else {
+                        return loc('city_stone_desc',[gain,global.resource.Chrysotile.name]);
+                    }                
+                },
+                category: 'outskirts',
+                reqs: { primitive: 2 },
+                trait: ['smoldering'],
+                not_trait: ['cataclysm','lone_survivor'],
+                queue_complete(){ return 0; },
+                cost: {
+                    Mana(){ return global.tech['conjuring'] && global.tech['conjuring'] >= 2 ? 1 : 0; },
+                },
+                action(args){
+                    if (!global.settings.pause){
+                        if (global['resource']['Chrysotile'].amount < global['resource']['Chrysotile'].max){
+                            modRes('Chrysotile',this.val(true),true);
+                        }
+                    }
+                    return false;
+                },
+                val(spend){
+                    let gain = global.race['strong'] ? traits.strong.vars()[0] : 1;
+                    if (global.genes['enhance']){
+                        gain *= 2;
+                    }
+                    if (global.tech['conjuring'] && global.tech['conjuring'] >= 2 && global.resource.Mana.amount >= 1){
+                        gain *= 10;
+                        if (global['resource']['Chrysotile'].amount < global['resource']['Chrysotile'].max && spend){
                             modRes('Mana',-1,true);
                         }
                     }
@@ -6637,6 +6642,7 @@ export function setAction(c_action,action,type,old,prediction){
                         hasModalCard: false,
                         content: '<div id="modalBox" class="modalBox"></div>'
                     });
+                    modalCloseButton();
 
                     let checkExist = setInterval(function(){
                         if ($('#modalBox').length > 0) {
@@ -8969,6 +8975,17 @@ function sentience(){
         global.race['ocularPowerConfig'] = {
             d: false, p: false, w: false, t: false, f: false, c: false, ds: 0
         };
+        renderSupernatural();
+    }
+
+    if (global.race['deep_power']){
+        global.settings.showWish = true;
+        global.race['deepPowerConfig'] = {
+            global: 50,
+            crafting: 50,
+            trade: 20,
+            combat: 0
+        }
         renderSupernatural();
     }
 

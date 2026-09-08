@@ -3,7 +3,7 @@ import { global, tmp_vars, save, message_logs, message_filters, webWorker, write
 import { loc, locales } from './locale.js';
 import { supplyMode } from './supply.js';
 import { setupStats, alevel } from './achieve.js';
-import { vBind, initMessageQueue, clearElement, clearTabPanels, flushTabPanelClears, flib, tagEvent, gameLoop, popover, clearPopper, powerGrid, easterEgg, trickOrTreat, drawIcon, updateMobileMsg, mobileMsgLines, MOBILE_MSG_MAX } from './functions.js';
+import { vBind, initMessageQueue, clearElement, clearTabPanels, flushTabPanelClears, flib, tagEvent, gameLoop, popover, clearPopper, powerGrid, easterEgg, trickOrTreat, drawIcon, updateMobileMsg, mobileMsgLines, MOBILE_MSG_MAX, modalCloseButton } from './functions.js';
 import { tradeRatio, atomic_mass, supplyValue, marketItem, containerItem, loadEjector, loadSupply, loadAlchemy, initResourceTabs, drawResourceTab, tradeSummery } from './resources.js';
 import { defineJobs, } from './jobs.js';
 import { clearSpyopDrag } from './governor.js';
@@ -596,7 +596,7 @@ export function loadTab(tab){
                                         }
                                         break;
                                     case 8:
-                                        if (((global.race['wish'] && global.tech['wish']) || global.race['ocular_power']) && global.race.species !== 'protoplasm'){
+                                        if (((global.race['wish'] && global.tech['wish']) || global.race['ocular_power'] || global.race['deep_power']) && global.race.species !== 'protoplasm'){
                                             renderSupernatural();
                                         }
                                         break;
@@ -636,7 +636,7 @@ export function loadTab(tab){
                     if (global.race['psychic'] && global.tech['psychic']){
                         renderPsychicPowers();
                     }
-                    if ((global.race['wish'] && global.tech['wish']) || global.race['ocular_power']){
+                    if ((global.race['wish'] && global.tech['wish']) || global.race['ocular_power'] || global.race['deep_power']){
                         renderSupernatural();
                     }
                 }
@@ -986,6 +986,7 @@ export function index(){
                         // Modal closed
                     }
                 });
+                modalCloseButton();
 
                 let checkExist = setInterval(function(){
                     if ($('#modalBox').length > 0){

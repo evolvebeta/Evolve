@@ -2,7 +2,7 @@ import { $ } from './dom.js';
 import { global, save, seededRandom, webWorker, intervals, keyMap, atrack, resizeGame, breakdown, sizeApproximation, keyMultiplier, power_generated, p_on, support_on, int_on, gal_on, spire_on, set_qlevel, quantum_level, callback_queue, active_rituals, suppressReactivity, restoreReactivity, decayPerks, writeSave } from './vars.js';
 import { loc } from './locale.js';
 import { unlockAchieve, checkAchievements, drawAchieve, alevel, universeAffix, challengeIcon, unlockFeat, checkAdept } from './achieve.js';
-import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, resetResBuffer, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, zoneTally, deepClone, exceededATimeThreshold, loopTimers, getWeaselTechLevelRequirement, calcQuantumLevel, drawPet, actionReqs, poolStock, initDrift, driftOffset, driftStep, driftFlush, driftSync, driftClamp, driftPulse } from './functions.js';
+import { gameLoop, vBind, popover, clearPopper, flib, tagEvent, timeCheck, arpaTimeCheck, timeFormat, powerModifier, resetResBuffer, modRes, initMessageQueue, messageQueue, calc_mastery, calcPillar, darkEffect, calcQueueMax, calcRQueueMax, buildQueue, shrineBonusActive, getShrineBonus, eventActive, easterEggBind, trickOrTreatBind, powerGrid, zoneTally, deepClone, exceededATimeThreshold, loopTimers, getWeaselTechLevelRequirement, calcQuantumLevel, drawPet, actionReqs, calcDeepPower, poolStock, initDrift, driftOffset, driftStep, driftFlush, driftSync, driftClamp, driftPulse } from './functions.js';
 import { races, traits, racialTrait, orbitLength, servantTrait, randomMinorTrait, biomes, planetTraits, shapeShift, fathomCheck, blubberFill, cleanRemoveTrait, syncGenes, geneBonus, geneFlat, geneRank, traitSkin, grantRandomMinorTrait, geneVars, grantEvolveGenes, mutationGenes} from './races.js';
 import { defineResources, resource_values, spatialReasoning, craftCost, plasmidBonus, faithBonus, faithTempleCount, tradeRatio, craftingRatio, crateValue, containerValue, tradeSellPrice, tradeBuyPrice, atomic_mass, supplyValue, galaxyOffers, drawResourceTab, loadRegionSwitch, blackMarketPrice, blackMarketVolume, tradeVolumeBonus } from './resources.js';
 import { supplyMode, setRegCaps, clampPools, splitSupply, refreshPools, supplyRegionKey, supplyZone, regDelta, regDiff, bdStacks, regionBaseTotal, setZoneHousing, citizenShare, citizenZones, partitioned, regAmount, supplyPool, supplyPools, starveZone } from './supply.js';
@@ -13,7 +13,7 @@ import { actions, updateDesc, checkTechRequirements, drawEvolution, BHStorageMul
 import { renderSpace, convertSpaceSector, fuel_adjust, int_fuel_adjust, zigguratBonus, planetName, genPlanets, setUniverse, universe_types, gatewayStorage, piracy, spaceTech, universe_affixes, galaxyRegions, gatewayArmada, galaxy_ship_types, spaceSectors } from './space.js';
 import { renderFortress, bloodwar, soulForgeSoldiers, hellSupression, genSpireFloor, mechRating, mechCollect, updateMechbay, hellguard, buildMechQueue, mechCost } from './portal.js';
 import { asphodelResist, mechStationEffect, renderEdenic } from './edenic.js';
-import { renderTauCeti, syndicate, syndicateActive, autoRefuelShip, shipCrewSize, tpStorageMultiplier, tritonWar, sensorRange, erisWar, calcAIDrift, tauEnabled, shipCosts, buildTPShipQueue, trackInfestation, salvageShip, atShipyard, pinSalvage, shipyardZone, beaconsActive, finalBeacons, checkTungstenSurvey, womlingVillagePop, womlingFarmFood, womlingArtisans, womlingArtisansPer, driftingPoint, facilityFindings, syndicateWithdrawal, syndicateDay } from './truepath.js';
+import { renderTauCeti, syndicate, syndicateActive, autoRefuelShip, shipCrewSize, tpStorageMultiplier, tritonWar, sensorRange, erisWar, calcAIDrift, tauEnabled, shipCosts, buildTPShipQueue, trackInfestation, salvageShip, atShipyard, pinSalvage, shipyardZone, beaconsActive, finalBeacons, checkTungstenSurvey, womlingVillagePop, womlingFarmFood, womlingArtisans, womlingArtisansPer, driftingPoint, facilityFindings, syndicateWithdrawal, syndicateDay, detectorNetwork, tankerRefuel, repairShipYards, supplyShipElerium } from './truepath.js';
 import { genXYZcoord, randomCoord, advanceSolarMap, paintSolarMap, mapAhead, mapPaintsOn, syncMapFrames } from './stars.js';
 import { arpa, buildArpa, sequenceLabs } from './arpa.js';
 import { events, eventList } from './events.js';
@@ -1357,6 +1357,7 @@ function fastLoop(){
     }
     if (global.genes['challenge'] && global.genes.challenge >= 2){
         let mastery = calc_mastery();
+        mastery *= calcDeepPower('global');
         breakdown.p['Global'][loc('mastery')] = mastery + '%';
         global_multiplier *= 1 + (mastery / 100);
     }
@@ -2158,6 +2159,7 @@ function fastLoop(){
                 }
                 if (global.genes['trader']){
                     let mastery = calc_mastery();
+                    mastery *= calcDeepPower('trade');
                     imprt_vol *= 1 + (mastery / 100);
                 }
                 if (global.stats.achieve.hasOwnProperty('trade')){
@@ -7052,7 +7054,10 @@ function fastLoop(){
                 collectors *= racialTrait(collectors, 'water');
                 collectors *= job_data.water_collector.impact(); //0.5
                 if(global.tech['water'] >= 2){
-                    collectors *= 1 + (global.tech['water'] - 1) * 0.3;
+                    collectors *= 1.3;
+                    if(global.tech['water'] >= 3){
+                        collectors *= 1.3;
+                    }
                 }
                 let ice_collectors = 1 + ((global.underground['ice_collector']?.count || 0) * 0.04);
                 let delta = collectors * global_multiplier * ice_collectors * production('psychic_boost','Water'); //important for food, not affected by hunger
@@ -10586,6 +10591,29 @@ function midLoop(){
             };
         }
 
+        // Apply storage supplied by deployed Supply Ships.
+        {
+            const deployed = global.race['supply_deployed'];
+            if (deployed){
+                var multiplier = storageMultipler();
+                const label = loc('outer_shipyard_class_supply_ship');
+                Object.keys(deployed).forEach(function(pool){
+                    const count = Array.isArray(deployed[pool]) ? deployed[pool].length : 0;
+                    if (count <= 0){ return; }
+                    for (const res of actions.space.spc_hell.m_warehouse.res()){
+                        if (global.resource[res].display){
+                            let gain = count * spatialReasoning(actions.space.spc_hell.m_warehouse.val(res) * multiplier);
+                            addCap(res, gain, pool, label);
+                        }
+                    }
+                    if (global.resource['Elerium'] && global.resource.Elerium.display){
+                        let gain = count * spatialReasoning(supplyShipElerium);
+                        addCap('Elerium', gain, pool, label);
+                    }
+                });
+            }
+        }
+
         if (global.space['c_warehouse']){
             var multiplier = storageMultipler();
             let label = planetName().dwarf;
@@ -12801,7 +12829,7 @@ function midLoop(){
         if(global.underground['mineshaft']){ //ice age mineshaft mechanics
             let mineshaft = actions.underground.cave['mineshaft'];
             let dig_rate = mineshaft.dig_rate();
-            let ice_break = Math.min(dig_rate, global.underground['mineshaft'].ice / 2);
+            let ice_break = Math.min(dig_rate, global.underground['mineshaft'].ice);
             dig_rate -= ice_break;
             global.underground['mineshaft'].ice -= ice_break;
 
@@ -13631,6 +13659,10 @@ function longLoop(){
                     syndicateWithdrawal();
                 }
             }
+            else if (global.tech.shadow === 8 && detectorNetwork()){
+                global.tech.shadow = 9;
+                drawTech();
+            }
         }
 
         if (global.race['pet']){
@@ -14077,12 +14109,16 @@ function longLoop(){
                 let day_step = dayStep();
                 let fieldDays = Math.floor(global.stats.days / 2) - Math.floor((global.stats.days - day_step) / 2);
 
+                // Refill ships from docked tankers before movement.
+                tankerRefuel();
+
                 // Ships under way are advanced by moveShips (see truepath.js)
                 global.space.shipyard.ships.forEach(function(ship){
                     if (!ship.inTransit){
                         ship.location.position = genXYZcoord(ship.location.name);
                     }
-                    if (ship.damage > 0 && (p_on['shipyard'] || p_on['adv_shipyard'])){
+                    // Repair ships provide docked hull repair.
+                    if (ship.damage > 0 && (p_on['shipyard'] || p_on['adv_shipyard'] || (!ship.inTransit && repairShipYards().includes(ship.location.name)))){
                         // In dry dock the crews have the yard's facilities and work the hull daily;
                         // anywhere else it is patched up every other day (see the cadence above).
                         ship.damage -= atShipyard(ship) ? yardRepair * day_step : fieldRepair * fieldDays;
@@ -14959,8 +14995,12 @@ function healSoldiers(astroSign){
         hc += geneVars('fibroblast')[0] * global.race['fibroblast'];
     }
     if (global.race['deep_power']){
-        let power = (traits.deep_power.vars()[1] * calc_mastery() / 10000);
-        hc *= 1 + power;
+        let mastery = calc_mastery();
+        mastery *= calcDeepPower('combat');
+        hc *= 1 + mastery;
+    }
+    if (global.underground['arena']){
+        hc *= actions.underground.cave_perk.arena.trophy_effect('carnivores');
     }
     if (global.underground['hunting_lodge_perk']){
         hc *= 1 + (global.underground['hunting_lodge_perk'].count * 0.02);
