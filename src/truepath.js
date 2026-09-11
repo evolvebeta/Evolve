@@ -17,7 +17,7 @@ import { loadTab } from './index.js';
 import { zombieGenociderTask, shadowWarTask } from './achieve.js';
 import { starData, setOrbits, dist3, genXYZcoord, nearestStar, orbitPoint, orbitAngle, orbitDist, orbitEcc, orbitPeriod, randomCoord, rel, buildSolarMap, starDetour } from './stars.js';
 import { loc } from './locale.js';
-import { supplyRegionName, supplyPool, supplyRegions, supplyMode, partitioned, regAmount, regDiff, poolMod, syncTotal } from './supply.js';
+import { supplyRegionName, supplyPool, supplyRegions, supplyMode, partitioned, regAmount, regDiff, poolMod, syncTotal, activeSupplyRegions } from './supply.js';
 
 const outerTruth = {
     spc_titan: {
@@ -1708,6 +1708,11 @@ const outerTruth = {
                 if (blockade > 0){
                     return `<div class="has-text-danger">${loc('space_venus_info_desc_blockade',[blockade,planetName().venus])}</div><div>${loc('space_venus_info_desc',[planetName().venus])}</div>`;
                 }
+                // Show the traced syndicate guard at Venus.
+                let guard = syndicateGuard().length;
+                if (guard > 0){
+                    return `<div class="has-text-danger">${loc('space_venus_info_desc_syndicate',[guard,planetName().venus])}</div><div>${loc('space_venus_info_desc',[planetName().venus])}</div>`;
+                }
                 if (global.tech['venus'] && global.tech.venus <= 2){
                     return `<div class="has-text-warning">${loc('space_venus_info_desc_not_scouted',[planetName().venus])}</div><div>${loc('space_venus_info_desc',[planetName().venus])}</div>`;
                 }
@@ -1718,10 +1723,10 @@ const outerTruth = {
             support: 'cloud_city',
             zone: 'inner',
             showDest(){
-                return {r: true, l: global.tech['venus'] ? true : false};
+                return {r: true, l: venusReachable()};
             },
             syndicate(){ return false; },
-            nav(){ return global.tech['venus'] ? true : false; }
+            nav(){ return venusReachable(); }
         },
         cloud_city: {
             id: 'space-cloud_city',
@@ -6327,31 +6332,26 @@ function zBattleLog(locationName,guards,foes,dealt,taken,lost,downed){
     }
 }
 
-function zEngage(locationName,foes){
-    let guards = guardsAt(locationName);
-    if (guards.length === 0 || foes.length === 0){ return false; }
+// Resolve a single orbital combat volley.
+function zVolley(locationName,guards,foes,tally){
+    let alive = guards.filter(s => s.damage < 100);
+    let scan = alive.reduce((t,s) => t + (sensorRange(s) || 0), 0);
 
-    let scan = guards.reduce((t,s) => t + (sensorRange(s) || 0), 0);
-    let downed = [];
-    let dealt = 0;
-    let taken = 0;
-
-    guards.forEach(function(ship){
+    alive.forEach(function(ship){
         let live = foes.filter(f => f.damage < 100);
         if (live.length === 0){ return; }
         let foe = live[Math.floor(seededRandom(0,live.length,true))];
         if (seededRandom(0,1,true) >= playerAccuracy(scan,foe)){ return; }
         let hit = combatDamage(ship,foe);
         foe.damage += hit;
-        dealt += hit;
+        tally.dealt += hit;
         if (foe.damage >= 100){
             foe.damage = 100;
-            downed.push(foe);
+            tally.downed.push(foe);
         }
     });
 
     // Return fire from everything still flying.
-    let lost = [];
     foes.forEach(function(foe){
         if (foe.damage >= 100){ return; }
         let live = guards.filter(s => s.damage < 100);
@@ -6360,28 +6360,46 @@ function zEngage(locationName,foes){
         if (seededRandom(0,1,true) >= foeAccuracy(foe,locationName)){ return; }
         let hit = combatDamage(foe,ship);
         ship.damage += hit;
-        taken += hit;
+        tally.taken += hit;
         if (ship.damage >= 100){
             ship.damage = 100;
-            lost.push(ship);
+            tally.lost.push(ship);
         }
     });
+}
 
-    zBattleLog(locationName,guards,foes,dealt,taken,lost.length,downed.length);
+// Resolve up to a set number of orbital combat volleys.
+function zBattle(locationName,foes,rounds){
+    let guards = guardsAt(locationName);
+    if (guards.length === 0 || foes.length === 0){ return false; }
 
-    zMessage(loc('zcombat_engage',[guards.length,foes.length,regionName(locationName)]),'warning');
-    lost.forEach(function(ship){ destroyPlayerShip(ship,locationName); });
-    if (lost.length > 0){ drawShips(); }
-    downed.forEach(function(foe){
-        zMessage(loc('zcombat_foe_destroyed',[foe.name,regionName(locationName)]),'success');
+    let tally = { dealt: 0, taken: 0, lost: [], downed: [] };
+    for (let round = 0; round < rounds; round++){
+        zVolley(locationName,guards,foes,tally);
+        if (!guards.some(s => s.damage < 100) || !foes.some(f => f.damage < 100)){ break; }
+    }
+
+    zBattleLog(locationName,guards,foes,tally.dealt,tally.taken,tally.lost.length,tally.downed.length);
+
+    // Select combat messages from the defeated enemy type.
+    zMessage(loc(foes.some(f => f.syn) ? 'syndicate_orbit_engage' : 'zcombat_engage',[guards.length,foes.length,regionName(locationName)]),'warning');
+    tally.lost.forEach(function(ship){ destroyPlayerShip(ship,locationName); });
+    if (tally.lost.length > 0){ drawShips(); }
+    tally.downed.forEach(function(foe){
+        zMessage(loc(foe.syn ? 'syndicate_orbit_destroyed' : 'zcombat_foe_destroyed',[foe.name,regionName(locationName)]),'success');
     });
 
-    // Check for achievement unlock
-    if (downed.length > 0){
+    // Award the horde task only for destroyed horde enemies.
+    if (tally.downed.some(foe => !foe.syn)){
         zombieGenociderTask('z2');
     }
 
-    return downed.length > 0;
+    return tally.downed.length > 0;
+}
+
+// Resolve a single-volley orbital intercept.
+function zEngage(locationName,foes){
+    return zBattle(locationName,foes,1);
 }
 
 // Strip out raiders that were shot down, so a wreck never reaches its target.
@@ -6845,23 +6863,39 @@ function zBlockadeDay(fleet){
 
 // --- The syndicate corsairs ---------------------------------------------------------------------
 
-const syndicateWatchDays = 25;      // Days before corsairs appear after prerequisites.
-const corsairLostMin = 25;          // Minimum respawn delay after a loss.
-const corsairLostMax = 50;          // Maximum respawn delay after a loss.
-const corsairRepair = 4;            // Hull repair per day.
-const corsairHaulRepair = 10;       // Hull repair per day after a successful haul.
-const corsairOverdriveAU = 0.25;    // Distance that enables overdrive.
-const corsairCatchAU = 0.05;        // Interception distance.
-const corsairStealth = 0.25;        // Sensor-range multiplier against corsairs.
-const corsairOverdrive = 2;         // Speed multiplier while pursuing a target.
-const corsairRounds = 5;            // Maximum combat rounds before retreating.
-const corsairEvade = 20;            // Reference scan range for escort evasion.
-const corsairChaseDays = 5;         // Patrol pursuit duration.
-const corsairChaseSpeed = 1.1;      // Patrol speed multiplier while pursuing.
-const shadowEngagements = 5;        // Engagements required to advance Shadow War.
-
-// Every corsair is the same hull: the syndicate found one design that works and stopped looking.
-const corsairFit = { class: 'corsair', power: 'elerium', engine: 'vacuum', weapon: 'phaser', armor: 'alloy', sensor: 'quantum', special: 'none' };
+// Shared Syndicate Warfare settings, also used by the wiki.
+export const sWarfare = {
+    watchDays: 25,          // Days before corsairs appear after prerequisites.
+    lostMin: 25,            // Minimum respawn delay after a loss.
+    lostMax: 50,            // Maximum respawn delay after a loss.
+    repair: 4,              // Hull repair per day.
+    haulRepair: 10,         // Hull repair per day after a successful haul.
+    overdriveAU: 0.25,      // Distance that enables overdrive.
+    catchAU: 0.05,          // Interception distance.
+    stealth: 0.25,          // Sensor-range multiplier against corsairs.
+    overdrive: 2,           // Speed multiplier while pursuing a target.
+    rounds: 5,              // Maximum combat rounds before retreating.
+    evade: 20,              // Reference scan range for escort evasion.
+    chaseDays: 5,           // Patrol pursuit duration.
+    chaseSpeed: 1.1,        // Patrol speed multiplier while pursuing.
+    sneak: 2,               // Opening raid shots.
+    plunder: 1000000,       // Maximum raid cargo units.
+    engagements: 5,         // Engagements required to advance Shadow War.
+    studyFights: 250,       // Engagements needed to complete stealth study.
+    studyKills: 1,          // Destroyed corsairs needed to complete stealth study.
+    // Corsair hull loadout.
+    fit: { class: 'corsair', power: 'elerium', engine: 'vacuum', weapon: 'phaser', armor: 'alloy', sensor: 'quantum', special: 'none' },
+    // Guard-post location and combat settings.
+    guardRegion: 'spc_venus',
+    guardFights: 50,        // Engagements needed to trace the guard.
+    guardFleet: 6,          // Corsairs in the guard fleet.
+    guardRepair: 1,         // Guard hull repair per day.
+    guardRounds: 50,        // Maximum daily guard combat rounds.
+    // Ground detector settings.
+    detectorSegments: 10,   // Segments to finish one array.
+    detectorRange: 1,       // Detection radius in AU.
+    detectorStealthRange: 0.5   // Detection radius against a stealth hull, until Stealth Detection.
+};
 
 // The raiding arc, which picks up exactly where syndicateActive() leaves off: that one switches itself
 // off at shadow 5, and this one begins after it.
@@ -6874,15 +6908,30 @@ export function syndicateBases(){
     return corsairsActive() ? ['spc_venus', global.race.sy_base.home] : [];
 }
 
+// Return a base's corsair fleet, migrating legacy saves.
+function corsairFleet(base){
+    if (!base){ return []; }
+    if (!Array.isArray(base.ships)){
+        base.ships = base.ship ? [base.ship] : [];
+        delete base.ship;
+    }
+    return base.ships;
+}
+
+// Return a base's concurrent corsair capacity.
+function corsairBerths(region){
+    if (region === sWarfare.guardRegion){ return 1; }
+    return global.tech['shadow'] && global.tech.shadow >= 12 ? 2 : 1;
+}
+
 // Every corsair currently off its dock, for the map and for anything hunting them.
 export function syndicateShips(){
     return syndicateBases()
-        .map(region => global.race.sy_base[region] && global.race.sy_base[region].ship)
+        .reduce((all,region) => all.concat(corsairFleet(global.race.sy_base[region])),[])
         .filter(ship => ship && ship.damage < 100);
 }
 
-// The countdown that opens the arc. Both prerequisites have to hold together, and holding them for
-// syndicateWatchDays is what tips the syndicate's hand.
+// Start the corsair watch once its prerequisites are met.
 function syndicateWatch(){
     if (corsairsActive()){ return; }
     if (!global.tech['syard_fleet'] || global.tech.syard_fleet < 3 || !global.tech['shadow'] || global.tech.shadow < 5){
@@ -6891,7 +6940,7 @@ function syndicateWatch(){
     }
     // Advance corsair timers using game days.
     if (typeof global.race['sy_watch'] !== 'number'){ global.race['sy_watch'] = global.stats.days; }
-    if (global.stats.days - global.race.sy_watch < syndicateWatchDays){ return; }
+    if (global.stats.days - global.race.sy_watch < sWarfare.watchDays){ return; }
 
     delete global.race['sy_watch'];
     global.tech['shadow'] = 6;
@@ -6901,13 +6950,14 @@ function syndicateWatch(){
     // Initialize revealed bases with prebuilt corsairs.
     [ 'spc_venus', home ].forEach(function(region){
         global.race.sy_base[region] = {
-            ship: false,                                    // Active corsair, if any.
+            ships: [],                                      // Active corsairs.
             ready: global.stats.days,                       // Next launch day.
             day: global.stats.days,                         // Last processed game day.
             launched: 0,                                    // Corsairs launched.
             lost: 0,                                        // Corsairs lost.
             taken: 0,                                       // Freighters robbed.
             sunk: 0,                                        // Freighters destroyed.
+            looted: 0,                                      // Worlds raided.
             haul: 0                                         // Cargo returned to base.
         };
     });
@@ -6916,13 +6966,13 @@ function syndicateWatch(){
 }
 
 function corsairHull(region){
-    let ship = Object.assign({},corsairFit);
+    let ship = Object.assign({},sWarfare.fit);
     ship.name = loc('syndicate_corsair_name',[Math.floor(seededRandom(100,10000,true))]);
     ship.damage = 0;
     ship.fueled = true;
     ship.enemy = true;      // Use enemy movement and fuel rules.
     ship.syn = region;      // Source corsair base.
-    ship.stealth = corsairStealth;
+    ship.stealth = sWarfare.stealth;
     ship.haul = 0;
     TPShipInitTransit(ship, region);
     return ship;
@@ -6954,24 +7004,83 @@ function corsairPrey(corsair){
     return best;
 }
 
+// Hunt freighters first, then raid a world.
+function corsairHunt(corsair){
+    return corsairChase(corsair) || corsairSortie(corsair);
+}
+
 // Put a corsair on course for its prey. A ship under way is met where it is going rather than chased
 // across open space — the syndicate reads your lanes, and that is the whole of its advantage.
-function corsairHunt(corsair){
+function corsairChase(corsair){
     const prey = corsairPrey(corsair);
     if (!prey){ return false; }
     const target = encounterWhere(prey);
     if (!corsair.inTransit && corsair.location.name === target){ return false; }
+    return corsairLaunch(corsair,target,false);
+}
+
+// Raid a world when no freighter is available.
+function corsairSortie(corsair){
+    const target = corsairMark(corsair);
+    if (!target || !corsairLaunch(corsair,target,true)){ return false; }
+    zMessage(loc('syndicate_corsair_sortie',[regionName(target)]),'warning');
+    return true;
+}
+
+// Plot a corsair route and record whether it is a raid.
+function corsairLaunch(corsair,target,raid){
     const trip = planShipTrip(corsair,target);
     if (!trip){ return false; }
     initializeShipTrip(corsair,target,trip);
     corsair.od = false;
     corsair.home = false;
+    corsair.raid = raid ? target : false;
     return true;
 }
 
-// Home, to sell the cargo or to lick its wounds.
+// Return whether a region is a valid raid target.
+function corsairRaidable(region){
+    if (syndicateBases().includes(region)){ return false; }
+    if (region === 'spc_sun_gate'){ return false; }     // Gates cannot be raided.
+    if (!regionReachable(region)){ return false; }
+    return activeSupplyRegions().includes(region);
+}
+
+// Worlds of yours a corsair could go and hit, nearest first.
+function corsairMark(corsair){
+    const from = shipPoint(corsair);
+    if (!from){ return false; }
+    const at = corsair.inTransit ? corsair.destination.name : corsair.location.name;
+    const reachable = activeSupplyRegions().filter(region => region !== at && corsairRaidable(region));
+    // Prefer stocked worlds, then choose the nearest target.
+    const stocked = reachable.filter(corsairZoneStocked);
+    return corsairNearest(from,stocked.length > 0 ? stocked : reachable);
+}
+
+function corsairNearest(from,regions){
+    let best = false, near = Infinity;
+    for (const region of regions){
+        const away = dist3(from,genXYZcoord(region));
+        if (away < near){ best = region; near = away; }
+    }
+    return best;
+}
+
+// Return whether a region's supply pool has stock.
+function corsairZoneStocked(region){
+    if (supplyMode() === 'global'){ return false; }
+    const pool = supplyPool(region);
+    for (const res in atomic_mass){
+        if (!global.resource[res] || !partitioned(res)){ continue; }
+        if (regAmount(res,pool) >= 1){ return true; }
+    }
+    return false;
+}
+
+// Return home and cancel any pending raid.
 function corsairGoHome(corsair){
     corsair.od = false;
+    corsair.raid = false;
     // Mark the corsair as returning before plotting its route.
     corsair.home = true;
     if (!corsair.inTransit && corsair.location.name === corsair.syn){ return true; }
@@ -6986,22 +7095,22 @@ function corsairGoHome(corsair){
 function corsairEngageDrive(corsair){
     if (corsair.od){ return; }
     corsair.od = true;
-    corsair.timeToNextStep /= corsairOverdrive;
-    corsair.totalTime /= corsairOverdrive;
+    corsair.timeToNextStep /= sWarfare.overdrive;
+    corsair.totalTime /= sWarfare.overdrive;
     if (Array.isArray(corsair.path)){
-        corsair.path.forEach(function(leg){ leg.totalTime /= corsairOverdrive; });
+        corsair.path.forEach(function(leg){ leg.totalTime /= sWarfare.overdrive; });
     }
 }
 
 // The escort's chance of seeing one coming.
 function corsairSpotted(group){
-    const scan = group.reduce((t,s) => t + (sensorRange(s) || 0),0) * corsairStealth;
+    const scan = group.reduce((t,s) => t + (sensorRange(s) || 0),0) * sWarfare.stealth;
     if (scan <= 0){ return false; }
-    return seededRandom(0,1,true) < scan / (scan + corsairEvade);
+    return seededRandom(0,1,true) < scan / (scan + sWarfare.evade);
 }
 
-// A corsair against a group of yours. `ambush` gives it one free shot
-function corsairFight(corsair,group,where,ambush){
+// Resolve corsair combat and return damage totals.
+function corsairFight(corsair,group,where,sneak){
     let dealt = 0, taken = 0;
     const lost = [], downed = [];
     const mark = function(){
@@ -7015,14 +7124,15 @@ function corsairFight(corsair,group,where,ambush){
         if (ship.damage >= 100){ ship.damage = 100; lost.push(ship); }
     };
 
-    if (ambush){
+    for (let shot = 0; shot < sneak; shot++){
         const surprised = mark();
-        if (surprised){ shootAt(surprised); }
+        if (!surprised){ break; }
+        shootAt(surprised);
     }
 
-    for (let round = 0; round < corsairRounds && corsair.damage < 100; round++){
+    for (let round = 0; round < sWarfare.rounds && corsair.damage < 100; round++){
         // Apply corsair stealth to defender sensor range.
-        const scan = group.filter(s => s.damage < 100).reduce((t,s) => t + (sensorRange(s) || 0),0) * corsairStealth;
+        const scan = group.filter(s => s.damage < 100).reduce((t,s) => t + (sensorRange(s) || 0),0) * sWarfare.stealth;
         group.forEach(function(ship){
             if (ship.damage >= 100 || corsair.damage >= 100){ return; }
             if (seededRandom(0,1,true) >= playerAccuracy(scan,corsair)){ return; }
@@ -7041,18 +7151,18 @@ function corsairFight(corsair,group,where,ambush){
     lost.forEach(function(ship){ destroyPlayerShip(ship,where); });
     if (lost.length > 0){ drawShips(); }
     corsairEngaged();
-    return corsair.damage < 100;
+    return { alive: corsair.damage < 100, dealt: dealt, taken: taken };
 }
 
 // Count corsair engagements and advance Shadow War when the threshold is reached.
 function corsairEngaged(){
     global.race['sy_fights'] = (global.race['sy_fights'] || 0) + 1;
-    if (global.tech['shadow'] === 6 && global.race.sy_fights >= shadowEngagements){
+    if (global.tech['shadow'] === 6 && global.race.sy_fights >= sWarfare.engagements){
         global.tech['shadow'] = 7;
         drawTech();
     }
     // Refresh technology when corsair study reaches its threshold.
-    if (global.race.sy_fights === stealthStudyFights){
+    if (global.race.sy_fights === sWarfare.studyFights){
         drawTech();
     }
 }
@@ -7072,34 +7182,97 @@ export function corsairsDestroyed(){
 
 // What it takes to work out how a corsair hides. A wreck to take apart is worth any amount of
 // watching one get away, so either will do.
-const stealthStudyFights = 250;
-const stealthStudyKills = 1;
-
 export function stealthStudied(){
-    return corsairsFought() >= stealthStudyFights || corsairsDestroyed() >= stealthStudyKills ? true : false;
+    return corsairsFought() >= sWarfare.studyFights || corsairsDestroyed() >= sWarfare.studyKills ? true : false;
 }
 
 // The corsair is lost: the base that built it goes quiet for a while.
 function corsairLost(corsair,where){
     const base = global.race.sy_base[corsair.syn];
     if (base){
-        base.ship = false;
+        const fleet = corsairFleet(base);
+        const at = fleet.indexOf(corsair);
+        if (at >= 0){ fleet.splice(at,1); }
         base.lost++;
-        base.ready = global.stats.days + Math.round(seededRandom(corsairLostMin,corsairLostMax,true));
+        // Delay all base launches after a loss.
+        base.ready = global.stats.days + Math.round(seededRandom(sWarfare.lostMin,sWarfare.lostMax,true));
     }
     zMessage(loc('syndicate_corsair_destroyed',[corsair.name,regionName(where)]),'success');
 }
 
-// A freighter caught on its own. Cargo is stolen, if freighter is empty it is instead destroyed.
+// Scale plunder capacity by remaining hull integrity.
+function corsairHold(corsair){
+    return Math.floor(sWarfare.plunder * Math.max(0,100 - (corsair.damage || 0)) / 100);
+}
+
+// Return surviving freighters in a trade fleet.
+function corsairHolds(freighter){
+    return tradeFreighters(tradeFleet(freighter)).filter(ship => ship.damage < 100);
+}
+
+// Format stolen resources for raid messages.
+function corsairManifest(taken){
+    return Object.keys(taken)
+        .sort((a,b) => taken[b] - taken[a])
+        .map(res => `${global.resource[res] ? global.resource[res].name : res}: ${sizeApproximation(taken[res],0)}`)
+        .join(', ');
+}
+
+// Strip cargo off a fleet, fullest hold and biggest consignment first, until the corsair is full.
+function corsairPlunderHolds(corsair,freighters){
+    let room = corsairHold(corsair);
+    let took = 0;
+    const taken = {};
+    const order = freighters.slice().sort((a,b) => freightLoad(b) - freightLoad(a));
+    for (const ship of order){
+        if (room <= 0){ break; }
+        const cargo = freightCargo(ship);
+        for (const res of Object.keys(cargo).sort((a,b) => cargo[b] - cargo[a])){
+            if (room <= 0){ break; }
+            const take = Math.min(room,cargo[res]);
+            cargo[res] -= take;
+            if (cargo[res] <= 0){ delete cargo[res]; }
+            room -= take;
+            took += take;
+            taken[res] = (taken[res] || 0) + take;
+        }
+    }
+    corsair.haul += took;
+    return { total: took, taken: taken };
+}
+
+// Plunder regional stock until the corsair is full.
+function corsairPlunderZone(corsair,region){
+    if (supplyMode() === 'global'){ return { total: 0, taken: {} }; }
+    const pool = supplyPool(region);
+    let room = corsairHold(corsair);
+    let took = 0;
+    const taken = {};
+    const stock = Object.keys(atomic_mass)
+        .filter(res => global.resource[res] && partitioned(res) && regAmount(res,pool) >= 1)
+        .sort((a,b) => regAmount(b,pool) - regAmount(a,pool));
+    for (const res of stock){
+        if (room <= 0){ break; }
+        const take = Math.min(room,Math.floor(regAmount(res,pool)));
+        if (take <= 0){ continue; }
+        poolMod(res,pool,-take);
+        syncTotal(res);
+        room -= take;
+        took += take;
+        taken[res] = (taken[res] || 0) + take;
+    }
+    corsair.haul += took;
+    return { total: took, taken: taken };
+}
+
+// A freighter caught on its own. Cargo is stolen, if the fleet is empty it is instead destroyed.
 function corsairRaid(corsair,freighter){
     const where = encounterWhere(freighter);
     const base = global.race.sy_base[corsair.syn];
-    const load = freightLoad(freighter);
-    if (load > 0){
-        Object.keys(freightCargo(freighter)).forEach(function(res){ delete freighter.cargo[res]; });
-        corsair.haul = load;
-        if (base){ base.taken++; base.haul += load; }
-        zMessage(loc('syndicate_cargo_taken',[freighter.name,regionName(where),load.toLocaleString()]),'danger');
+    const load = corsairPlunderHolds(corsair,corsairHolds(freighter));
+    if (load.total > 0){
+        if (base){ base.taken++; base.haul += load.total; }
+        zMessage(loc('syndicate_cargo_taken',[freighter.name,regionName(where),corsairManifest(load.taken)]),'danger');
         corsairGoHome(corsair);
     }
     else {
@@ -7111,22 +7284,65 @@ function corsairRaid(corsair,freighter){
     }
 }
 
-// A freighter caught with escorts. The escort fights; the corsair breaks off after five combat rounds.
+// Resolve escort combat, then plunder only after a corsair victory.
 function corsairAmbush(corsair,escort,freighter){
     const where = encounterWhere(freighter);
     const seen = corsairSpotted(escort);
     zMessage(loc(seen ? 'syndicate_escort_spotted' : 'syndicate_escort_ambushed',[regionName(where)]),seen ? 'warning' : 'danger');
-    if (corsairFight(corsair,escort,where,!seen)){
-        corsairGoHome(corsair);
+    const fight = corsairFight(corsair,escort,where,seen ? 0 : 1);
+    if (!fight.alive){ corsairLost(corsair,where); return; }
+    if (fight.taken > fight.dealt){
+        const base = global.race.sy_base[corsair.syn];
+        const load = corsairPlunderHolds(corsair,corsairHolds(freighter));
+        if (load.total > 0){
+            if (base){ base.taken++; base.haul += load.total; }
+            zMessage(loc('syndicate_cargo_taken',[freighter.name,regionName(where),corsairManifest(load.taken)]),'danger');
+        }
     }
     else {
-        corsairLost(corsair,where);
+        zMessage(loc('syndicate_escort_held',[regionName(where)]),'success');
     }
+    corsairGoHome(corsair);
 }
 
-// One corsair, one tick of the clock: close, lock on, and take whatever is in front of it.
+// Resolve a corsair raid after it reaches its target world.
+function corsairAssault(corsair){
+    if (!corsair.raid || corsair.home || corsair.inTransit){ return false; }
+    if (corsair.location.name !== corsair.raid){ return false; }
+    const where = corsair.raid;
+    corsair.raid = false;
+    // Recheck the raid target after arrival.
+    if (!corsairRaidable(where)){ corsairGoHome(corsair); return true; }
+    const base = global.race.sy_base[corsair.syn];
+    const guard = guardsAt(where).filter(ship => ship.damage < 100);
+
+    let plunder = guard.length === 0;
+    if (plunder){
+        zMessage(loc('syndicate_world_open',[regionName(where)]),'danger');
+    }
+    else {
+        zMessage(loc('syndicate_world_struck',[regionName(where),sWarfare.sneak]),'danger');
+        const fight = corsairFight(corsair,guard,where,sWarfare.sneak);
+        if (!fight.alive){ corsairLost(corsair,where); return true; }
+        plunder = fight.taken > fight.dealt;
+        if (!plunder){ zMessage(loc('syndicate_world_held',[regionName(where)]),'success'); }
+    }
+
+    if (plunder){
+        const load = corsairPlunderZone(corsair,where);
+        if (load.total > 0){
+            if (base){ base.looted = (base.looted || 0) + 1; base.haul += load.total; }
+            zMessage(loc('syndicate_world_looted',[regionName(where),corsairManifest(load.taken)]),'danger');
+        }
+    }
+    corsairGoHome(corsair);
+    return true;
+}
+
+// Advance corsair pursuit and resolve arrived raids.
 function corsairStalk(corsair){
-    if (!corsair.inTransit || corsair.home){ return; }
+    if (!corsair.inTransit){ corsairAssault(corsair); return; }
+    if (corsair.home){ return; }
     const from = shipPoint(corsair);
     if (!from){ return; }
 
@@ -7141,11 +7357,11 @@ function corsairStalk(corsair){
     }
     if (!quarry){ return; }
 
-    if (near <= corsairOverdriveAU && !corsair.od){
+    if (near <= sWarfare.overdriveAU && !corsair.od){
         corsairEngageDrive(corsair);
         zMessage(loc('syndicate_corsair_lock',[quarry.name]),'warning');
     }
-    if (near > corsairCatchAU){ return; }
+    if (near > sWarfare.catchAU){ return; }
 
     // Resolve interception as a robbery or escort fight.
     const company = shipFleet(quarry).filter(s => s.class !== 'freighter' && s.damage < 100);
@@ -7157,21 +7373,30 @@ function corsairStalk(corsair){
 function corsairBaseDay(region){
     const base = global.race.sy_base[region];
     if (!base){ return; }
+    // Skip operations for a destroyed base.
+    if (base.closed){ return; }
     // Initialize missing base timers for older saves.
     if (typeof base.day !== 'number'){ base.day = global.stats.days; }
     if (typeof base.ready !== 'number'){ base.ready = global.stats.days; }
     const elapsed = Math.max(0,global.stats.days - base.day);
     base.day = global.stats.days;
 
-    if (!base.ship){
-        if (global.stats.days < base.ready){ return; }
-        base.ship = corsairHull(region);
+    const fleet = corsairFleet(base);
+
+    // Launch a corsair into an available berth.
+    if (fleet.length < corsairBerths(region) && global.stats.days >= base.ready){
+        const ship = corsairHull(region);
+        fleet.push(ship);
         base.launched++;
-        corsairHunt(base.ship);
-        return;
+        corsairHunt(ship);
     }
 
-    const corsair = base.ship;
+    // Iterate over a copy because processing can remove a corsair.
+    fleet.slice().forEach(corsair => corsairBaseShipDay(corsair,region,elapsed));
+}
+
+// Process one corsair's daily state.
+function corsairBaseShipDay(corsair,region,elapsed){
     if (corsair.damage >= 100){ corsairLost(corsair,corsair.location.name); return; }
     if (corsair.inTransit){ return; }
 
@@ -7179,13 +7404,16 @@ function corsairBaseDay(region){
     if (corsair.location.name === region){
         corsair.home = false;
         if (corsair.damage > 0){
-            corsair.damage = Math.max(0,corsair.damage - (corsair.haul > 0 ? corsairHaulRepair : corsairRepair) * Math.max(1,elapsed));
+            corsair.damage = Math.max(0,corsair.damage - (corsair.haul > 0 ? sWarfare.haulRepair : sWarfare.repair) * Math.max(1,elapsed));
             if (corsair.damage > 0){ return; }
         }
         corsair.haul = 0;
         corsairHunt(corsair);
         return;
     }
+
+    // Resolve an arrived raid before assigning a new target.
+    if (corsairAssault(corsair)){ return; }
 
     // Resume hunting when a corsair has no active route.
     if (!corsairHunt(corsair)){ corsairGoHome(corsair); }
@@ -7211,7 +7439,7 @@ function patrolHunt(){
 
         // End pursuits that exceed the chase limit.
         if (patrol.chase){
-            if (global.stats.days - patrol.chase >= corsairChaseDays){
+            if (global.stats.days - patrol.chase >= sWarfare.chaseDays){
                 setPatrolChase(group,false);
                 if (!lead.inTransit){ advancePatrol(group); }
             }
@@ -7223,7 +7451,7 @@ function patrolHunt(){
         for (const corsair of corsairs){
             const away = dist3(at,shipPoint(corsair));
             if (away >= near){ continue; }
-            if (away <= sensorRangeAU(lead) * corsairStealth || detectorCue(at,corsair)){ quarry = corsair; near = away; }
+            if (away <= sensorRangeAU(lead) * sWarfare.stealth || detectorCue(at,corsair)){ quarry = corsair; near = away; }
         }
         if (!quarry){ continue; }
 
@@ -7232,9 +7460,9 @@ function patrolHunt(){
         if (id < 0 || !sendShipTo(id,target,true)){ continue; }
         // Apply the patrol pursuit speed multiplier.
         group.forEach(function(member){
-            member.timeToNextStep /= corsairChaseSpeed;
-            member.totalTime /= corsairChaseSpeed;
-            if (Array.isArray(member.path)){ member.path.forEach(function(leg){ leg.totalTime /= corsairChaseSpeed; }); }
+            member.timeToNextStep /= sWarfare.chaseSpeed;
+            member.totalTime /= sWarfare.chaseSpeed;
+            if (Array.isArray(member.path)){ member.path.forEach(function(leg){ leg.totalTime /= sWarfare.chaseSpeed; }); }
         });
         setPatrolChase(group,global.stats.days);
         zMessage(loc('syndicate_patrol_chase',[regionName(target)]),'warning');
@@ -7265,11 +7493,11 @@ function patrolStrike(){
         if (!at){ continue; }
 
         for (const corsair of corsairs){
-            if (dist3(at,shipPoint(corsair)) > corsairCatchAU){ continue; }
+            if (dist3(at,shipPoint(corsair)) > sWarfare.catchAU){ continue; }
             const where = encounterWhere(lead);
             const guns = group.filter(s => s.damage < 100);
             if (guns.length === 0){ break; }
-            if (corsairFight(corsair,guns,where,false)){ corsairGoHome(corsair); }
+            if (corsairFight(corsair,guns,where,0).alive){ corsairGoHome(corsair); }
             else {
                 corsairLost(corsair,where);
                 // Award the task only for patrol-destroyed corsairs.
@@ -7282,13 +7510,106 @@ function patrolStrike(){
     }
 }
 
+// --- Syndicate guard post -------------------------------------------------------------------------
+// Trace and defend the stationary Syndicate guard post at Venus.
+
+// Venus is reachable after scouting or tracing the guard post.
+function venusReachable(){
+    return global.tech['venus'] || (global.tech['shadow'] && global.tech.shadow >= 11) ? true : false;
+}
+
+// Return surviving guard-post corsairs.
+export function syndicateGuard(){
+    const post = global.race['sy_guard'];
+    return post && Array.isArray(post.s) ? post.s.filter(s => s.damage < 100) : [];
+}
+
+// Return whether the guard post has been engaged and remains defended.
+export function syndicateGuardHeld(){
+    const post = global.race['sy_guard'];
+    return post && post.hit && syndicateGuard().length > 0 ? true : false;
+}
+
+// Trace the guard post after enough detected engagements.
+function syndicateTrace(){
+    if (!global.tech['shadow'] || global.tech.shadow !== 10){ return; }
+    // Start tracing from the Stealth Detection milestone.
+    if (typeof global.race['sy_trace'] !== 'number'){ global.race['sy_trace'] = corsairsFought(); }
+    if (corsairsFought() - global.race.sy_trace < sWarfare.guardFights){ return; }
+
+    global.tech['shadow'] = 11;
+    syndicateGuardPost();
+    messageQueue(loc('syndicate_base_traced',[regionName(sWarfare.guardRegion)]),'danger',false,['combat','progress']);
+    renderSpace();
+    drawTech();
+}
+
+// Create the stationary guard fleet.
+function syndicateGuardPost(){
+    if (global.race['sy_guard']){ return; }
+    const guard = [];
+    for (let i = 0; i < sWarfare.guardFleet; i++){
+        const ship = corsairHull(sWarfare.guardRegion);
+        ship.guard = true;      // Keep guard ships in orbit.
+        guard.push(ship);
+    }
+    global.race['sy_guard'] = { s: guard, hit: false };
+}
+
+// Mark the Venus Syndicate base as destroyed.
+function syndicateBaseTaken(){
+    const post = global.race['sy_guard'];
+    post.taken = true;
+    global.tech['shadow'] = 12;
+    const base = global.race.sy_base[sWarfare.guardRegion];
+    if (base){ base.closed = true; }
+    messageQueue(loc('syndicate_base_destroyed',[regionName(sWarfare.guardRegion)]),'success',false,['combat','progress']);
+    // Refresh the map and tech UI after the base is destroyed.
+    renderSpace();
+    drawTech();
+}
+
+// Resolve daily combat and repairs at the guard post.
+function syndicateGuardDay(){
+    const post = global.race['sy_guard'];
+    if (!post || !Array.isArray(post.s) || post.taken){ return; }
+
+    if (post.s.length > 0 && guardsAt(sWarfare.guardRegion).length > 0){
+        post.hit = true;
+        // Resolve guard combat before daily repairs.
+        zBattle(sWarfare.guardRegion,syndicateGuard(),sWarfare.guardRounds);
+    }
+
+    // Remove destroyed guards before checking base status or repairing.
+    for (let i = post.s.length - 1; i >= 0; i--){
+        if (post.s[i].damage >= 100){ post.s.splice(i,1); }
+    }
+
+    if (post.s.length === 0){
+        // Take the base only if player guards survive the battle.
+        if (guardsAt(sWarfare.guardRegion).length > 0){ syndicateBaseTaken(); }
+        else if (!post.broke){
+            post.broke = true;
+            messageQueue(loc('syndicate_base_broken',[regionName(sWarfare.guardRegion)]),'success',false,['combat','progress']);
+            renderSpace();
+        }
+        return;
+    }
+
+    post.s.forEach(function(ship){
+        if (ship.damage > 0){ ship.damage = Math.max(0,ship.damage - sWarfare.guardRepair); }
+    });
+}
+
 // --- The day, and the tick ---------------------------------------------------------------------------
 
-// Once a day: the countdown, the bases, and your patrols deciding whether to go and do something about it.
+// Advance Syndicate bases, guard post, and patrols each day.
 export function syndicateDay(){
     syndicateWatch();
     if (!corsairsActive()){ return; }
     syndicateBases().forEach(corsairBaseDay);
+    syndicateTrace();
+    syndicateGuardDay();
     patrolHunt();
 }
 
@@ -10779,10 +11100,6 @@ function sensorContact(foe){
 // --- Detectors -----------------------------------------------------------------------------------
 // Ground detector structures and detection helpers.
 
-const detectorSegments = 10;
-const detectorRange = 1;            // Detection radius in AU.
-const detectorStealthRange = 0.5;   // Detection radius for stealth hulls in AU.
-
 // Detector site definitions and map anchors.
 export function detectorSites(){
     return {
@@ -10796,7 +11113,7 @@ export function detectorSites(){
 // Return whether a site's array is fully assembled.
 function detectorBuilt(at){
     const struct = global[at.region] ? global[at.region][at.key] : false;
-    return struct && struct.count >= detectorSegments ? true : false;
+    return struct && struct.count >= sWarfare.detectorSegments ? true : false;
 }
 
 // Return whether a completed detector is powered.
@@ -10814,12 +11131,12 @@ export function detectorNetwork(){
 // Detection radius against a stealth hull. Halved, until Stealth Detection teaches the arrays what
 // a corsair looks like and they read one as far as they read anything else.
 export function detectorStealthAU(){
-    return global.tech['shadow'] && global.tech.shadow >= 10 ? detectorRange : detectorStealthRange;
+    return global.tech['shadow'] && global.tech.shadow >= 10 ? sWarfare.detectorRange : sWarfare.detectorStealthRange;
 }
 
 // Detection radius against one hull.
 function detectorReach(ship){
-    return (ship.stealth || 1) < 1 ? detectorStealthAU() : detectorRange;
+    return (ship.stealth || 1) < 1 ? detectorStealthAU() : sWarfare.detectorRange;
 }
 
 // Detect hulls within the active detector radius.
@@ -10842,7 +11159,7 @@ function detectorCue(at, foe){
     for (const site of Object.keys(sites)){
         if (!detectorOn(sites[site])){ continue; }
         const post = genXYZcoord(sites[site].map);
-        if (dist3(post, foe.location.position) <= reach && dist3(post, at) <= detectorRange){ return true; }
+        if (dist3(post, foe.location.position) <= reach && dist3(post, at) <= sWarfare.detectorRange){ return true; }
     }
     return false;
 }
@@ -10853,14 +11170,14 @@ export function detectorTemplate(site){
     const region = at.region, key = at.key;
     // Completed detector segments.
     const built = function(){ return global[region].hasOwnProperty(key) ? global[region][key].count : 0; };
-    const priced = function(r){ return ((r.offset || 0) + built()) < detectorSegments; };
+    const priced = function(r){ return ((r.offset || 0) + built()) < sWarfare.detectorSegments; };
     return {
         id: `${region}-${key}`,
         title(){ return loc('detector_title',[planetName()[at.world]]); },
         desc(wiki){
             let head = `<div>${loc('detector_desc',[planetName()[at.world]])}</div>`;
-            if (built() < detectorSegments || wiki){
-                return head + `<div class="has-text-special">${loc('requires_segments',[detectorSegments])}</div>`;
+            if (built() < sWarfare.detectorSegments || wiki){
+                return head + `<div class="has-text-special">${loc('requires_segments',[sWarfare.detectorSegments])}</div>`;
             }
             return head + `<div class="has-text-special">${loc('requires_power')}</div>`;
         },
@@ -10869,7 +11186,7 @@ export function detectorTemplate(site){
         reqs: { planet_defense: 1 },
         path: ['truepath'],
         queue_size: 5,
-        queue_complete(){ return detectorSegments - built(); },
+        queue_complete(){ return sWarfare.detectorSegments - built(); },
         cost: {
             Money(r={}){ return priced(r) ? 30000000 : 0; },
             Adamantite(r={}){ return priced(r) ? 1200000 : 0; },
@@ -10879,21 +11196,21 @@ export function detectorTemplate(site){
         },
         effect(wiki){
             let count = (wiki?.count ?? 0) + built();
-            let desc = `<div>${loc('detector_effect',[detectorRange,planetName()[at.world],detectorStealthAU()])}</div>`;
-            if (count < detectorSegments){
-                return desc + `<div class="has-text-special">${loc('space_dwarf_collider_effect2',[detectorSegments - count])}</div>`;
+            let desc = `<div>${loc('detector_effect',[sWarfare.detectorRange,planetName()[at.world],detectorStealthAU()])}</div>`;
+            if (count < sWarfare.detectorSegments){
+                return desc + `<div class="has-text-special">${loc('space_dwarf_collider_effect2',[sWarfare.detectorSegments - count])}</div>`;
             }
             return desc + `<div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
         },
         powered(){ return powerCostMod(10); },
         // Enable power controls after all segments are complete.
-        switchable(){ return built() >= detectorSegments; },
-        on_cap(){ return built() >= detectorSegments ? 1 : 0; },
+        switchable(){ return built() >= sWarfare.detectorSegments; },
+        on_cap(){ return built() >= sWarfare.detectorSegments ? 1 : 0; },
         action(){
-            if (built() >= detectorSegments){ return false; }
+            if (built() >= sWarfare.detectorSegments){ return false; }
             if (payCosts(this)){
                 incrementStruct(this);
-                if (global[region][key].count >= detectorSegments){
+                if (global[region][key].count >= sWarfare.detectorSegments){
                     global[region][key].on = 1;
                     if (region === 'city'){ drawCity(); }
                     else { renderSpace(); }
@@ -12078,6 +12395,14 @@ function tempDestinations(ship){
         .map(key => ({ region: key, name: temps[key].n }));
 }
 
+// Return whether ships can reach a region.
+export function regionReachable(region){
+    const info = (spaceTech()[region] || tauCetiModules[region] || {}).info;
+    if (!info || typeof info.nav !== 'function' || !info.nav()){ return false; }
+    if (global.race['orbit_decayed'] && region === 'spc_moon'){ return false; }
+    return true;
+}
+
 // Everywhere a single ship could be sent.
 function shipDestinations(ship){
     const spaceRegions = spaceTech();
@@ -12092,26 +12417,20 @@ function shipDestinations(ship){
     let currentShipLocation = ship.inTransit ? ship.destination.name : ship.location.name;
 
     Object.keys(spaceRegions).forEach(function(region){
-        if (currentShipLocation !== region){
-            if (spaceRegions[region].info.nav()){
-                if (region === 'spc_sun_gate'){
-                    let name = typeof spaceRegions.spc_sun_gate.info.desc === 'string' ? spaceRegions.spc_sun_gate.info.desc : spaceRegions.spc_sun_gate.info.desc();
-                    dests.push({ region: region, name: name });
-                }
-                else if (!global.race['orbit_decayed'] || (global.race['orbit_decayed'] && region !== 'spc_moon')){
-                    let name = typeof spaceRegions[region].info.name === 'string' ? spaceRegions[region].info.name : spaceRegions[region].info.name();
-                    dests.push({ region: region, name: name });
-                }
-            }
+        if (currentShipLocation === region || !regionReachable(region)){ return; }
+        if (region === 'spc_sun_gate'){
+            let name = typeof spaceRegions.spc_sun_gate.info.desc === 'string' ? spaceRegions.spc_sun_gate.info.desc : spaceRegions.spc_sun_gate.info.desc();
+            dests.push({ region: region, name: name });
+        }
+        else {
+            let name = typeof spaceRegions[region].info.name === 'string' ? spaceRegions[region].info.name : spaceRegions[region].info.name();
+            dests.push({ region: region, name: name });
         }
     });
     Object.keys(tauCetiModules).forEach(function(region){
-        if (currentShipLocation !== region){
-            if (tauCetiModules[region].info.nav()){
-                let name = typeof tauCetiModules[region].info.name === 'string' ? tauCetiModules[region].info.name : tauCetiModules[region].info.name();
-                dests.push({ region: region, name: name });
-            }
-        }
+        if (currentShipLocation === region || !regionReachable(region)){ return; }
+        let name = typeof tauCetiModules[region].info.name === 'string' ? tauCetiModules[region].info.name : tauCetiModules[region].info.name();
+        dests.push({ region: region, name: name });
     });
     return dests.concat(tempDestinations(ship));
 }
