@@ -233,7 +233,7 @@ export function craftCost(manual=false){
         Nanoweave: [{ r: 'Nano_Tube', a: 1000 },{ r: 'Vitreloy', a: 40 }],
         Scarletite: [{ r: 'Iron', a: 250000 },{ r: 'Adamantite', a: 7500 },{ r: 'Orichalcum', a: 500 }],
         Quantium: [{ r: 'Nano_Tube', a: 1000 },{ r: 'Graphene', a: 1000 },{ r: 'Elerium', a: 25 }],
-        Super_Fuel: [{ r: 'Oil', a: 2000},{ r: 'Power_Bones', a:1.6 }],
+        Super_Fuel: [{ r: 'Oil', a: 1500},{ r: 'Power_Bones', a:1.6 }],
         Aerographene: [{ r: 'Graphene', a: 5000 },{ r: 'Nano_Tube', a: 5000 }],
         Thermite: [{ r: 'Iron', a: 180 },{ r: 'Aluminium', a: 60 }],
     };
@@ -254,7 +254,7 @@ export function craftCost(manual=false){
         });
     }
     if(global.surface['refinery_funnel'] && p_on['refinery_funnel']){
-        costs['Super_Fuel'][1].a *= 2 ** p_on['refinery_funnel'];
+        costs['Super_Fuel'][1].a *= 1 + p_on['refinery_funnel'];
     }
     return costs;
 }
@@ -1084,7 +1084,8 @@ function loadResource(name,wiki,max,rate,tradable,stackable,color){
 
     var res_container;
     if (global.resource[name].max === -1 || global.resource[name].max === -2){
-        res_container = $(`<div class="resource crafted" v-show="display"><div><h3 class="res has-text-${color}">{{ namespace(name) }}</h3><span id="cnt${name}" class="count">{{ diffSize(amount) }}</span></div></div>`);
+        // Show crafted resource amounts from the selected supply pool.
+        res_container = $(`<div class="resource crafted" v-show="display"><div><h3 class="res has-text-${color}">{{ namespace(name) }}</h3><span id="cnt${name}" class="count">{{ diffSize(held()) }}</span></div></div>`);
     }
     else {
         // Read amounts and capacity from the selected pool when applicable.
@@ -1953,7 +1954,7 @@ export function marketItem(mount,market_item,name,color,full){
     if ((global.race['artifical'] || global.race['fasting']) && name === 'Food'){
         return;
     }
-    if(global.race['iceage'] && name === 'Lumber'){
+    if(global.race['iceage'] && ['Lumber', 'Uranium'].includes(name)){
         return;
     }
 
@@ -2669,7 +2670,7 @@ export function tradeSellPrice(res){
 export function tradeBuyPrice(res){
     let rate = global.resource[res].value;
     // Cunning drives the buying price down. The selling price is untouched by it.
-    rate *= 2 - geneBonus('cunning');
+    rate /= 1 + geneBonus('cunning');
     if (global.race['arrogant']){
         rate *= 1 + (traits.arrogant.vars()[0] / 100);
     }

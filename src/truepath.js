@@ -7,7 +7,7 @@ import { armyRating, garrisonSize, soldierDeath, buildGarrison, govEffect, govTi
 import { jobScale, job_data, loadFoundry, limitCraftsmen, workerScale } from './jobs.js';
 import { production, highPopAdjust } from './prod.js';
 import { actions, payCosts, powerOnNewStruct, setAction, drawTech, drawCity, bank_vault, buildTemplate, casinoEffect, housingLabel, structName, initStruct, getStructNumActive } from './actions.js';
-import { fuel_adjust, int_fuel_adjust, spaceTech, renderSpace, checkRequirements, incrementStruct, planetName } from './space.js';
+import { fuel_adjust, int_fuel_adjust, spaceTech, renderSpace, checkRequirements, incrementStruct, planetName, sceneryBodies } from './space.js';
 import { defineGovernor, removeTask, govActive } from './governor.js';
 import { defineIndustry, nf_resources, addSmelter, factoryData, setupRituals, cancelRituals, setPowerGrid } from './industry.js';
 import { arpa } from './arpa.js';
@@ -1065,7 +1065,8 @@ const outerTruth = {
             },
             soldiers(){
                 let soldiers = global.race['grenadier'] ? 3 : 4;
-                return jobScale(soldiers);
+                soldiers *= geneBonus('quartermaster');
+                return +(jobScale(soldiers)).toFixed(3);
             },
             post(){
                 vBind({el: `#spc_enceladussynd`},'update');
@@ -1222,7 +1223,8 @@ const outerTruth = {
             },
             soldiers(){
                 let soldiers = global.race['grenadier'] ? 6 : 10;
-                return jobScale(soldiers);
+                soldiers *= geneBonus('quartermaster');
+                return +(jobScale(soldiers)).toFixed(3);
             },
             post(){
                 drawTech();
@@ -2672,7 +2674,7 @@ const tauCetiModules = {
             effect(wiki){
                 let count = (wiki?.count ?? 0) + (global.tauceti.hasOwnProperty('server_farm') ? global.tauceti.server_farm.count : 0);
                 if (count < 100){
-                    return `<div>${loc('tau_star_server_farm_effect',[50])}</div><div class="has-text-special">${loc('space_dwarf_collider_effect2',[100 - count])}</div>`;
+                    return `<div class="has-text-special">${loc('space_dwarf_collider_effect2',[100 - count])}</div>`;
                 }
                 let effectText = `<div>${loc('plus_max_resource',['50%',global.resource.Knowledge.name])}</div>`;
                 if (global.resource.Positronium.display){
@@ -3935,7 +3937,8 @@ const tauCetiModules = {
                 };
             },
             soldiers(){
-                return jobScale(6);
+                let soldiers = 6 * geneBonus('quartermaster');
+                return +(jobScale(soldiers)).toFixed(3);
             }
         },
     },
@@ -4510,7 +4513,8 @@ const tauCetiModules = {
                 };
             },
             soldiers(){
-                return jobScale(5);
+                let soldiers = 5 * geneBonus('quartermaster');
+                return +(jobScale(soldiers)).toFixed(3);
             }
         },
         womling_craftworks: {
@@ -4551,6 +4555,45 @@ const tauCetiModules = {
                     p: ['womling_craftworks','tauceti']
                 };
             },
+        },
+        womling_market: {
+            id: 'tauceti-womling_market',
+            title(){ return loc('tau_red_womling_market'); },
+            desc(){ return `<div>${loc('tau_red_womling_market')}</div><div class="has-text-special">${loc('space_support',[planetName().red])}</div>`; },
+            type: 'finance',
+            reqs: { womling_logistics: 3 },
+            path: ['truepath'],
+            cost: {
+                Money(r={}){ return spaceCostMultiplier('womling_market', r.offset, 125000000, 1.28, 'tauceti'); },
+                Furs(r={}){ return spaceCostMultiplier('womling_market', r.offset, 4200000, 1.28, 'tauceti'); },
+                Iron(r={}){ return spaceCostMultiplier('womling_market', r.offset, 12000000, 1.28, 'tauceti'); },
+                Brick(r={}){ return spaceCostMultiplier('womling_market', r.offset, wom_recycle(1800000), 1.28, 'tauceti'); },
+            },
+            effect(){
+                let routes = 1;
+                let desc = `<div class="has-text-caution">${loc('tau_new_support',[this.support(), planetName().red])}</div>`;
+                desc = desc + `<div>${loc('tau_red_womling_market_effect',[routes,tauCetiModules.tau_red.womling_village.title()])}</div>`;
+                desc = desc + `<div>${loc('tau_red_womling_market_effect2',[1])}</div>`;
+                return desc;
+            },
+            s_type: 'tau_red',
+            support(){ return -1; },
+            powered(){ return 0; },
+            action(){
+                if (payCosts(this)){
+                    incrementStruct('womling_market','tauceti');
+                    powerOnNewStruct(this);
+                    return true;
+                }
+                return false;
+            },
+            struct(){
+                return {
+                    d: { count : 0, on: 0 },
+                    p: ['womling_market','tauceti']
+                };
+            },
+            flair(){ return loc('tau_red_womling_market_flair'); },
         },
     },
     tau_gas: {
@@ -5644,6 +5687,19 @@ export function womlingArtisans(){
     return global.tauceti && global.tauceti.hasOwnProperty('womling_craftworks') ? (global.tauceti.womling_craftworks.artisan || 0) : 0;
 }
 
+// Return overseer Womlings, including orbital-station workers.
+export function womlingPop(){
+    if (!global.tauceti || !global.tauceti['overseer']){ return 0; }
+    let pop = global.tauceti.overseer.pop || 0;
+    if (p_on['womling_station']){ pop += p_on['womling_station'] * 2; }
+    return pop;
+}
+
+// Return active Womling market routes.
+export function womlingMarketRoutes(){
+    return (support_on['womling_market'] || 0) * (support_on['womling_village'] || 0);
+}
+
 export function tauEnabled(){
     if (global.tech['tauceti'] && global.tech.tauceti >= 4){
         return true;
@@ -5663,12 +5719,12 @@ const razeTargets = {
     spc_moon: { c: 'space', s: ['moon_base','iridium_mine','helium_mine','observatory'] },
     spc_red: { c: 'space', s: ['spaceport','red_tower','living_quarters','pylon','vr_center','garage','red_mine','fabrication','red_factory','biodome','exotic_lab','ziggurat','space_barracks','botanical'] },
     spc_venus: { c: 'space', s: ['cloud_city','nitrogen_harvester','cloud_quarters','industrial_complex','workshop','university'] },
-    spc_hell: { c: 'space', s: ['geothermal','hell_smelter','spc_casino','swarm_plant'] },
+    spc_hell: { c: 'space', s: ['geothermal','hell_smelter','spc_casino','swarm_plant','mercury_mine'] },
     spc_titan: { c: 'space', s: ['titan_spaceport','electrolysis','hydrogen_plant','titan_quarters','titan_mine','storehouse','titan_bank','g_factory','sam','decoder','ai_colonist','metalworks','comedy_club'] },
     //spc_enceladus: { c: 'space', s: ['water_freighter','zero_g_lab','operating_base','munitions_depot'] },
     //spc_dwarf: { c: 'space', s: ['elerium_contain','e_reactor'] },
     tau_home: { c: 'tauceti', s: ['colony','tau_housing','pylon','tau_farm','mining_pit','fusion_generator','repository','tau_factory','infectious_disease_lab','tauceti_casino','tau_cultural_center','marine_barracks','data_decoder'] },
-    tau_red: { c: 'tauceti', s: ['overseer','womling_village','womling_farm','womling_mine','womling_fun','womling_lab','womling_craftworks','antimatter_reactor','womling_rangers'] }
+    tau_red: { c: 'tauceti', s: ['overseer','womling_village','womling_farm','womling_mine','womling_fun','womling_lab','womling_craftworks','womling_market','antimatter_reactor','womling_rangers'] }
 };
 
 // Ships shoot the horde from orbit, but bombardment is a blunt instrument against a scattered mob —
@@ -6879,6 +6935,7 @@ export const sWarfare = {
     chaseDays: 5,           // Patrol pursuit duration.
     chaseSpeed: 1.1,        // Patrol speed multiplier while pursuing.
     sneak: 2,               // Opening raid shots.
+    sneakDetected: 1,       // Opening raid shots when a detector array had the approach.
     plunder: 1000000,       // Maximum raid cargo units.
     engagements: 5,         // Engagements required to advance Shadow War.
     studyFights: 250,       // Engagements needed to complete stealth study.
@@ -7321,8 +7378,11 @@ function corsairAssault(corsair){
         zMessage(loc('syndicate_world_open',[regionName(where)]),'danger');
     }
     else {
-        zMessage(loc('syndicate_world_struck',[regionName(where),sWarfare.sneak]),'danger');
-        const fight = corsairFight(corsair,guard,where,sWarfare.sneak);
+        // Detector contact reduces a raider's opening volleys.
+        const seen = detectorContact(corsair);
+        const volleys = seen ? sWarfare.sneakDetected : sWarfare.sneak;
+        zMessage(loc(seen ? 'syndicate_world_warned' : 'syndicate_world_struck',[regionName(where),volleys]),'danger');
+        const fight = corsairFight(corsair,guard,where,volleys);
         if (!fight.alive){ corsairLost(corsair,where); return true; }
         plunder = fight.taken > fight.dealt;
         if (!plunder){ zMessage(loc('syndicate_world_held',[regionName(where)]),'success'); }
@@ -7734,18 +7794,13 @@ function razeStructures(region,razings){
     }
 }
 
-// Region and structure labels come off the action definitions, where `name`/`title` may be either a
-// plain string or a function depending on the entry.
-// Bodies the map draws as scenery have no action of their own, but they are still places things
-// happen — the syndicate keeps a base on one of them — so they are named the way the map names them.
-const sceneryNames = { spc_pluto: 'pluto', spc_haumea: 'haumea' };
-
+// Return a region label, including map-only scenery bodies.
 function regionName(region){
     let cat = razeTargets.hasOwnProperty(region) && razeTargets[region].c === 'tauceti' ? 'tauceti' : 'space';
     let info = actions[cat]?.[region]?.info;
     if (!info || !info.name){
-        if (sceneryNames[region]){
-            let named = planetName()[sceneryNames[region]];
+        if (sceneryBodies[region]){
+            let named = planetName()[sceneryBodies[region]];
             if (named){ return named; }
         }
         return region;
@@ -9443,26 +9498,55 @@ function paceAt(group, from){
     return at;
 }
 
-function tradeTrip(group, from, to){
-    const pace = paceAt(group, from);
-    return pace ? planShipTrip(pace, to) : false;
+// Cache route legs and fleet pace by simulated day.
+const legCache = { at: 0, day: false, map: new Map(), pace: new Map() };
+
+// Cache fleet pace for the current simulated day.
+function legSpeed(group){
+    const head = group && group.length ? group[0] : false;
+    if (!head){ return 0; }
+    if (legCache.pace.has(head)){ return legCache.pace.get(head); }
+    const lead = fleetPace(group);
+    const speed = lead ? shipSpeed(lead) : 0;
+    legCache.pace.set(head, speed);
+    return speed;
 }
 
-// Return fleet travel time for one route leg, or Infinity if unreachable.
-const legCache = { at: 0, map: new Map() };
-export function tradeLegDays(group, from, to){
-    if (from === to){ return 0; }
+function tradeLeg(group, from, to){
     const now = Date.now();
-    if (now - legCache.at > 2000){ legCache.at = now; legCache.map.clear(); }
-    // Cache route legs by fleet speed and endpoints.
-    const lead = fleetPace(group);
-    const key = `${from}|${to}|${lead ? shipSpeed(lead) : 0}`;
+    if (now - legCache.at > 2000 || legCache.day !== global.stats.days){
+        legCache.at = now;
+        legCache.day = global.stats.days;
+        legCache.map.clear();
+        legCache.pace.clear();
+    }
+    const key = `${from}|${to}|${legSpeed(group)}`;
     if (legCache.map.has(key)){ return legCache.map.get(key); }
     const pace = paceAt(group, from);
     const trip = pace ? planShipTrip(pace, to) : false;
-    const days = trip ? trip.totalTime : Infinity;
-    legCache.map.set(key, days);
-    return days;
+    legCache.map.set(key, trip);
+    return trip;
+}
+
+// Return a cached route-leg plan.
+function tradeTrip(group, from, to){
+    return tradeLeg(group, from, to);
+}
+
+// Return fleet travel time for one route leg, or Infinity if unreachable.
+export function tradeLegDays(group, from, to){
+    if (from === to){ return 0; }
+    const trip = tradeLeg(group, from, to);
+    return trip ? trip.totalTime : Infinity;
+}
+
+// Return whether a fleet can reach a world on its current fuel.
+export function fleetCanReach(group, to){
+    if (!group || !group.length){ return false; }
+    const from = group[0].location.name;
+    if (from === to){ return true; }
+    const trip = tradeLeg(group, from, to);
+    return trip ? group.every(s => shipCanMakeTrip(s, trip)) : false;
 }
 
 // Validate that a proposed route is flyable with available fuel.

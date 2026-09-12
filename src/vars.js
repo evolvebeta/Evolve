@@ -1668,7 +1668,7 @@ if (global['space'] && global.space['shipyard'] && global.space.shipyard.hasOwnP
 
 global['version'] = '1.5.0';
 delete global['revision'];
-global['beta'] = 45;
+global['beta'] = 46;
 
 if (!global.hasOwnProperty('prestige')){
     global.prestige = {};
@@ -1964,6 +1964,9 @@ if (typeof global.settings.boring === 'undefined'){
 }
 if (typeof global.settings.pauseOnLoad === 'undefined'){
     global.settings['pauseOnLoad'] = false;
+}
+if (typeof global.settings.aberrantWinMsg === 'undefined'){
+    global.settings['aberrantWinMsg'] = false;
 }
 // Show every world under the name a human would see it by, whatever species is being played.
 if (typeof global.settings.solarNames === 'undefined'){
