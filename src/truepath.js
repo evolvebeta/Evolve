@@ -5,7 +5,7 @@ import { races, traits, orbitLength, geneBonus } from './races.js';
 import { spatialReasoning, unlockContainers, atomic_mass } from './resources.js';
 import { armyRating, garrisonSize, soldierDeath, buildGarrison, govEffect, govTitle, rivalCollapsed, soldierTrainingRate, soldierRecoveryRate } from './civics.js';
 import { jobScale, job_data, loadFoundry, limitCraftsmen, workerScale } from './jobs.js';
-import { production, highPopAdjust } from './prod.js';
+import { production, highPopAdjust, infiltratorFactor } from './prod.js';
 import { actions, payCosts, powerOnNewStruct, setAction, drawTech, drawCity, bank_vault, buildTemplate, casinoEffect, housingLabel, structName, initStruct, getStructNumActive } from './actions.js';
 import { fuel_adjust, int_fuel_adjust, spaceTech, renderSpace, checkRequirements, incrementStruct, planetName, sceneryBodies } from './space.js';
 import { defineGovernor, removeTask, govActive } from './governor.js';
@@ -6955,7 +6955,14 @@ export const sWarfare = {
     detectorSegments: 10,   // Segments to finish one array.
     detectorSegmentsLost: 12,   // Segments to finish one array with no homeworld to build on.
     detectorRange: 1,       // Detection radius in AU.
-    detectorStealthRange: 0.5   // Detection radius against a stealth hull, until Stealth Detection.
+    detectorStealthRange: 0.5,  // Detection radius against a stealth hull, until Stealth Detection.
+    // Alien Containment settings.
+    containmentStops: 10,       // Infiltrators stopped to unlock Alien Containment.
+    containmentSegments: 25,    // Construction segments required.
+    containmentCapture: 0.25,   // Capture chance per successful officer action.
+    interrogationTime: 600,     // Seconds per captive interrogation.
+    intelMin: 50,               // Minimum Alien Intel per interrogation.
+    intelMax: 100               // Maximum Alien Intel per interrogation.
 };
 
 const counterEspionageZoneDefs = [
@@ -7029,20 +7036,14 @@ function counterEspionageTargets(){
             const struct = state[key];
             if (!action || !struct || !struct.count){ return; }
             if (!['industry','mining','power','science'].includes(action.type) && !key.startsWith('detector')){ return; }
-            if (!(p_on[key] > 0 || support_on[key] > 0 || struct.on > 0)){ return; }
+            // Only target structures that are currently operating.
+            const running = struct.hasOwnProperty('on') ? (p_on[key] > 0 || support_on[key] > 0 || struct.on > 0) : true;
+            if (!running){ return; }
             if (infiltratorFactor(zone.id,key) <= 0){ return; }
             targets.push({ z: zone.id, b: key });
         });
     });
     return targets;
-}
-
-// Return the remaining output fraction for one infiltrated structure.
-export function infiltratorFactor(zone, building){
-    const alien = counterEspionage();
-    if (!alien){ return 1; }
-    const count = alien.infiltrators[zone]?.[building] || 0;
-    return Math.max(0,1 - count * 0.05);
 }
 
 // Count all active infiltrators across every zone.
@@ -7148,9 +7149,71 @@ export function counterEspionageDay(){
                 if (Object.keys(alien.infiltrators[zone.id]).length === 0){ delete alien.infiltrators[zone.id]; }
             }
             alien.caught++;
-            messageQueue(loc('counter_espionage_caught',[zone.name]),'success',false,['combat']);
+            if (containmentActive() && seededRandom(0,1,true) < sWarfare.containmentCapture){
+                const facility = containmentBuilt();
+                facility.captives++;
+                messageQueue(loc('counter_espionage_captured',[zone.name,loc('space_dwarf_alien_containment_title')]),'success',false,['combat']);
+            }
+            else {
+                messageQueue(loc('counter_espionage_caught',[zone.name]),'success',false,['combat']);
+            }
         }
     }
+    // Unlock Alien Containment after enough infiltrators are stopped.
+    if (global.tech['shadow'] === 13 && alien.caught >= sWarfare.containmentStops){
+        global.tech.shadow = 14;
+        drawTech();
+    }
+}
+
+// --- Alien Containment ---------------------------------------------------------------------------
+// Manage captured infiltrators and convert them to Alien Intel.
+
+// Return the completed facility state, or false.
+export function containmentBuilt(){
+    const facility = global.space['alien_containment'];
+    if (!facility || !(facility.count >= sWarfare.containmentSegments)){ return false; }
+    for (const field of ['captives','p']){
+        if (typeof facility[field] !== 'number' || !Number.isFinite(facility[field])){ facility[field] = 0; }
+    }
+    return facility;
+}
+
+// Return whether the completed facility has power.
+export function containmentActive(){
+    return containmentBuilt() && p_on['alien_containment'] > 0 ? true : false;
+}
+
+// Consecutive long-loop passes without facility power.
+let containmentDark = 0;
+
+// Process captive interrogations and power-loss escapes.
+export function alienContainmentTick(seconds){
+    const facility = containmentBuilt();
+    if (!facility){ return; }
+    if (!containmentActive()){
+        containmentDark++;
+        if (containmentDark >= 2 && facility.captives > 0){
+            facility.captives = 0;
+            facility.p = 0;
+            messageQueue(loc('space_dwarf_alien_containment_lost',[loc('space_dwarf_alien_containment_title')]),'danger',false,['combat']);
+        }
+        return;
+    }
+    containmentDark = 0;
+    if (facility.captives <= 0){
+        facility.p = 0;
+        return;
+    }
+    facility.p += seconds;
+    while (facility.captives > 0 && facility.p >= sWarfare.interrogationTime){
+        facility.p -= sWarfare.interrogationTime;
+        facility.captives--;
+        const intel = Math.floor(seededRandom(sWarfare.intelMin,sWarfare.intelMax + 1,true));
+        if (!global.resource.Alien_Intel.display){ global.resource.Alien_Intel.display = true; }
+        modRes('Alien_Intel',intel,true);
+    }
+    if (facility.captives <= 0){ facility.p = 0; }
 }
 
 // The raiding arc, which picks up exactly where syndicateActive() leaves off: that one switches itself
@@ -7283,7 +7346,6 @@ function corsairSortie(corsair){
             return true;
         }
         if (corsairLaunch(corsair,target,true)){
-            zMessage(loc('syndicate_corsair_sortie',[regionName(target)]),'warning');
             return true;
         }
     }
