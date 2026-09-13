@@ -5,7 +5,7 @@ import { races, traits, orbitLength, geneBonus } from './races.js';
 import { spatialReasoning, unlockContainers, atomic_mass } from './resources.js';
 import { armyRating, garrisonSize, soldierDeath, buildGarrison, govEffect, govTitle, rivalCollapsed, soldierTrainingRate, soldierRecoveryRate } from './civics.js';
 import { jobScale, job_data, loadFoundry, limitCraftsmen, workerScale } from './jobs.js';
-import { production, highPopAdjust, infiltratorFactor } from './prod.js';
+import { production, highPopAdjust, hugeAdjust, infiltratorFactor } from './prod.js';
 import { actions, payCosts, powerOnNewStruct, setAction, drawTech, drawCity, bank_vault, buildTemplate, casinoEffect, housingLabel, structName, initStruct, getStructNumActive } from './actions.js';
 import { fuel_adjust, int_fuel_adjust, spaceTech, renderSpace, checkRequirements, incrementStruct, planetName, sceneryBodies } from './space.js';
 import { defineGovernor, removeTask, govActive } from './governor.js';
@@ -321,91 +321,59 @@ const outerTruth = {
                 Cement(r={}){ return spaceCostMultiplier('storehouse', r.offset, 45000, 1.28); }
             },
             wide: true,
-            res(){
-                let res = [
-                    'Lumber','Stone','Furs','Copper','Iron','Aluminium','Cement','Coal','Steel','Titanium',
-                    'Alloy','Polymer','Iridium','Chrysotile','Nano_Tube','Neutronium','Adamantite'
-                ];
-                if (global.resource.Tungsten.display){
-                    res.push('Tungsten');
-                }
-                if (global.resource.Water.display && global.tech['resettle']){
-                    res.push('Water');
-                }
-                if (global.tech['shadow']){
-                    res.push('Graphene');
-                    res.push('Stanene');
-                    res.push('Bolognium');
-                    res.push('Orichalcum');
-                    res.push('Unobtainium');
-                }
-                return res;
-            },
-            heavy(res){
-                return ['Copper','Iron','Steel','Titanium','Iridium','Neutronium','Adamantite','Tungsten'].includes(res) ? true : false;
-            },
-            val(res){
-                switch (res){
-                    case 'Lumber':
-                        return 3000;
-                    case 'Stone':
-                        return 3000;
-                    case 'Chrysotile':
-                        return 3000;
-                    case 'Furs':
-                        return 1700;
-                    case 'Copper':
-                        return 1520;
-                    case 'Iron':
-                        return 1400;
-                    case 'Aluminium':
-                        return 1280;
-                    case 'Tungsten':
-                        return 480;
-                    case 'Cement':
-                        return 1120;
-                    case 'Coal':
-                        return 480;
-                    case 'Steel':
-                        return 240;
-                    case 'Titanium':
-                        return 160;
-                    case 'Alloy':
-                        return 180;
-                    case 'Polymer':
-                        return 150;
-                    case 'Iridium':
-                        return 175;
-                    case 'Nano_Tube':
-                        return 120;
-                    case 'Neutronium':
-                        return 64;
-                    case 'Adamantite':
-                        return 72;
-                    case 'Water':
-                        return 2;
-                    case 'Graphene':
-                        return 500;
-                    case 'Stanene':
-                        return 500;
-                    case 'Bolognium':
-                        return 250;
-                    case 'Orichalcum':
-                        return 250;
-                    case 'Unobtainium':
-                        return 75;
-                    default:
-                        return 0;
+            storage: {
+                res(res){
+                    let list = {
+                        'Lumber': 3000,
+                        'Stone': 3000,
+                        'Furs': 1700,
+                        'Copper': 1520,
+                        'Iron': 1400,
+                        'Aluminium': 1280,
+                        'Cement': 1120,
+                        'Coal': 480,
+                        'Steel': 240,
+                        'Titanium': 160,
+                        'Alloy': 180,
+                        'Polymer': 150,
+                        'Iridium': 175,
+                        'Chrysotile': 3000,
+                        'Nano_Tube': 120,
+                        'Neutronium': 64,
+                        'Adamantite': 72
+                    };
+                    if (global.resource.Tungsten.display){
+                        list['Tungsten'] = 480;
+                    }
+                    if (global.resource.Water.display && global.tech['resettle']){
+                        list['Water'] = 2;
+                    }
+                    if (global.tech['shadow']){
+                        list['Graphene'] = 500;
+                        list['Stanene'] = 500;
+                        list['Bolognium'] = 250;
+                        list['Orichalcum'] = 250;
+                        list['Unobtainium'] = 75;
+                    }
+                    return res ? list[res] || 0 : list;
+                },
+                multiplier(wiki){
+                    return tpStorageMultiplier('storehouse',false,wiki);
+                },
+                h_multiplier(wiki){
+                    return tpStorageMultiplier('storehouse',true,wiki);
+                },
+                mtype(res){
+                    return ['Copper','Iron','Steel','Titanium','Iridium','Neutronium','Adamantite','Tungsten'].includes(res) ? 'h_multiplier' : 'multiplier';
                 }
             },
             effect(wiki){
                 let storage = '<div class="aTable">';
-                let multiplier = tpStorageMultiplier('storehouse',false,wiki);
-                let h_multiplier = tpStorageMultiplier('storehouse',true,wiki);
-                for (const res of this.res()){
+                let list = this.storage.res();
+                for (const res of Object.keys(list)){
                     if (global.resource[res].display){
-                        let heavy = this.heavy(res);
-                        let val = sizeApproximation(+(spatialReasoning(this.val(res)) * (heavy ? h_multiplier : multiplier)).toFixed(0),1);
+                        let multiplier = this.storage[this.storage.mtype(res)](wiki);
+                        let val = sizeApproximation(+(spatialReasoning(list[res]) * multiplier).toFixed(0),1);
                         storage = storage + `<span>${loc('plus_max_resource',[val,global.resource[res].name])}</span>`;
                     }
                 };
@@ -415,12 +383,11 @@ const outerTruth = {
             action(){
                 if (payCosts(this)){
                     incrementStruct('storehouse');
-                    let multiplier = tpStorageMultiplier('storehouse',false);
-                    let h_multiplier = tpStorageMultiplier('storehouse',true);
-                    for (const res of this.res()){
+                    let list = this.storage.res();
+                    for (const res of Object.keys(list)){
                         if (global.resource[res].display){
-                            let heavy = this.heavy(res);
-                            global.resource[res].max += (spatialReasoning(this.val(res)) * (heavy ? h_multiplier : multiplier));
+                            let multiplier = this.storage[this.storage.mtype(res)]();
+                            global.resource[res].max += (spatialReasoning(list[res]) * multiplier);
                         }
                     };
                     return true;
@@ -671,16 +638,22 @@ const outerTruth = {
             },
             effect(wiki){
                 let cipher = this.support_fuel().a;
-                let know = 2500;
-                if (global.race['high_pop']){
-                    know = highPopAdjust(know);
-                }
-                if (wiki ? (global.space?.ai_core2?.on ?? 0) : p_on['ai_core2']){
-                    know *= 1.25;
-                }
+                let know = this.knowVal(wiki);
                 let desc = `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div>`;
                 desc += `<div>${loc('space_red_exotic_lab_effect1',[know])}</div>`;
                 return desc + `<div class="has-text-caution">${loc('spend',[cipher,global.resource[this.support_fuel().r].name])}</div>`;
+            },
+            knowVal(wiki){
+                let gain = 2500
+                if (global.race['high_pop']){
+                    gain = highPopAdjust(gain);
+                }
+                if (wiki ? (global.space?.ai_core2?.on ?? 0) : p_on['ai_core2']){
+                    gain *= 1.25;
+                }
+                gain *= infiltratorFactor('spc_titan','decoder');
+                gain = hugeAdjust(gain);
+                return gain;
             },
             s_type: 'titan',
             support(){ return -1; },
@@ -981,9 +954,7 @@ const outerTruth = {
                 Stanene(r={}){ return spaceCostMultiplier('zero_g_lab', r.offset, 600000, 1.25); }
             },
             effect(){
-                let synd = syndicate('spc_enceladus');
-                let know = Math.round(10000 * synd);
-
+                let know = Math.round(this.knowVal());
                 let desc = `<div class="has-text-caution">${loc('space_used_support',[planetName().enceladus])}</div><div>${loc('city_max_knowledge',[know])}</div>`;
                 if (global.resource.Quantium.display){
                     desc = desc + `<div>${loc('space_zero_g_lab_effect',[jobScale(1)])}</div>`;
@@ -992,6 +963,13 @@ const outerTruth = {
                     desc = desc + `<div>${loc('plus_max_resource',[10000,global.resource.Cipher.name])}</div>`;
                 }
                 return desc + `<div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
+            },
+            knowVal(){
+                let synd = syndicate('spc_enceladus');
+                let gain = 10000 * synd;
+                gain *= infiltratorFactor('spc_enceladus','zero_g_lab');
+                gain = hugeAdjust(gain);
+                return gain;
             },
             s_type: 'enceladus',
             support(){ return -1; },
@@ -2081,7 +2059,7 @@ const outerTruth = {
                 Plywood(r={}){ return spaceCostMultiplier('university', r.offset, 42000000, 1.26); }
             },
             effect(){
-                let desc = `<div>${loc('space_university_effect',[this.knowVal().toLocaleString(),global.resource.Knowledge.name,job_data.professor.name()])}</div>`;
+                let desc = `<div>${loc('space_university_effect',[this.knowledge().toLocaleString(),global.resource.Knowledge.name,job_data.professor.name()])}</div>`;
                 desc += `<div>${loc('plus_max_resource',[jobScale(this.professors()),job_data.professor.name()])}</div>`;
                 desc += `<div class="has-text-caution">${loc('space_used_support',[planetName().venus])}</div>`;
                 return desc;
@@ -2090,20 +2068,20 @@ const outerTruth = {
             support(){ return -1; },
             powered(){ return 0; },
             knowVal(){
+                let profs = workerScale(global.civic.professor.workers,'professor');
+                if (global.race['high_pop']){
+                    profs = highPopAdjust(profs);
+                }
+                return this.knowledge() * profs;
+            },
+            professors(){ return 2; },
+            knowledge(){
                 let facility = actions.space.spc_venus.alien_facility;
                 let val = 2222;
                 if (facility.uplinked()){
                     val *= 1 + (facility.uplinkKnowledge() / 100);
                 }
                 return val;
-            },
-            professors(){ return 2; },
-            knowledge(){
-                let profs = workerScale(global.civic.professor.workers,'professor');
-                if (global.race['high_pop']){
-                    profs = highPopAdjust(profs);
-                }
-                return this.knowVal() * profs;
             },
             action(){
                 if (payCosts(this)){
@@ -2231,76 +2209,48 @@ const outerTruth = {
                 Adamantite(r={}){ return spaceCostMultiplier('survey_warehouse', r.offset, 2250000, 1.28); }
             },
             wide: true,
-            res(){
-                let res = [
-                    'Lumber','Stone','Furs','Copper','Iron','Aluminium','Cement','Coal','Steel','Titanium',
-                    'Alloy','Polymer','Iridium','Chrysotile','Nano_Tube','Neutronium','Adamantite','Tungsten',
-                    'Graphene','Stanene','Bolognium','Unobtainium','Uranium','Water','Orichalcum'
-                ];
-                return res;
-            },
-            val(res){
-                switch (res){
-                    case 'Lumber':
-                        return 680000;
-                    case 'Stone':
-                        return 680000;
-                    case 'Chrysotile':
-                        return 680000;
-                    case 'Furs':
-                        return 552000;
-                    case 'Copper':
-                        return 551200;
-                    case 'Iron':
-                        return 564000;
-                    case 'Aluminium':
-                        return 546800;
-                    case 'Tungsten':
-                        return 527600;
-                    case 'Cement':
-                        return 507200;
-                    case 'Coal':
-                        return 258800;
-                    case 'Steel':
-                        return 254400;
-                    case 'Titanium':
-                        return 249600;
-                    case 'Alloy':
-                        return 130800;
-                    case 'Polymer':
-                        return 129000;
-                    case 'Iridium':
-                        return 160500;
-                    case 'Nano_Tube':
-                        return 137200;
-                    case 'Neutronium':
-                        return 123840;
-                    case 'Adamantite':
-                        return 134320;
-                    case 'Graphene':
-                        return 135000;
-                    case 'Stanene':
-                        return 136000;
-                    case 'Bolognium':
-                        return 58000;
-                    case 'Unobtainium':
-                        return 10000;
-                    case 'Uranium':
-                        return 2700;
-                    case 'Orichalcum':
-                        return 25000;
-                    case 'Water':
-                        return 150;
-                    default:
-                        return 0;
+            storage: {
+                res(res){
+                    let list = {
+                        'Lumber': 680000,
+                        'Stone': 680000,
+                        'Furs': 552000,
+                        'Copper': 551200,
+                        'Iron': 564000,
+                        'Aluminium': 546800,
+                        'Cement': 507200,
+                        'Coal': 258800,
+                        'Steel': 254400,
+                        'Titanium': 249600,
+                        'Alloy': 130800,
+                        'Polymer': 129000,
+                        'Iridium': 160500,
+                        'Chrysotile': 680000,
+                        'Nano_Tube': 137200,
+                        'Neutronium': 123840,
+                        'Adamantite': 134320,
+                        'Tungsten': 527600,
+                        'Graphene': 135000,
+                        'Stanene': 136000,
+                        'Bolognium': 58000,
+                        'Unobtainium': 10000,
+                        'Uranium': 2700,
+                        'Water': 150,
+                        'Orichalcum': 25000
+                    };
+                    return res ? list[res] || 0 : list;
+                },
+                multiplier(wiki){
+                    return tpStorageMultiplier('warehouse',false,wiki);
                 }
             },
             effect(wiki){
                 let storage = '<div class="aTable">';
-                let multiplier = tpStorageMultiplier('warehouse',false,wiki);
-                for (const res of this.res()){
+                let multiplier = this.storage.multiplier(wiki);
+                let list = this.storage.res();
+                for (const res of Object.keys(list)){
                     if (global.resource[res].display){
-                        let val = sizeApproximation(+(spatialReasoning(this.val(res)) * multiplier).toFixed(0),1);
+                        let val = sizeApproximation(+(spatialReasoning(list[res]) * multiplier).toFixed(0),1);
                         storage += `<span>${loc('plus_max_resource',[val,global.resource[res].name])}</span>`;
                     }
                 };
@@ -2310,10 +2260,11 @@ const outerTruth = {
             action(){
                 if (payCosts(this)){
                     incrementStruct(this);
-                    let multiplier = tpStorageMultiplier('warehouse',false);
-                    for (const res of this.res()){
+                    let multiplier = this.storage.multiplier();
+                    let list = this.storage.res();
+                    for (const res of Object.keys(list)){
                         if (global.resource[res].display){
-                            global.resource[res].max += (spatialReasoning(this.val(res)) * multiplier);
+                            global.resource[res].max += (spatialReasoning(list[res]) * multiplier);
                         }
                     };
                     return true;
@@ -3363,7 +3314,7 @@ const tauCetiModules = {
             effect(){
                 let desc = `<div>${loc('plus_max_resource',[20+'%',global.resource.Knowledge.name])}</div>`;
                 if (global.tech['isolation']){
-                    desc = desc + `<div>${loc('plus_max_resource',[(global.race['lone_survivor'] ? 3500000 : 6500000).toLocaleString(),global.resource.Knowledge.name])}</div>`;
+                    desc = desc + `<div>${loc('plus_max_resource',[(this.knowVal()).toLocaleString(),global.resource.Knowledge.name])}</div>`;
                     desc = desc + `<div>${loc('plus_max_resource',[(200000).toLocaleString(),global.resource.Cipher.name])}</div>`;
                     desc = desc + `<div>${loc(`space_lander_effect3`,[production('alien_outpost'),global.resource.Cipher.name])}</div>`;
                 }
@@ -3375,6 +3326,13 @@ const tauCetiModules = {
                 }
                 desc = desc + `<div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
                 return desc;
+            },
+            knowVal(){ //does not contain percentage increase
+                let gain = 0;
+                if (global.tech['isolation']){
+                    gain = (global.race['lone_survivor'] ? 3500000 : 6500000) * infiltratorFactor('tau_home','alien_outpost');
+                }
+                return gain;
             },
             powered(){ return powerCostMod(global.tech['isolation'] ? (global.race['lone_survivor'] ? 8 : 25) : 100); },
             special(){
@@ -3535,99 +3493,58 @@ const tauCetiModules = {
                 Neutronium(r={}){ return spaceCostMultiplier('repository', r.offset, 215000, 1.28, 'tauceti'); },
             },
             wide: true,
-            res(){
-                let res = [
-                    'Lumber','Stone','Furs','Copper','Iron','Aluminium','Cement','Coal','Steel','Titanium','Crystal',
-                    'Alloy','Polymer','Iridium','Chrysotile','Nano_Tube','Neutronium','Adamantite','Unobtainium'
-                ];
-                if (global.tech['isolation']){
-                    res.push('Oil');
-                    res.push('Helium_3');
-                    res.push('Uranium');
-                    res.push('Water');
-                }
-                if (global.tech['shadow']){
-                    res.push('Graphene');
-                    res.push('Stanene');
-                    res.push('Bolognium');
-                    res.push('Orichalcum');
-                }
-                if (global.resource.Tungsten.display){
-                    res.push('Tungsten');
-                }
-                return res;
-            },
-            val(res){
-                switch (res){
-                    case 'Lumber':
-                        return 30000;
-                    case 'Stone':
-                        return 30000;
-                    case 'Chrysotile':
-                        return 30000;
-                    case 'Crystal':
-                        return 10;
-                    case 'Furs':
-                        return 17000;
-                    case 'Copper':
-                        return 15200;
-                    case 'Iron':
-                        return 14000;
-                    case 'Aluminium':
-                        return 12800;
-                    case 'Cement':
-                        return 11200;
-                    case 'Coal':
-                        return 4800;
-                    case 'Steel':
-                        return 2400;
-                    case 'Titanium':
-                        return 1600;
-                    case 'Alloy':
-                        return 1800;
-                    case 'Polymer':
-                        return 1500;
-                    case 'Iridium':
-                        return 1750;
-                    case 'Nano_Tube':
-                        return 1200;
-                    case 'Tungsten':
-                        return 2000;
-                    case 'Neutronium':
-                        return 640;
-                    case 'Adamantite':
-                        return 720;
-                    case 'Unobtainium':
-                        return 1000;
-                    case 'Oil':
-                        return 680;
-                    case 'Helium_3':
-                        return 575;
-                    case 'Uranium':
-                        return 125;
-                    case 'Water':
-                        return 15;
-                    case 'Elerium':
-                        return 3;
-                    case 'Graphene':
-                        return 1000;
-                    case 'Stanene':
-                        return 1000;
-                    case 'Bolognium':
-                        return 750;
-                    case 'Orichalcum':
-                        return 750;
-                    default:
-                        return 0;
+            storage: {
+                res(res){
+                    let list = {
+                        'Lumber': 30000,
+                        'Stone': 30000,
+                        'Furs': 17000,
+                        'Copper': 15200,
+                        'Iron': 14000,
+                        'Aluminium': 12800,
+                        'Cement': 11200,
+                        'Coal': 4800,
+                        'Steel': 2400,
+                        'Titanium': 1600,
+                        'Crystal': 10,
+                        'Alloy': 1800,
+                        'Polymer': 1500,
+                        'Iridium': 1750,
+                        'Chrysotile': 30000,
+                        'Nano_Tube': 1200,
+                        'Neutronium': 640,
+                        'Adamantite': 720,
+                        'Unobtainium': 1000
+                    };
+                    if (global.tech['isolation']){
+                        list['Oil'] = 680;
+                        list['Helium_3'] = 575;
+                        list['Uranium'] = 125;
+                        list['Water'] = 15;
+                    }
+                    if (global.tech['shadow']){
+                        list['Graphene'] = 1000;
+                        list['Stanene'] = 1000;
+                        list['Bolognium'] = 750;
+                        list['Orichalcum'] = 750;
+                    }
+                    if (global.resource.Tungsten.display){
+                        list['Tungsten'] = 2000;
+                    }
+                    return res ? list[res] || 0 : list;
+                },
+                multiplier(wiki){
+                    return tpStorageMultiplier('repository',false,wiki);
                 }
             },
             effect(wiki){
                 let storage = '<div class="aTable">';
-                let multiplier = tpStorageMultiplier('repository',false,wiki);
+                let multiplier = this.storage.multiplier(wiki);
                 let containers = 250;
-                for (const res of this.res()){
+                let list = this.storage.res();
+                for (const res of Object.keys(list)){
                     if (global.resource[res].display){
-                        let val = sizeApproximation(+(spatialReasoning(this.val(res)) * multiplier).toFixed(0),1);
+                        let val = sizeApproximation(+(spatialReasoning(list[res]) * multiplier).toFixed(0),1);
                         storage = storage + `<span>${loc('plus_max_resource',[val,global.resource[res].name])}</span>`;
                     }
                 };
@@ -3648,10 +3565,11 @@ const tauCetiModules = {
                         unlockContainers();
                     }
 
-                    let multiplier = tpStorageMultiplier('repository');
-                    for (const res of this.res()){
+                    let multiplier = this.storage.multiplier();
+                    let list = this.storage.res();
+                    for (const res of Object.keys(list)){
                         if (global.resource[res].display){
-                            global.resource[res].max += (spatialReasoning(this.val(res)) * multiplier);
+                            global.resource[res].max += (spatialReasoning(list[res]) * multiplier);
                         }
                     };
                     return true;
@@ -3739,11 +3657,7 @@ const tauCetiModules = {
                 Unobtainium(r={}){ return spaceCostMultiplier('infectious_disease_lab', r.offset, 64000, 1.25, 'tauceti'); },
             },
             effect(){
-                let sci = 39616;
-                if (global.tech['supercollider'] && global.tech['isolation']){
-                    let ratio = global.tech['tp_particles'] || (global.tech['particles'] && global.tech['particles'] >= 3) ? 12.5: 25;
-                    sci *= (global.tech['supercollider'] / ratio) + 1;
-                }
+                let sci = this.knowVal();
                 let desc = `<div class="has-text-caution">${loc('tau_new_support',[this.support(), races[global.race.species].home])}</div>`;
                 desc = desc + `<div>${loc('city_max_knowledge',[Math.round(sci).toLocaleString()])}</div>`;
                 if (global.tech['isolation']){
@@ -3765,6 +3679,16 @@ const tauCetiModules = {
                 }
                 desc = desc + `<div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
                 return desc;
+            },
+            knowVal(){
+                let gain = 39616;
+                if (global.tech['supercollider'] && global.tech['isolation']){
+                    let ratio = global.tech['tp_particles'] || (global.tech['particles'] && global.tech['particles'] >= 3) ? 12.5: 25;
+                    gain *= (global.tech['supercollider'] / ratio) + 1;
+                }
+                gain *= infiltratorFactor('tau_home','infectious_disease_lab');
+                gain = hugeAdjust(gain);
+                return gain;
             },
             s_type: 'tau_home',
             support(){ return -1; },
@@ -4407,8 +4331,6 @@ const tauCetiModules = {
                 Quantium(r={}){ return spaceCostMultiplier('womling_lab', r.offset, wom_recycle(95000), 1.28, 'tauceti'); },
             },
             effect(){
-                let overseer = global.tauceti.hasOwnProperty('overseer') ? global.tauceti.overseer.prod : 100;
-                let know = Math.round(25000 * overseer / 100);
                 let desc = `<div class="has-text-caution">${loc('tau_new_support',[this.support(), planetName().red])}</div>`;
                 desc = desc + `<div>${loc('tau_red_womling_lab_effect',[know])}</div>`;
                 desc = desc + `<div>${loc('tau_red_womling_employ_single',[1])}</div>`;
@@ -4419,6 +4341,13 @@ const tauCetiModules = {
                     desc = desc + `<div class="has-text-advanced">${loc('tau_red_womling_lab_tech_level',[global.tech.womling_tech ?? 0, progress.toFixed(2)])}</div>`;
                 }
                 return desc;
+            },
+            knowVal(){
+                let overseer = global.tauceti.hasOwnProperty('overseer') ? global.tauceti.overseer.prod : 100;
+                let gain = Math.round(25000 * overseer / 100);
+                gain *= infiltratorFactor('tau_red','womling_lab');
+                gain = hugeAdjust(gain);
+                return gain;
             },
             s_type: 'tau_red',
             support(){ return -1; },
@@ -6921,7 +6850,6 @@ function zBlockadeDay(fleet){
 
 // Shared Syndicate Warfare settings, also used by the wiki.
 export const sWarfare = {
-    watchDays: 25,          // Days before corsairs appear after prerequisites.
     lostMin: 25,            // Minimum respawn delay after a loss.
     lostMax: 50,            // Maximum respawn delay after a loss.
     repair: 4,              // Hull repair per day.
@@ -6959,8 +6887,11 @@ export const sWarfare = {
     // Alien Containment settings.
     containmentStops: 10,       // Infiltrators stopped to unlock Alien Containment.
     containmentSegments: 25,    // Construction segments required.
-    containmentCapture: 0.25,   // Capture chance per successful officer action.
+    containmentCapacity: 25,    // Captives the completed facility can hold.
+    containmentCapture: 0.1,    // Capture chance per successful officer action.
+    takedownCapture: 2,         // Capture chance multiplier from Takedown Tactics.
     interrogationTime: 600,     // Seconds per captive interrogation.
+    interrogationCut: 0.25,     // Share of interrogation time removed by We Have Ways.
     intelMin: 50,               // Minimum Alien Intel per interrogation.
     intelMax: 100               // Maximum Alien Intel per interrogation.
 };
@@ -7149,8 +7080,8 @@ export function counterEspionageDay(){
                 if (Object.keys(alien.infiltrators[zone.id]).length === 0){ delete alien.infiltrators[zone.id]; }
             }
             alien.caught++;
-            if (containmentActive() && seededRandom(0,1,true) < sWarfare.containmentCapture){
-                const facility = containmentBuilt();
+            const facility = containmentActive() && containmentBuilt();
+            if (facility && facility.captives < sWarfare.containmentCapacity && seededRandom(0,1,true) < containmentCaptureChance()){
                 facility.captives++;
                 messageQueue(loc('counter_espionage_captured',[zone.name,loc('space_dwarf_alien_containment_title')]),'success',false,['combat']);
             }
@@ -7162,11 +7093,22 @@ export function counterEspionageDay(){
     // Unlock Alien Containment after enough infiltrators are stopped.
     if (global.tech['shadow'] === 13 && alien.caught >= sWarfare.containmentStops){
         global.tech.shadow = 14;
+        global.resource.Alien_Intel.display = true;
         drawTech();
     }
 }
 
 // --- Alien Containment ---------------------------------------------------------------------------
+// Chance a successful officer takes an infiltrator alive; Takedown Tactics (spy 6) multiplies it.
+export function containmentCaptureChance(takedown = global.tech['spy'] >= 6){
+    return sWarfare.containmentCapture * (takedown ? sWarfare.takedownCapture : 1);
+}
+
+// Seconds to interrogate one captive; We Have Ways (spy 7) shortens it.
+export function interrogationDuration(ways = global.tech['spy'] >= 7){
+    return sWarfare.interrogationTime * (ways ? 1 - sWarfare.interrogationCut : 1);
+}
+
 // Manage captured infiltrators and convert them to Alien Intel.
 
 // Return the completed facility state, or false.
@@ -7176,6 +7118,7 @@ export function containmentBuilt(){
     for (const field of ['captives','p']){
         if (typeof facility[field] !== 'number' || !Number.isFinite(facility[field])){ facility[field] = 0; }
     }
+    facility.captives = Math.min(sWarfare.containmentCapacity, Math.max(0, Math.floor(facility.captives)));
     return facility;
 }
 
@@ -7206,8 +7149,9 @@ export function alienContainmentTick(seconds){
         return;
     }
     facility.p += seconds;
-    while (facility.captives > 0 && facility.p >= sWarfare.interrogationTime){
-        facility.p -= sWarfare.interrogationTime;
+    const duration = interrogationDuration();
+    while (facility.captives > 0 && facility.p >= duration){
+        facility.p -= duration;
         facility.captives--;
         const intel = Math.floor(seededRandom(sWarfare.intelMin,sWarfare.intelMax + 1,true));
         if (!global.resource.Alien_Intel.display){ global.resource.Alien_Intel.display = true; }
@@ -7250,18 +7194,18 @@ export function syndicateShips(){
         .filter(ship => ship && ship.damage < 100);
 }
 
-// Start the corsair watch once its prerequisites are met.
+// Start the corsair offensive for saves with Ship Patrols.
 function syndicateWatch(){
-    if (corsairsActive()){ return; }
-    if (!global.tech['syard_fleet'] || global.tech.syard_fleet < 3 || !global.tech['shadow'] || global.tech.shadow < 5){
-        delete global.race['sy_watch'];
-        return;
-    }
-    // Advance corsair timers using game days.
-    if (typeof global.race['sy_watch'] !== 'number'){ global.race['sy_watch'] = global.stats.days; }
-    if (global.stats.days - global.race.sy_watch < sWarfare.watchDays){ return; }
-
     delete global.race['sy_watch'];
+    if (corsairsActive()){ return; }
+    if (!global.tech['syard_fleet'] || global.tech.syard_fleet < 3 || !global.tech['shadow'] || global.tech.shadow < 5){ return; }
+    startCorsairs();
+    drawTech();
+}
+
+// Launch the corsair offensive. Researching Ship Patrols calls this directly.
+export function startCorsairs(){
+    if (corsairsActive()){ return; }
     global.tech['shadow'] = 6;
     // Choose each corsair base from seeded world data.
     let home = seededRandom(0,2) < 1 ? 'spc_pluto' : 'spc_haumea';
@@ -7281,7 +7225,6 @@ function syndicateWatch(){
         };
     });
     messageQueue(loc('syndicate_corsairs_msg'),'danger',false,['combat','progress']);
-    drawTech();
 }
 
 function corsairHull(region){
@@ -7440,7 +7383,7 @@ function corsairEngageDrive(corsair){
 
 // The escort's chance of seeing one coming.
 function corsairSpotted(group){
-    const scan = group.reduce((t,s) => t + (sensorRange(s) || 0),0) * sWarfare.stealth;
+    const scan = group.reduce((t,s) => t + (sensorRange(s) || 0),0) * sensorStealth();
     if (scan <= 0){ return false; }
     return seededRandom(0,1,true) < scan / (scan + sWarfare.evade);
 }
@@ -7468,7 +7411,7 @@ function corsairFight(corsair,group,where,sneak){
 
     for (let round = 0; round < sWarfare.rounds && corsair.damage < 100; round++){
         // Apply corsair stealth to defender sensor range.
-        const scan = group.filter(s => s.damage < 100).reduce((t,s) => t + (sensorRange(s) || 0),0) * sWarfare.stealth;
+        const scan = group.filter(s => s.damage < 100).reduce((t,s) => t + (sensorRange(s) || 0),0) * sensorStealth();
         group.forEach(function(ship){
             if (ship.damage >= 100 || corsair.damage >= 100){ return; }
             if (seededRandom(0,1,true) >= playerAccuracy(scan,corsair)){ return; }
@@ -7794,7 +7737,7 @@ function patrolHunt(){
         for (const corsair of corsairs){
             const away = dist3(at,shipPoint(corsair));
             if (away >= near){ continue; }
-            if (away <= sensorRangeAU(lead) * sWarfare.stealth || detectorCue(at,corsair)){ quarry = corsair; near = away; }
+            if (away <= sensorRangeAU(lead) * sensorStealth() || detectorCue(at,corsair)){ quarry = corsair; near = away; }
         }
         if (!quarry){ continue; }
 
@@ -8390,7 +8333,7 @@ export function drawShipYard(){
         Object.keys(shipParts).forEach(function(k){
             let values = ``;
             shipParts[k].forEach(function(v,idx){
-                values += `<b-dropdown-item aria-role="listitem" @click="setVal('${k}','${v}')" class="${k} a${idx}" data-val="${v}" v-show="avail('${k}','${idx}','${v}')">${loc(`outer_shipyard_${k}_${v}`)}</b-dropdown-item>`;
+                values += `<b-dropdown-item aria-role="listitem" @click="setVal('${k}','${v}')" class="${k} a${idx}" data-val="${v}" v-show="avail('${k}','${idx}','${v}')">{{ lbl('${v}', '${k}') }}</b-dropdown-item>`;
             });
 
             // The special mount is not part of a hull until it has been researched, so the whole
@@ -8563,7 +8506,7 @@ export function drawShipYard(){
                     drawShips();
                 },
                 lbl(l,c){
-                    return loc(`outer_shipyard_${c}_${l}`);
+                    return loc(shipPartKey(c,l));
                 }
             }
         });
@@ -8575,7 +8518,7 @@ export function drawShipYard(){
                     if (type === 'armor'){ return armorDesc(val); }
                     if (val === 'fuel_tanker'){ return loc(`outer_shipyard_special_fuel_tanker_desc`,[tankerFuelRange]); }
                     if (val === 'mobile_storage'){ return loc(`outer_shipyard_special_mobile_storage_desc`); }
-                    return loc(`outer_shipyard_${type}_${val}_desc`);
+                    return loc(`${shipPartKey(type,val)}_desc`);
                 },
                 {
                     elm: `#shipPlans .${type}.a${i}`,
@@ -8607,7 +8550,7 @@ export function TPShipDesc(parent,obj){
     });
 
     var desc = $(`<div class="shipPopper"></div>`);
-    var shipPattern = $(`<div class="divider">${loc(`outer_shipyard_class_${ship.class}`)} | ${loc(`outer_shipyard_engine_${ship.engine}`)} | ${loc(`outer_shipyard_weapon_${ship.weapon}`)} | ${loc(`outer_shipyard_power_${ship.power}`)} | ${loc(`outer_shipyard_sensor_${ship.sensor}`)}</div>`);
+    var shipPattern = $(`<div class="divider">${loc(`outer_shipyard_class_${ship.class}`)} | ${loc(`outer_shipyard_engine_${ship.engine}`)} | ${loc(`outer_shipyard_weapon_${ship.weapon}`)} | ${loc(`outer_shipyard_power_${ship.power}`)} | ${loc(shipPartKey('sensor',ship.sensor))}</div>`);
     parent.append(desc);
 
     desc.append(shipPattern);
@@ -9056,15 +8999,16 @@ export function shipPower(ship, wiki){
             break;
     }
 
+    const sensorDraw = improvedSensors() ? 1 - sensorUpgrade.powerCut : 1;
     switch (ship.sensor){
         case 'radar':
-            watts -= Math.round(10 * use_inflate);
+            watts -= Math.round(10 * sensorDraw * use_inflate);
             break;
         case 'lidar':
-            watts -= Math.round(25 * use_inflate);
+            watts -= Math.round(25 * sensorDraw * use_inflate);
             break;
         case 'quantum':
-            watts -= Math.round(75 * use_inflate);
+            watts -= Math.round(75 * sensorDraw * use_inflate);
             break;
     }
 
@@ -10764,7 +10708,7 @@ function drawShipRow(list,i,ship,regionNames){
         if (global.space.shipyard.expand){
             let ship_class = `${loc(`outer_shipyard_engine_${ship.engine}`)} ${loc(`outer_shipyard_class_${ship.class}`)}`;
             let desc = $(`<div id="shipReg${i}" class="shipRow ship${i}${escort}"></div>`);
-            let row1 = $(`<div class="row1"><span class="name has-text-caution">${ship.name}</span> <span v-show="scrapAllowed(${i})">| </span><a class="scrap${i}" v-show="scrapAllowed(${i})" @click="scrap(${i})" role="button">${loc(`outer_shipyard_scrap`)}</a><span v-show="refitShow(${i})"> | <a class="shipRefitOpen" @click="refitAction(${i})" role="button">${loc(`outer_shipyard_refit`)}</a></span><span v-show="copyMode()"> | <a class="loadDesign" @click="loadDesign(${i})" role="button">${loc(`outer_shipyard_copy_design`)}</a> | <a class="copyBuild" @click="copyBuild(${i})" role="button">${loc(`outer_shipyard_copy_build`)}</a></span><span v-show="copyFleetShow(${i})"> | <a class="copyFleet" @click="copyFleet(${i})" role="button">${loc(`outer_shipyard_copy_fleet`)}</a></span><a class="fleetFold" v-show="fleetFoldShow(${i})" @click="fleetFold(${i})" role="button" :aria-expanded="fleetFolded(${i}) ? 'false' : 'true'" :aria-label="fleetFoldLabel(${i})"><span class="groupArrow" v-html="fleetArrow(${i})"></span></a><span v-show="fleetTag(${i})" class="flagship" v-html="fleetTag(${i})"></span><span v-show="fleetShow(${i})"> | <a class="fleetToggle" @click="fleetAction(${i})" role="button" v-html="fleetText(${i})"></a></span> | <span class="has-text-warning">${ship_class}</span> | <span class="has-text-danger">${loc(`outer_shipyard_weapon_${ship.weapon}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_power_${ship.power}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_armor_${ship.armor}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_sensor_${ship.sensor}`)}</span></div>`);
+            let row1 = $(`<div class="row1"><span class="name has-text-caution">${ship.name}</span> <span v-show="scrapAllowed(${i})">| </span><a class="scrap${i}" v-show="scrapAllowed(${i})" @click="scrap(${i})" role="button">${loc(`outer_shipyard_scrap`)}</a><span v-show="refitShow(${i})"> | <a class="shipRefitOpen" @click="refitAction(${i})" role="button">${loc(`outer_shipyard_refit`)}</a></span><span v-show="copyMode()"> | <a class="loadDesign" @click="loadDesign(${i})" role="button">${loc(`outer_shipyard_copy_design`)}</a> | <a class="copyBuild" @click="copyBuild(${i})" role="button">${loc(`outer_shipyard_copy_build`)}</a></span><span v-show="copyFleetShow(${i})"> | <a class="copyFleet" @click="copyFleet(${i})" role="button">${loc(`outer_shipyard_copy_fleet`)}</a></span><a class="fleetFold" v-show="fleetFoldShow(${i})" @click="fleetFold(${i})" role="button" :aria-expanded="fleetFolded(${i}) ? 'false' : 'true'" :aria-label="fleetFoldLabel(${i})"><span class="groupArrow" v-html="fleetArrow(${i})"></span></a><span v-show="fleetTag(${i})" class="flagship" v-html="fleetTag(${i})"></span><span v-show="fleetShow(${i})"> | <a class="fleetToggle" @click="fleetAction(${i})" role="button" v-html="fleetText(${i})"></a></span> | <span class="has-text-warning">${ship_class}</span> | <span class="has-text-danger">${loc(`outer_shipyard_weapon_${ship.weapon}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_power_${ship.power}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_armor_${ship.armor}`)}</span> | <span class="has-text-warning">${loc(shipPartKey('sensor',ship.sensor))}</span></div>`);
             let row2 = $(`<div class="row2"></div>`);
             let row3 = $(`<div class="row3"></div>`);
             let row4 = $(`<div class="location">${dispatch}</div>`);
@@ -11430,7 +11374,7 @@ export function sensorRange(s){
     }
     switch (s.sensor){
         case 'visual':
-            return 1;
+            return improvedSensors() ? sensorUpgrade.passiveRange : 1;
         case 'radar':
             return 10 * hf;
         case 'lidar':
@@ -11438,6 +11382,28 @@ export function sensorRange(s){
         case 'quantum':
             return 32 * hf;
     }
+}
+
+// Improved Sensors values used by ship sensor calculations.
+export const sensorUpgrade = {
+    powerCut: 0.25,     // Share of sensor power draw removed.
+    passiveRange: 5,    // Passive Radar reach in Gm; visual sightings reach 1.
+    stealth: 0.5        // Sensor-range multiplier against stealth hulls, up from sWarfare.stealth.
+};
+
+export function improvedSensors(){
+    return global.tech['syard_sensor'] >= 5 ? true : false;
+}
+
+// Return a ship-part locale key, including the Passive Radar upgrade.
+export function shipPartKey(part, val){
+    return part === 'sensor' && val === 'visual' && improvedSensors() ? 'outer_shipyard_sensor_passive' : `outer_shipyard_${part}_${val}`;
+}
+
+// Return the sensor-range multiplier against a target.
+export function sensorStealth(foe){
+    const stealth = foe ? (foe.stealth || 1) : sWarfare.stealth;
+    return stealth < 1 && improvedSensors() ? Math.max(stealth, sensorUpgrade.stealth) : stealth;
 }
 
 // Sensor ratings are gigameters; the map works in AU. A quantum set on a frigate reads 64 Gm, which is a shade over 0.42 AU
@@ -11460,7 +11426,7 @@ function sensorContact(foe){
     if (!global.space['shipyard'] || !Array.isArray(global.space.shipyard['ships'])){ return false; }
     for (let ship of global.space.shipyard.ships){
         if (!ship.location || !ship.location.position){ continue; }
-        if (dist3(ship.location.position, foe.location.position) <= sensorRangeAU(ship) * (foe.stealth || 1)){ return true; }
+        if (dist3(ship.location.position, foe.location.position) <= sensorRangeAU(ship) * sensorStealth(foe)){ return true; }
     }
     return false;
 }
@@ -13109,7 +13075,7 @@ function shipRefitModal(id, modal){
             // Show the original part when the plan changes this slot.
             let fitted = part === 'special' ? shipSpecial(design) : design[part];
             let held = part === 'special' ? shipSpecial(ship) : ship[part];
-            let was = held === fitted ? `` : ` <span class="refitWas has-text-info">${loc('outer_shipyard_refit_was',[loc(`outer_shipyard_${part}_${held}`)])}</span>`;
+            let was = held === fitted ? `` : ` <span class="refitWas has-text-info">${loc('outer_shipyard_refit_was',[loc(shipPartKey(part,held))])}</span>`;
             let row = $(`<div class="refitSlot"><span class="refitLabel has-text-warning">${loc(`outer_shipyard_${part}`)}</span>${was}</div>`);
             let offered = 0;
             shipParts[part].forEach(function(v,idx){
@@ -13117,13 +13083,13 @@ function shipRefitModal(id, modal){
                 offered++;
                 // Mark the selected part visually and for assistive technology.
                 let on = fitted === v;
-                $(`<button class="button is-small ${on ? `is-success refitOn` : `is-info`}" aria-pressed="${on}">${on ? `&#10003; ` : ``}${loc(`outer_shipyard_${part}_${v}`)}</button>`)
+                $(`<button class="button is-small ${on ? `is-success refitOn` : `is-info`}" aria-pressed="${on}">${on ? `&#10003; ` : ``}${loc(shipPartKey(part,v))}</button>`)
                     .on('click', function(){ plan[part] = v; paint(); })
                     .appendTo(row);
             });
             // Show fixed slots that have no available alternatives.
             if (offered === 0){
-                row.append(`<span class="refitFixed has-text-caution">${loc(`outer_shipyard_${part}_${fitted}`)} <span class="has-text-info">(${loc('outer_shipyard_refit_fixed')})</span></span>`);
+                row.append(`<span class="refitFixed has-text-caution">${loc(shipPartKey(part,fitted))} <span class="has-text-info">(${loc('outer_shipyard_refit_fixed')})</span></span>`);
             }
             bay.append(row);
         });
