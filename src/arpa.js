@@ -10,13 +10,13 @@ import { races, traits, genus_def, cleanAddTrait, cleanRemoveTrait, combineTrait
          geneSlotBase, geneSlotMatched, geneSlotAnswers, geneRankStart, geneEffectiveBase, geneVars, geneEmergentList, geneEmergentRank, rankTier,
          geneBaseOf, geneSlotFits, slotKind, slotIsMajor, slotPair, slotSide, slotActive, pairBase, strandPairCount, strandBase,
          geneSlotCount, slotRecessive, strandRecessivePairs, placeTrait, unplaceTrait,
-         strandRoom, strandGranted, strandGenusPairs, genusEmergentList, genusEmergentRank, genusEmergent, genusFeeders, geneEmergent,
+         strandRoom, strandGranted, strandGenusPairs, genusEmergentList, genusEmergentRank, genusEmergent, genusFeeders, geneEmergentParity,
          syncGenusEmergent, geneLike, traitPermanent, permanentEmergent, fanaticGranted,
          shapeShift, shapeOptions, strandMimic, strandMimicTraits} from './races.js';
 import { renderSpace } from './space.js';
 import { drawMechLab } from './portal.js';
 import { govActive, defineGovernor } from './governor.js';
-import { highPopAdjust } from './prod.js';
+import { highPopAdjust, hugeAdjust } from './prod.js';
 import { unlockFeat } from './achieve.js';
 import { supplyMode, partitioned, drawPools } from './supply.js';
 import { loc } from './locale.js';
@@ -2307,6 +2307,7 @@ export function sequenceLabs(){
     if (labs > 0 && global.race['elemental'] && traits.elemental.vars()[0] === 'frost'){
         labs *= 1 + highPopAdjust(global.resource[global.race.species].amount * traits.elemental.vars()[4] / 100);
     }
+    labs = hugeAdjust(labs);
     return Math.round(labs);
 }
 
@@ -2792,11 +2793,11 @@ function geneSlotPanel(parent,traitMethods,majors){
                     + `</div>`;
             }
             else {
-                // Read the associated rung from the trait table.
-                let base = Object.keys(geneEmergent).filter(function(b){ return geneEmergent[b] === g; })[0];
-                if (base){
+                // Read the emergent trait's row parity.
+                let parity = geneEmergentParity.indexOf(g);
+                if (parity >= 0){
                     source = `<div class="has-text-caution">`
-                        + loc('arpa_gene_emergent_from',[base,genes.gene_pairs[base]])
+                        + loc(parity === 0 ? 'arpa_gene_emergent_from_even' : 'arpa_gene_emergent_from_odd',[genes.gene_emergent_divisor])
                         + `</div>`;
                 }
             }

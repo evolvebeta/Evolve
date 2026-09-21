@@ -7,10 +7,10 @@ import { races, traits, geneBonus, traitCostMod, fathomCheck, orbitLength } from
 import { spatialReasoning, unlockContainers, atomic_mass } from './resources.js';
 import { armyRating, garrisonSize, govEffect, soldierDeath, soldierTrainingRate, soldierRecoveryRate, buildGarrison,
          rivalCollapsed, govTitle } from './civics.js';
-import { jobScale, jobStackStep, job_data, loadFoundry, limitCraftsmen, workerScale } from './jobs.js';
+import { jobScale, jobStackStep, job_data, loadFoundry, limitCraftsmen, workerScale, hugeScale } from './jobs.js';
 import { production, highPopAdjust, hugeAdjust, infiltratorFactor } from './prod.js';
 import { actions, payCosts, powerOnNewStruct, drawTech, bank_vault, structName, initStruct, getStructNumActive,
-         buildTemplate, casinoEffect, housingLabel, setAction, drawCity } from './actions.js';
+         buildTemplate, casinoEffect, housingLabel, setAction, drawCity, hugeEffect } from './actions.js';
 import { fuel_adjust, renderSpace, incrementStruct, planetName, int_fuel_adjust, checkRequirements, spaceTech,
          sceneryBodies } from './space.js';
 import { govActive, defineGovernor, removeTask } from './governor.js';
@@ -31,7 +31,7 @@ import { shipDockedAt, allShips, fleetCmd, fleetCmdUnlocked, fleetCmdDay, shipAr
          fleetPace, shipDestination, shipPosition, tripDays, regionReachable, shipBound, hastenShip, tradeFleet,
          tradeFreighters, freightCargo, freightLoad, shipFleet, tradeLeader, patrolsUnlocked, shipPatrol,
          advancePatrol, sensorRangeAU, sendShipTo, advanceShip, getRandomShipName, repairSupplyFreighters,
-         shipyardPayer, buildTPShip, shipPower, explorerRetired, shipSpecialAllowed, shipDefaultSpecial, shipParts,
+         shipyardPayer, buildTPShip, shipPower, shipPowerStats, explorerRetired, shipSpecialAllowed, shipDefaultSpecial, shipParts,
          shipPartAvailable, shipSlotOpen, shipSpecial, shipBombardPower, shipFuelUse, tankerFuelRange, shipCosts,
          shipPartKey, shipyardZone, fleetMembers, shipFuelTank, shipFuelAmount, jumpGates, shipLegLeft,
          activeRepairYards, locSystem, shipLeg, shipTripDays, legDays, freightCapacity, canManuallyRefuel,
@@ -107,13 +107,27 @@ const outerTruth = {
                 Mythril(r={}){ return spaceCostMultiplier('titan_spaceport', r.offset, 10000, 1.32); }
             },
             effect(){
-                let water = global.resource.Water.display ? `<div>${loc('plus_max_resource',[sizeApproximation(spatialReasoning(250)),global.resource.Water.name])}</div>` : ``;
+                let water = global.resource.Water.display ? `<div>${loc('plus_max_resource',[sizeApproximation(spatialReasoning(this.storage.res('Water') * this.storage.multiplier())),global.resource.Water.name])}</div>` : ``;
                 let support = global.tech['enceladus'] && global.tech.enceladus >= 2 ? `<div>+${loc(`galaxy_alien2_support`,[this.support(),planetName().enceladus])}</div>` : ``;
-                let storage = global.tech['titan'] && global.tech.titan >= 5 ? `<div>${loc(`space_titan_spaceport_storage`,[25])}</div>` : ``;
+                let storage = global.tech['titan'] && global.tech.titan >= 5 ? `<div>${loc(`space_titan_spaceport_storage`,[hugeEffect(25)])}</div>` : ``;
                 return `${support}${water}${storage}<div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
             },
             support(){ return 2; },
             powered(){ return powerCostMod(10); },
+            storage: {
+                res(res){
+                    let list = {
+                        'Water': 250
+                    };
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    return 1;
+                },
+                count(){
+                    return p_on['titan_spaceport'] || 0;
+                }
+            },
             action(){
                 if (payCosts(this)){
                     incrementStruct('titan_spaceport');
@@ -150,14 +164,14 @@ const outerTruth = {
             },
             effect(wiki){
                 let support = `<div>+${loc(`galaxy_alien2_support`,[this.support(wiki),planetName().titan])}</div>`;
-                return `${support}<div class="has-text-caution">${loc('space_electrolysis_use',[this.support_fuel().a,global.resource.Water.name,this.powered()])}</div>`;
+                return `${support}<div class="has-text-caution">${loc('space_electrolysis_use',[+(this.support_fuel().a).toFixed(0),global.resource.Water.name,this.powered()])}</div>`;
             },
             support(wiki){
                 // Positronium electrolysis or AI core upgrade. These are mutually exclusive.
                 if (global.tech['titan'] && global.tech.titan >= 11){ return 3; }
                 return global.tech['titan_ai_core'] && global.tech.titan_ai_core >= 2 && (wiki ? global.space.ai_core2.on : p_on['ai_core2']) ? 3 : 2;
             },
-            support_fuel(){ return { r: 'Water', a: 35 }; },
+            support_fuel(){ return { r: 'Water', a: hugeAdjust(35) }; },
             powered(){ return powerCostMod(8); },
             action(){
                 if (payCosts(this)){
@@ -234,11 +248,12 @@ const outerTruth = {
             },
             effect(){
                 let gain = jobScale(1);
-                return `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div><div>${loc('plus_max_resource',[jobScale(1),global.race['truepath'] ? loc('job_colonist_tp',[planetName().titan]) : loc('colonist')])}</div><div>${loc('plus_max_resource',[gain,loc('citizen')])}</div><div class="has-text-caution">${loc(`spend`,[this.support_fuel()[0].a,global.resource[this.support_fuel()[0].r].name])}</div><div class="has-text-caution">${loc(`spend`,[this.support_fuel()[1].a,global.resource[this.support_fuel()[1].r].name])}</div>`;
+                return `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div><div>${loc('plus_max_resource',[jobScale(1),global.race['truepath'] ? loc('job_colonist_tp',[planetName().titan]) : loc('colonist')])}</div><div>${loc('plus_max_resource',[gain,loc('citizen')])}</div>
+                        <div class="has-text-caution">${loc(`spend`,[+(this.support_fuel()[0].a).toFixed(0),global.resource[this.support_fuel()[0].r].name])}</div><div class="has-text-caution">${loc(`spend`,[+(this.support_fuel()[1].a).toFixed(0),global.resource[this.support_fuel()[1].r].name])}</div>`;
             },
             s_type: 'titan',
             support(){ return -1; },
-            support_fuel(){ return [{ r: 'Water', a: 12 },{ r: 'Food', a: supplyMode() === 'global' ? 500 : 250 }]; },
+            support_fuel(){ return [{ r: 'Water', a: hugeAdjust(12) },{ r: 'Food', a: hugeAdjust(supplyMode() === 'global' ? 500 : 250) }]; },
             powered(){ return 0; },
             action(){
                 if (payCosts(this)){
@@ -295,15 +310,15 @@ const outerTruth = {
             effect(){
                 let adam_val = production('titan_mine','adamantite');
                 let alum_val = production('titan_mine','aluminium');
-                let adamantite = +(adam_val).toFixed(3);
-                let aluminium = +(alum_val).toFixed(3);
+                let adamantite = hugeEffect(adam_val, 3);
+                let aluminium = hugeEffect(alum_val, 3);
                 let desc = `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div><div>${loc('space_red_mine_effect',[adamantite,global.resource.Adamantite.name])}</div><div>${loc('space_red_mine_effect',[aluminium,global.resource.Aluminium.name])}</div>`;
                 if (global.tech['resettle']){
-                    let stone = +(production('titan_mine','stone')).toFixed(4);
+                    let stone = hugeEffect(production('titan_mine','stone'), 4);
                     desc += `<div>${loc('space_red_mine_effect',[stone,global.resource.Stone.name])}</div>`;
                 }
                 if (global.tech['resettle'] && global.resource.Chrysotile.display){
-                    let chrysotile = +(production('titan_mine','chrysotile')).toFixed(4);
+                    let chrysotile = hugeEffect(production('titan_mine','chrysotile'), 4);
                     desc += `<div>${loc('space_red_mine_effect',[chrysotile,global.resource.Chrysotile.name])}</div>`;
                 }
                 return desc;
@@ -397,7 +412,7 @@ const outerTruth = {
                 for (const res of Object.keys(list)){
                     if (global.resource[res].display){
                         let multiplier = this.storage[this.storage.mtype(res)](wiki);
-                        let val = sizeApproximation(+(spatialReasoning(list[res]) * multiplier).toFixed(0),1);
+                        let val = sizeApproximation(spatialReasoning(list[res] * multiplier),1);
                         storage = storage + `<span>${loc('plus_max_resource',[val,global.resource[res].name])}</span>`;
                     }
                 };
@@ -440,14 +455,23 @@ const outerTruth = {
                 Neutronium(r={}){ return spaceCostMultiplier('titan_bank', r.offset, traitCostMod('untrustworthy',5000), 1.32); }
             },
             effect(){
-                let vault = bank_vault() * 2;
-                vault = spatialReasoning(vault);
-                vault = (+(vault).toFixed(0)).toLocaleString();
-                return loc('plus_max_resource',[`\$${vault}`,loc('resource_Money_name')]);
+                let vault = spatialReasoning(this.storage.res('Money') * this.storage.multiplier());
+                return loc('plus_max_resource',[`\$${vault.toLocaleString()}`,loc('resource_Money_name')]);
+            },
+            storage: {
+                res(res){
+                    let list = {
+                        'Money': bank_vault() * 2
+                    };
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    return 1;
+                }
             },
             action(){
                 if (payCosts(this)){
-                    global['resource']['Money'].max += spatialReasoning(1800);
+                    global['resource']['Money'].max += spatialReasoning(this.storage.res('Money') * this.storage.multiplier());
                     incrementStruct('titan_bank');
                     return true;
                 }
@@ -478,7 +502,7 @@ const outerTruth = {
                 if (global.race['high_pop']){
                     graphene = +(highPopAdjust(graphene)).toFixed(3);
                 }
-                return `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div><div>${loc('space_red_mine_effect',[graphene,global.resource.Graphene.name])}</div><div>${loc('interstellar_g_factory_effect')}</div>`;
+                return `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div><div>${loc('space_red_mine_effect',[hugeEffect(graphene, 1, 2),global.resource.Graphene.name])}</div><div>${loc('interstellar_g_factory_effect')}</div>`;
             },
             s_type: 'titan',
             support(){ return -1; },
@@ -622,7 +646,7 @@ const outerTruth = {
                 Brick(r={}){ return spaceCostMultiplier('sam', r.offset, 160000, 1.28); },
             },
             effect(){
-                let desc = `<div>${loc('galaxy_defense_platform_effect',[25])}</div>`;
+                let desc = `<div>${loc('galaxy_defense_platform_effect',[hugeEffect(25)])}</div>`;
                 return desc + `<div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
             },
             powered(){ return powerCostMod(5); },
@@ -665,7 +689,7 @@ const outerTruth = {
                 let know = this.knowVal(wiki);
                 let desc = `<div class="has-text-caution">${loc('space_used_support',[planetName().titan])}</div>`;
                 desc += `<div>${loc('space_red_exotic_lab_effect1',[know])}</div>`;
-                return desc + `<div class="has-text-caution">${loc('spend',[cipher,global.resource[this.support_fuel().r].name])}</div>`;
+                return desc + `<div class="has-text-caution">${loc('spend',[+(cipher).toFixed(2),global.resource[this.support_fuel().r].name])}</div>`;
             },
             knowVal(wiki){
                 let gain = 2500
@@ -682,7 +706,7 @@ const outerTruth = {
             s_type: 'titan',
             support(){ return -1; },
             powered(){ return 0; },
-            support_fuel(){ return { r: 'Cipher', a: 0.06 }; },
+            support_fuel(){ return { r: 'Cipher', a: hugeAdjust(0.06) }; },
             action(){
                 if (payCosts(this)){
                     incrementStruct('decoder');
@@ -782,7 +806,7 @@ const outerTruth = {
             queue_complete(){ return 0; },
             cost: {},
             powered(){
-                return powerCostMod(100);
+                return powerCostMod(100, true);
             },
             p_fuel(){ return { r: 'Water', a: 1000 }; },
             effect(wiki){
@@ -940,9 +964,9 @@ const outerTruth = {
                 Sheet_Metal(r={}){ return spaceCostMultiplier('water_freighter', r.offset, 75000, 1.25); }
             },
             effect(wiki){
-                let helium = +fuel_adjust(5,true,wiki).toFixed(2);
+                let helium = fuel_adjust(5,true,wiki);
                 let water = +(production('water_freighter')).toFixed(2);
-                return `<div class="has-text-caution">${loc('space_used_support',[planetName().enceladus])}</div><div>${loc('produce',[water,global.resource.Water.name])}</div><div class="has-text-caution">${loc(`space_belt_station_effect3`,[helium])}</div>`;
+                return `<div class="has-text-caution">${loc('space_used_support',[planetName().enceladus])}</div><div>${loc('produce',[water,global.resource.Water.name])}</div><div class="has-text-caution">${loc(`space_belt_station_effect3`,[hugeEffect(helium, 2)])}</div>`;
             },
             s_type: 'enceladus',
             support(){ return -1; },
@@ -984,7 +1008,7 @@ const outerTruth = {
                     desc = desc + `<div>${loc('space_zero_g_lab_effect',[jobScale(1)])}</div>`;
                 }
                 if (global.resource.Cipher.display){
-                    desc = desc + `<div>${loc('plus_max_resource',[10000,global.resource.Cipher.name])}</div>`;
+                    desc = desc + `<div>${loc('plus_max_resource',[hugeEffect(this.storage.res('Cipher') * this.storage.multiplier(), 0),global.resource.Cipher.name])}</div>`;
                 }
                 return desc + `<div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
             },
@@ -998,6 +1022,23 @@ const outerTruth = {
             s_type: 'enceladus',
             support(){ return -1; },
             powered(){ return powerCostMod(12); },
+            storage: {
+                res(res){
+                    let list = {
+                        'Cipher': 100000
+                    };
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    return infiltratorFactor('spc_enceladus','zero_g_lab');
+                },
+                count(){
+                    return Math.min(support_on['zero_g_lab'] || 0,p_on['zero_g_lab'] || 0)
+                },
+                gain(res, val, multiplier, count){
+                    return Math.floor(count * val * multiplier);
+                }
+            },
             action(){
                 if (payCosts(this)){
                     incrementStruct('zero_g_lab');
@@ -1039,12 +1080,12 @@ const outerTruth = {
             effect(){
                 let desc = `<div class="has-text-caution">${loc('space_used_support',[planetName().enceladus])}</div>`;
                 if (!global.tech['resettle']){
-                    desc += `<div>${loc('galaxy_defense_platform_effect',[50])}</div>`;
+                    desc += `<div>${loc('galaxy_defense_platform_effect',[hugeEffect(50, 0)])}</div>`;
                 }
                 desc += loc('plus_max_resource',[this.soldiers(),loc('civics_garrison_soldiers')]);
-                if (global.race['orbit_decayed']){
+                if (global.race['orbit_decayed'] && global.tech['medic']){
                     let healing = global.tech['medic'] * 5;
-                    desc += `<div>${loc('city_hospital_effect',[healing])}</div>`;
+                    desc += `<div>${loc('city_hospital_effect',[hugeEffect(healing)])}</div>`;
                 }
                 return desc + `<div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
             },
@@ -1068,6 +1109,7 @@ const outerTruth = {
             soldiers(){
                 let soldiers = global.race['grenadier'] ? 3 : 4;
                 soldiers *= geneBonus('quartermaster');
+                soldiers = hugeAdjust(soldiers);
                 return +(jobScale(soldiers)).toFixed(3);
             },
             post(){
@@ -1207,7 +1249,7 @@ const outerTruth = {
                 let helium = +(fuel_adjust(125,true,wiki)).toFixed(2);
                 return desc + `<div class="has-text-caution">${loc('requires_power_combo_effect',[this.powered(),helium,global.resource.Helium_3.name])}</div>`;
             },
-            powered(){ return powerCostMod(50); },
+            powered(){ return powerCostMod(50, true); },
             action(){
                 if (global.space.fob.count < 1 && payCosts(this)){
                     incrementStruct('fob');
@@ -1251,12 +1293,12 @@ const outerTruth = {
             },
             powered(){ return 0; },
             effect(wiki){
-                let oil = +fuel_adjust(50,true,wiki).toFixed(2);
+                let oil = fuel_adjust(50,true,wiki);
                 let data = ``;
                 if (global.space['crashed_ship'] && global.space.crashed_ship.count === 100){
                     data = `<div>${loc(`space_lander_effect3`,[production('lander'),global.resource.Cipher.name])}</div>`;
                 }
-                return `<div>${loc('space_lander_effect',[planetName().triton])}</div>${data}<div class="has-text-warning">${loc(`space_lander_effect2`,[jobScale(3)])}</div><div class="has-text-caution">${loc('space_red_space_barracks_effect2',[oil])}</div>`;
+                return `<div>${loc('space_lander_effect',[planetName().triton])}</div>${data}<div class="has-text-warning">${loc(`space_lander_effect2`,[hugeScale(jobScale(3))])}</div><div class="has-text-caution">${loc('space_red_space_barracks_effect2',[hugeEffect(oil, 2)])}</div>`;
             },
             action(){
                 if (payCosts(this)){
@@ -1369,7 +1411,7 @@ const outerTruth = {
                 return desc + `<div class="has-text-caution">${loc('requires_power_combo_effect',[this.powered(),fuel,global.resource[this.p_fuel().r].name])}</div>`;
             },
             powered(){ return powerCostMod(10); },
-            p_fuel(){ return { r: 'Oil', a: 200 }; },
+            p_fuel(){ return { r: 'Oil', a: hugeAdjust(200) }; },
             action(){
                 if (payCosts(this)){
                     incrementStruct('orichalcum_mine');
@@ -1407,7 +1449,7 @@ const outerTruth = {
                 return desc + `<div class="has-text-caution">${loc('requires_power_combo_effect',[this.powered(),fuel,global.resource[this.p_fuel().r].name])}</div>`;
             },
             powered(){ return powerCostMod(5); },
-            p_fuel(){ return { r: 'Oil', a: 60 }; },
+            p_fuel(){ return { r: 'Oil', a: hugeAdjust(60) }; },
             action(){
                 if (payCosts(this)){
                     incrementStruct('uranium_mine');
@@ -1444,7 +1486,7 @@ const outerTruth = {
                 return desc + `<div class="has-text-caution">${loc('requires_power_combo_effect',[this.powered(),fuel,global.resource[this.p_fuel().r].name])}</div>`;
             },
             powered(){ return powerCostMod(8); },
-            p_fuel(){ return { r: 'Oil', a: 60 }; },
+            p_fuel(){ return { r: 'Oil', a: hugeAdjust(60) }; },
             action(){
                 if (payCosts(this)){
                     incrementStruct('neutronium_mine');
@@ -1482,7 +1524,7 @@ const outerTruth = {
                 return desc + `<div class="has-text-caution">${loc('requires_power_combo_effect',[this.powered(),fuel,global.resource[this.p_fuel().r].name])}</div>`;
             },
             powered(){ return powerCostMod(12); },
-            p_fuel(){ return { r: 'Oil', a: 125 }; },
+            p_fuel(){ return { r: 'Oil', a: hugeAdjust(125) }; },
             action(){
                 if (payCosts(this)){
                     incrementStruct('elerium_mine');
@@ -1571,11 +1613,11 @@ const outerTruth = {
             effect(){
                 let fuel = this.p_fuel().a;
                 let desc = `<div>+${loc(`galaxy_alien2_support`,[this.support(),planetName().eris])}</div>`;
-                return desc + `<div class="has-text-caution">${loc('requires_power_combo_effect',[this.powered(),fuel,global.resource[this.p_fuel().r].name])}</div>`;
+                return desc + `<div class="has-text-caution">${loc('requires_power_combo_effect',[this.powered(),+(fuel).toFixed(1),global.resource[this.p_fuel().r].name])}</div>`;
             },
             support(){ return 5; },
             powered(){ return powerCostMod(25); },
-            p_fuel(){ return { r: 'Uranium', a: 5 }; },
+            p_fuel(){ return { r: 'Uranium', a: hugeAdjust(5) }; },
             action(){
                 if (payCosts(this)){
                     incrementStruct('drone_control');
@@ -1608,7 +1650,7 @@ const outerTruth = {
                 Elerium(r={}){ return spaceCostMultiplier('shock_trooper', r.offset, 350, 1.225); },
             },
             effect(){
-                let rating = Math.round(armyRating(1,'army',0) * syndicate('spc_eris'));
+                let rating = Math.round(armyRating(hugeAdjust(1),'army',0) * syndicate('spc_eris'));
                 let desc = `<div class="has-text-caution">${loc('space_used_support',[planetName().eris])}</div>`;
                 if (global.space['digsite'] && global.space.digsite.count === 100){
                     desc = `<div>${loc(`space_lander_effect3`,[production('shock_trooper'),global.resource.Cipher.name])}</div>`;
@@ -1650,7 +1692,7 @@ const outerTruth = {
                 Uranium(r={}){ return spaceCostMultiplier('tank', r.offset, 25000, 1.25); },
             },
             effect(){
-                let rating = Math.round(100 * syndicate('spc_eris'));
+                let rating = hugeEffect(100 * syndicate('spc_eris'), 0);
                 let desc = `<div class="has-text-caution">${loc('space_used_support',[planetName().eris])}</div>`;
                 if (global.space['digsite'] && global.space.digsite.count === 100){
                     desc = `<div>${loc(`space_lander_effect3`,[production('tank'),global.resource.Cipher.name])}</div>`;
@@ -1874,7 +1916,7 @@ const outerTruth = {
             support(){ return -1; },
             powered(){ return 0; },
             // What one running harvester takes off the descender's draw.
-            cooling(){ return 500; },
+            cooling(){ return hugeAdjust(500); },
             action(){
                 if (payCosts(this)){
                     incrementStruct(this);
@@ -2041,7 +2083,7 @@ const outerTruth = {
             },
             effect(){
                 let desc = `<div>${loc('plus_max_resource',[jobScale(this.crafters()),loc('job_craftsman')])}</div>`;
-                desc += `<div>${loc('space_workshop_effect',[this.crafting(),loc('space_industrial_complex_title')])}</div>`;
+                desc += `<div>${loc('space_workshop_effect',[+(this.crafting()).toFixed(1),loc('space_industrial_complex_title')])}</div>`;
                 desc += `<div class="has-text-caution">${loc('space_used_support',[planetName().venus])}</div>`;
                 if (!actions.space.spc_venus.descender.operating()){
                     desc += `<div class="has-text-warning">${loc('space_industrial_complex_stalled',[loc('space_descender_title')])}</div>`;
@@ -2052,7 +2094,7 @@ const outerTruth = {
             support(){ return -1; },
             powered(){ return 0; },
             crafters(){ return 3; },
-            crafting(){ return 20; },
+            crafting(){ return hugeAdjust(20); },
             action(){
                 if (payCosts(this)){
                     incrementStruct(this);
@@ -2197,9 +2239,9 @@ const outerTruth = {
                 Water(r={}){ return spaceCostMultiplier('survey_resort', r.offset, 125000, 1.28); },
                 Plywood(r={}){ return spaceCostMultiplier('survey_resort', r.offset, 3500000, 1.28); }
             },
-            morale(){ return 5; },
+            morale(){ return hugeAdjust(5); },
             effect(){
-                return `<div>${loc('city_shrine_morale',[this.morale()])}</div><div>${loc('plus_max_resource',[jobScale(1),loc('job_entertainer')])}</div><div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
+                return `<div>${loc('city_shrine_morale',[+(this.morale()).toFixed(1)])}</div><div>${loc('plus_max_resource',[jobScale(1),loc('job_entertainer')])}</div><div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
             },
             powered(){ return powerCostMod(5); },
             action(){
@@ -2274,7 +2316,7 @@ const outerTruth = {
                 let list = this.storage.res();
                 for (const res of Object.keys(list)){
                     if (global.resource[res].display){
-                        let val = sizeApproximation(+(spatialReasoning(list[res]) * multiplier).toFixed(0),1);
+                        let val = sizeApproximation(spatialReasoning(list[res] * multiplier),1);
                         storage += `<span>${loc('plus_max_resource',[val,global.resource[res].name])}</span>`;
                     }
                 };
@@ -2329,27 +2371,39 @@ const outerTruth = {
                 if (count < 100){
                     return `<div class="has-text-special">${loc('space_dwarf_collider_effect2',[100 - count])}</div>`;
                 }
-                return `<div>${loc('plus_max_resource',[`\$${this.vault().toLocaleString()}`,loc('resource_Money_name')])}</div><div>${loc('plus_max_resource',[this.soldiers(),loc('civics_garrison_soldiers')])}</div>`;
+                return `<div>${loc('plus_max_resource',[`\$${spatialReasoning(this.storage.res('Money') * this.storage.multiplier()).toLocaleString()}`,loc('resource_Money_name')])}</div><div>${loc('plus_max_resource',[this.soldiers(),loc('civics_garrison_soldiers')])}</div>`;
             },
-            vault(){
-                let vault = spatialReasoning(65000000);
-                if (global.tech['extra_vault']){
-                    vault *= 1 + (global.tech.extra_vault * 0.1);
+            storage: {
+                res(res){
+                    let list = {
+                        'Money': spatialReasoning(65000000)
+                    };
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    let mult = hugeAdjust(1);
+                    if (global.tech['extra_vault']){
+                        mult *= 1 + (global.tech.extra_vault * 0.1);
+                    }
+                    if (global.race['paranoid']){
+                        mult *= 1 - (traits.paranoid.vars()[0] / 100);
+                    }
+                    if (global.race['hoarder']){
+                        mult *= 1 + (traits.hoarder.vars()[0] / 100);
+                    }
+                    let fathom = fathomCheck('dracnid');
+                    if (fathom > 0){
+                        mult *= 1 + (traits.hoarder.vars(1)[0] / 100 * fathom);
+                    }
+                    if (global.race['inflation']){
+                        mult *= 1 + (global.race.inflation / 125);
+                    }
+                    return mult;
+                },
+                count(){
+                    // Only once the last segment is in; a part-built vault holds nothing.
+                    return global.space.fort_knox?.count >= 100 ? 1 : 0;
                 }
-                if (global.race['paranoid']){
-                    vault *= 1 - (traits.paranoid.vars()[0] / 100);
-                }
-                if (global.race['hoarder']){
-                    vault *= 1 + (traits.hoarder.vars()[0] / 100);
-                }
-                let fathom = fathomCheck('dracnid');
-                if (fathom > 0){
-                    vault *= 1 + (traits.hoarder.vars(1)[0] / 100 * fathom);
-                }
-                if (global.race['inflation']){
-                    vault *= 1 + (global.race.inflation / 125);
-                }
-                return vault;
             },
             soldiers(){
                 let troops = 20;
@@ -2661,7 +2715,7 @@ export const tauCetiModules = {
                 }
                 return effectText + `<div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
             },
-            powered(){ return powerCostMod(7500); },
+            powered(){ return powerCostMod(7500, true); },
             switchable(){ return global.tauceti.hasOwnProperty('server_farm') && global.tauceti.server_farm.count >= 100; },
             operating(){
                 if (!global.tauceti.hasOwnProperty('server_farm') || global.tauceti.server_farm.count < 100){ return false; }
@@ -2935,20 +2989,34 @@ export const tauCetiModules = {
                 Adamantite(r={}){ return tauEnabled() ? spaceCostMultiplier('orbital_station', r.offset, 900000, 1.3, 'tauceti') : 0; },
             },
             effect(){
-                let helium = spatialReasoning(15000);
+                let helium = spatialReasoning(this.storage.res('Helium_3') * this.storage.multiplier());
                 let fuel = +int_fuel_adjust(this.support_fuel().a).toFixed(1);
                 let desc = `<div>${loc('space_red_spaceport_effect1',[loc('tau_planet',[races[global.race.species].home]),this.support()])}</div>`;
                 desc += `<div>${loc('plus_max_resource',[helium.toLocaleString(),global.resource.Helium_3.name])}</div>`;
                 if (global.race.universe === 'evil' && (global.race['lone_survivor'] || global.tech['isolation'])){
-                    desc += `<div>${loc('plus_max_resource',[1,global.resource.Authority.name])}</div>`;
+                    desc += `<div>${loc('plus_max_resource',[hugeEffect(1),global.resource.Authority.name])}</div>`;
                 }
                 desc += `<div class="has-text-caution">${loc('spend_power',[fuel,global.resource[this.support_fuel().r].name,this.powered()])}</div>`;
                 return desc;
             },
-            support_fuel(){ return { r: 'Helium_3', a: global.tech['isolation'] ? (global.race['lone_survivor'] ? 5 : 25) : 400 }; },
+            support_fuel(){ return { r: 'Helium_3', a: hugeAdjust(global.tech['isolation'] ? (global.race['lone_survivor'] ? 5 : 25) : 400) }; },
             support(){ return 3; },
             powered(){ return powerCostMod(global.tech['isolation'] ? (global.race['lone_survivor'] ? 4 : 6) : 30); },
             refresh: true,
+            storage: {
+                res(res){
+                    let list = {
+                        'Helium_3': 15000
+                    };
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    return 1;
+                },
+                count(){
+                    return p_on['orbital_station'] || 0;
+                }
+            },
             action(){
                 if (payCosts(this)){
                     incrementStruct('orbital_station','tauceti');
@@ -2991,38 +3059,50 @@ export const tauCetiModules = {
                 }
 
                 if (global.tech['isolation']){
-                    let vault = bank_vault() * 25;
-                    vault = spatialReasoning(vault);
-                    vault = (+(vault).toFixed(0)).toLocaleString();
-                    desc += `<div>${loc('plus_max_resource',[`\$${vault}`,global.resource.Money.name])}</div>`;
+                    let vault = spatialReasoning(this.storage.res('Money') * this.storage.multiplier());
+                    desc += `<div>${loc('plus_max_resource',[`\$${vault.toLocaleString()}`,global.resource.Money.name])}</div>`;
                 }
 
-                desc += `<div>${loc('tau_home_colony_effect',[50,races[global.race.species].home])}</div>`;
+                desc += `<div>${loc('tau_home_colony_effect',[hugeEffect(50, 0),races[global.race.species].home])}</div>`;
                 
                 if (global.tech['isolation']){
                     let gasVal = govActive('gaslighter',0);
                     let mVal = ((gasVal || 0) + (global.tech.broadcast || 0)) * 2;
-                    desc += `<div>${loc('space_red_vr_center_effect1',[mVal])}</div>`;
+                    desc += `<div>${loc('space_red_vr_center_effect1',[hugeEffect(mVal)])}</div>`;
                 }
                 
                 desc += `<div>${loc('plus_max_resource',[containers,global.resource.Crates.name])}</div><div>${loc('plus_max_resource',[containers,global.resource.Containers.name])}</div>`;
 
                 if (global.race.universe === 'evil' && (global.race['lone_survivor'] || global.tech['isolation'])){
-                    desc += `<div>${loc('plus_resource',[5,global.resource.Authority.name])}</div>`;
+                    desc += `<div>${loc('plus_resource',[hugeEffect(5),global.resource.Authority.name])}</div>`;
                 }
 
                 if (global.race['lone_survivor']){
-                    desc += `<div>${loc('gain',[-(fuel),global.resource[this.support_fuel().r].name])}</div>`;
+                    desc += `<div>${loc('gain',[-(fuel).toFixed(1),global.resource[this.support_fuel().r].name])}</div>`;
                 }
                 else {
-                    desc += `<div class="has-text-caution">${loc('spend',[fuel,global.resource[this.support_fuel().r].name])}</div>`;
+                    desc += `<div class="has-text-caution">${loc('spend',[+(fuel).toFixed(0),global.resource[this.support_fuel().r].name])}</div>`;
                 }
                 return desc;
             },
             s_type: 'tau_home',
             support(){ return -2; },
-            support_fuel(){ return { r: 'Food', a: global.tech['isolation'] ? (global.race['lone_survivor'] ? -2 : 75) : 1000 }; },
+            support_fuel(){ return { r: 'Food', a: hugeAdjust(global.tech['isolation'] ? (global.race['lone_survivor'] ? -2 : 75) : 1000) }; },
             powered(){ return 0; },
+            storage: {
+                res(res){
+                    let list = {
+                        'Money': bank_vault() * 25
+                    };
+                    if (!global.tech['isolation']){
+                        delete list.Money;
+                    }
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    return 1;
+                }
+            },
             action(){
                 if (payCosts(this)){
                     incrementStruct('colony','tauceti');
@@ -3069,7 +3149,7 @@ export const tauCetiModules = {
             },
             effect(){
                 let pop = this.citizens();
-                return global.race['sappy'] ? `<div>${loc('plus_max_resource',[pop,loc('citizen')])}</div><div>${loc('city_grove_effect',[2.5])}</div>` : loc('plus_max_resource',[pop,loc('citizen')]);
+                return global.race['sappy'] ? `<div>${loc('plus_max_resource',[pop,loc('citizen')])}</div><div>${loc('city_grove_effect',[hugeEffect(2.5)])}</div>` : loc('plus_max_resource',[pop,loc('citizen')]);
             },
             action(){
                 if (payCosts(this)){
@@ -3106,11 +3186,23 @@ export const tauCetiModules = {
                 Crystal(r={}){ return spaceCostMultiplier('pylon', r.offset, 8, 1.42, 'tauceti') - 3; }
             },
             effect(){
-                let max = spatialReasoning(2);
-                let mana = +(0.0125 * darkEffect('magic')).toFixed(3);
+                let max = spatialReasoning(this.storage.res('Mana') * this.storage.multiplier());
+
+                let mana = hugeEffect(0.0125 * darkEffect('magic'), 3);
                 return `<div>${loc('gain',[mana,global.resource.Mana.name])}</div><div>${loc('plus_max_resource',[max,global.resource.Mana.name])}</div>`;
             },
             special(){ return global.tech['magic'] && global.tech.magic >= 3 ? true : false; },
+            storage: {
+                res(res){
+                    let list = {
+                        'Mana': 2
+                    };
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    return 1;
+                }
+            },
             action(){
                 if (payCosts(this)){
                     incrementStruct('pylon','tauceti');
@@ -3178,7 +3270,7 @@ export const tauCetiModules = {
             path: ['truepath'],
             cost: {
                 Money(r={}){ return spaceCostMultiplier('tau_farm', r.offset, 135000000, 1.25, 'tauceti'); },
-                Stone(r={}){ return  spaceCostMultiplier('tau_farm', r.offset, 9210000, 1.25, 'tauceti'); },
+                Stone(r={}){ return spaceCostMultiplier('tau_farm', r.offset, 9210000, 1.25, 'tauceti'); },
                 Steel(r={}){ return spaceCostMultiplier('tau_farm', r.offset, 6295000, 1.25, 'tauceti'); },
                 Water(r={}){ return spaceCostMultiplier('tau_farm', r.offset, 10000, 1.25, 'tauceti'); },
             },
@@ -3192,7 +3284,7 @@ export const tauCetiModules = {
                     let water = +(production('tau_farm','water')).toFixed(2);
                     desc = desc + `<div>${loc('produce',[water,global.resource.Water.name])}</div>`;
                     if (global.race['artifical']){
-                        let sig_cap = spatialReasoning(350);
+                        let sig_cap = spatialReasoning(this.storage.res('Food') * this.storage.multiplier());
                         desc = desc + `<div>${loc('city_transmitter_effect',[sig_cap])}</div>`;
                     }
                 }
@@ -3201,6 +3293,23 @@ export const tauCetiModules = {
             },
             support(){ return 1; },
             powered(){ return powerCostMod(global.tech['isolation'] ? 1 : 4); },
+            storage: {
+                res(res){
+                    let list = {
+                        'Food': 350
+                    };
+                    if (!global.race['artifical']){
+                        delete list.Food;
+                    }
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    return 1;
+                },
+                count(){
+                    return p_on['tau_farm'] || 0;
+                }
+            },
             action(){
                 if (payCosts(this)){
                     incrementStruct('tau_farm','tauceti');
@@ -3235,7 +3344,7 @@ export const tauCetiModules = {
                 let desc = `<div class="has-text-caution">${loc('tau_new_support',[this.support(), races[global.race.species].home])}</div>`;
                 desc = desc + `<div>${loc('plus_max_resource',[this.workers(),loc('job_pit_miner')])}</div>`;
                 if (!tauEnabled()){
-                    desc = desc + `<div>${loc('plus_max_resource',[1000000,loc('resource_Materials_name')])}</div>`;
+                    desc = desc + `<div>${loc('plus_max_resource',[spatialReasoning(this.storage.res('Materials') * this.storage.multiplier()),loc('resource_Materials_name')])}</div>`;
                     desc = desc + `<div>${loc('tau_home_mining_pit_effect',[global.resource.Materials.name])}</div>`;
                 }
                 else {
@@ -3260,7 +3369,7 @@ export const tauCetiModules = {
                                 desc = desc + `<div>${loc('tau_home_mining_pit_effect2b',res_list)}</div>`;
                             }
                         }
-                        desc = desc + `<div>${loc('production',[8,global.resource.Cement.name])}</div>`;
+                        desc = desc + `<div>${loc('production',[hugeEffect(8),global.resource.Cement.name])}</div>`;
                     }
                     else {
                         let res_list = [global.resource.Bolognium.name,global.resource.Adamantite.name,global.resource.Stone.name];
@@ -3279,6 +3388,26 @@ export const tauCetiModules = {
             support(){ return -1; },
             powered(){ return 0; },
             workers(){ return jobScale(global.tech['isolation'] ? 6 : 8); },
+            storage: {
+                res(res){
+                    let list = {
+                        'Materials': 1000000
+                    };
+                    if (tauEnabled()){
+                        delete list.Materials;
+                    }
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    return 1;
+                },
+                count(){
+                    return support_on['mining_pit'] || 0;
+                },
+                gain(res, val, multiplier, count){ //not affected by spatial
+                    return Math.floor(count * val * multiplier);
+                }
+            },
             action(){
                 if (payCosts(this)){
                     incrementStruct('mining_pit','tauceti');
@@ -3341,7 +3470,7 @@ export const tauCetiModules = {
                 let desc = `<div>${loc('plus_max_resource',[20+'%',global.resource.Knowledge.name])}</div>`;
                 if (global.tech['isolation']){
                     desc = desc + `<div>${loc('plus_max_resource',[(this.knowVal()).toLocaleString(),global.resource.Knowledge.name])}</div>`;
-                    desc = desc + `<div>${loc('plus_max_resource',[(200000).toLocaleString(),global.resource.Cipher.name])}</div>`;
+                    desc = desc + `<div>${loc('plus_max_resource',[(this.storage.res('Cipher') * this.storage.multiplier()).toLocaleString(),global.resource.Cipher.name])}</div>`;
                     desc = desc + `<div>${loc(`space_lander_effect3`,[production('alien_outpost'),global.resource.Cipher.name])}</div>`;
                 }
                 if (global.tech['outpost_boost']){
@@ -3360,9 +3489,29 @@ export const tauCetiModules = {
                 }
                 return gain;
             },
-            powered(){ return powerCostMod(global.tech['isolation'] ? (global.race['lone_survivor'] ? 8 : 25) : 100); },
+            powered(){ return powerCostMod(global.tech['isolation'] ? (global.race['lone_survivor'] ? 8 : 25) : 100, true); },
             special(){
                 return global.tech['replicator'] ? true : false;
+            },
+            storage: {
+                res(res){
+                    let list = {
+                        'Cipher': 200000
+                    };
+                    if (!global.tech['isolation']){
+                        delete list.Cipher;
+                    }
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    return infiltratorFactor('tau_home','alien_outpost');
+                },
+                count(){
+                    return 1;
+                },
+                gain(res, val, multiplier, count){ //not affected by spatial
+                    return Math.floor(count * val * multiplier);
+                }
             },
             action(){
                 return false;
@@ -3488,7 +3637,7 @@ export const tauCetiModules = {
                 }
                 return desc;
             },
-            p_fuel(){ return { r: 'Helium_3', a: global.tech['isolation'] ? (global.race['lone_survivor'] ? -15 : 75) : 500 }; },
+            p_fuel(){ return { r: 'Helium_3', a: hugeAdjust(global.tech['isolation'] ? (global.race['lone_survivor'] ? -15 : 75) : 500) }; },
             powered(){ return powerModifier(-32); },
             action(){
                 if (payCosts(this)){
@@ -3573,7 +3722,7 @@ export const tauCetiModules = {
                 let list = this.storage.res();
                 for (const res of Object.keys(list)){
                     if (global.resource[res].display){
-                        let val = sizeApproximation(+(spatialReasoning(list[res]) * multiplier).toFixed(0),1);
+                        let val = sizeApproximation(spatialReasoning(list[res] * multiplier),1);
                         storage = storage + `<span>${loc('plus_max_resource',[val,global.resource[res].name])}</span>`;
                     }
                 };
@@ -3637,7 +3786,7 @@ export const tauCetiModules = {
                     }
                     desc = desc + `<div>${loc('space_red_fabrication_effect1',[jobScale(5)])}</div>`;
                 }
-                desc = desc + `<div>${loc('city_crafted_mats',[global.tech['isolation'] ? 275 : 90])}</div>`;
+                desc = desc + `<div>${loc('city_crafted_mats',[hugeEffect(global.tech['isolation'] ? 275 : 90)])}</div>`;
                 desc = desc + `<div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
                 return desc;
             },
@@ -3690,15 +3839,15 @@ export const tauCetiModules = {
                 let desc = `<div class="has-text-caution">${loc('tau_new_support',[this.support(), races[global.race.species].home])}</div>`;
                 desc = desc + `<div>${loc('city_max_knowledge',[Math.round(sci).toLocaleString()])}</div>`;
                 if (global.tech['isolation']){
-                    let elerium = spatialReasoning(375);
+                    let elerium = spatialReasoning(this.storage.res('Elerium') * this.storage.multiplier());
                     desc = desc + `<div>${loc('plus_max_resource',[elerium,global.resource.Elerium.name])}</div>`;
                     desc = desc + `<div>${loc('city_wardenclyffe_effect1',[jobScale(2), job_data.professor.name()])}</div>`;
                     desc = desc + `<div>${loc('city_wardenclyffe_effect1',[jobScale(1), job_data.scientist.name()])}</div>`;
                     desc = desc + `<div>${loc('space_zero_g_lab_effect',[jobScale(1)])}</div>`;
-                    desc = desc + `<div>${loc('city_library_effect',[75])}</div>`;
+                    desc = desc + `<div>${loc('city_library_effect',[hugeEffect(75)])}</div>`;
                 }
                 if (global.tech['alien_crafting']){
-                    desc = desc + `<div>${loc('production',[65,global.resource.Quantium.name])}</div>`;
+                    desc = desc + `<div>${loc('production',[hugeEffect(65),global.resource.Quantium.name])}</div>`;
                 }
                 if (global.tech['focus_cure']){
                     desc = desc + `<div>${loc('tau_home_disease_lab_cure',[+global.tauceti.infectious_disease_lab.cure.toFixed(1)])}</div>`;
@@ -3722,6 +3871,23 @@ export const tauCetiModules = {
             s_type: 'tau_home',
             support(){ return -1; },
             powered(){ return powerCostMod(global.tech['isolation'] ? (global.race['lone_survivor'] ? 2 : 8) : 35); },
+            storage: {
+                res(res){
+                    let list = {
+                        'Elerium': 375
+                    };
+                    if (!global.tech['isolation']){
+                        delete list.Elerium;
+                    }
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    return infiltratorFactor('tau_home','infectious_disease_lab');
+                },
+                count(){ //powered makes more sense for elerium (was support_on before this)
+                    return p_on['infectious_disease_lab'] || 0;
+                }
+            },
             action(){
                 if (payCosts(this)){
                     incrementStruct('infectious_disease_lab','tauceti');
@@ -3821,12 +3987,13 @@ export const tauCetiModules = {
                 else if (global.civic.govern.type === 'socialist'){
                     modifier = 1 - (govEffect.socialist()[3] / 100);
                 }
+                modifier = hugeAdjust(modifier);
 
                 let cas = +(20 * modifier).toFixed(2);
                 let mon = +(5 * modifier).toFixed(2);
                 let bake = +(15 * modifier).toFixed(2);
 
-                let desc = `<div class="has-text-caution">${loc('tau_home_cultureal_effect1',[this.p_fuel().a,global.resource[this.p_fuel().r].name,typeof this.title === 'string' ? this.title : this.title()])}</div>`;
+                let desc = `<div class="has-text-caution">${loc('tau_home_cultureal_effect1',[+(this.p_fuel().a).toFixed(0),global.resource[this.p_fuel().r].name,typeof this.title === 'string' ? this.title : this.title()])}</div>`;
                 desc += `<div>${loc('city_tourist_center_effect2',[cas,structName('casino')])}</div>`;
                 desc += `<div>${loc('city_tourist_center_effect2',[mon,loc(`arpa_project_monument_title`)])}</div>`;
                 desc += `<div>${loc('tau_home_cultureal_effect2',[womling,loc('tau_red_womlings')])}</div>`;
@@ -3837,7 +4004,7 @@ export const tauCetiModules = {
                 return desc;
             },
             powered(){ return powerCostMod(1); },
-            p_fuel(){ return { r: 'Food', a: (global.race['lone_survivor'] ? 25 : 500) }; },
+            p_fuel(){ return { r: 'Food', a: hugeAdjust(global.race['lone_survivor'] ? 25 : 500) }; },
             action(){
                 if (payCosts(this)){
                     incrementStruct('tau_cultural_center','tauceti');
@@ -3891,6 +4058,7 @@ export const tauCetiModules = {
             },
             soldiers(){
                 let soldiers = 6 * geneBonus('quartermaster');
+                soldiers = hugeAdjust(soldiers);
                 return +(jobScale(soldiers)).toFixed(3);
             }
         },
@@ -3950,14 +4118,14 @@ export const tauCetiModules = {
                 Bolognium(r={}){ return spaceCostMultiplier('orbital_platform', r.offset, 450000, 1.3, 'tauceti'); },
             },
             effect(){
-                let oil = spatialReasoning(17500);
+                let oil = spatialReasoning(this.storage.res('Oil') * this.storage.multiplier());
                 let fuel = +int_fuel_adjust(this.support_fuel().a).toFixed(1);
                 let desc = `<div>${loc('space_red_spaceport_effect1',[loc('tau_planet',[planetName().red]),this.support()])}</div>`;
                 desc = desc + `<div>${loc('plus_max_resource',[oil.toLocaleString(),global.resource.Oil.name])}</div>`;
                 desc = desc + `<div class="has-text-caution">${loc('spend_power',[fuel,global.resource[this.support_fuel().r].name,this.powered()])}</div>`;
                 return desc;
             },
-            support_fuel(){ return { r: global.race['lone_survivor'] ? 'Helium_3' : 'Oil', a: global.tech['isolation'] ? (global.race['lone_survivor'] ? 8 : 32) : 125 }; },
+            support_fuel(){ return { r: global.race['lone_survivor'] ? 'Helium_3' : 'Oil', a: hugeAdjust(global.tech['isolation'] ? (global.race['lone_survivor'] ? 8 : 32) : 125) }; },
             support(){
                 let sup = global.tech['womling_pop'] && global.tech.womling_pop >= 3 ? 3 : (global.tech['womling_logistics'] ? 2.5 : 2);
                 if (global.race['lone_survivor']){ sup *= 2; }
@@ -3965,6 +4133,20 @@ export const tauCetiModules = {
             },
             powered(){ return powerCostMod(global.tech['isolation'] ? (global.race['lone_survivor'] ? 2 : 3) : 18); },
             refresh: true,
+            storage: {
+                res(res){
+                    let list = {
+                        'Oil': 17500
+                    };
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    return 1;
+                },
+                count(){
+                    return p_on['orbital_platform'] || 0;
+                }
+            },
             action(){
                 if (tauEnabled() && payCosts(this)){
                     incrementStruct('orbital_platform','tauceti');
@@ -4125,7 +4307,8 @@ export const tauCetiModules = {
                 if (global.race['lone_survivor']){
                     val *= 2;
                 }
-                return val;
+                val = hugeEffect(val);
+                return +(val).toFixed(1);
             },
             s_type: 'tau_red',
             support(){ return -1; },
@@ -4161,9 +4344,9 @@ export const tauCetiModules = {
             effect(){
                 let pop = womlingVillagePop();
                 let desc = `<div class="has-text-caution">${loc('tau_new_support',[this.support(), planetName().red])}</div>`;
-                desc = desc + `<div>${loc('tau_red_womling_village_effect',[pop])}</div>`;
+                desc = desc + `<div>${loc('tau_red_womling_village_effect',[+(pop).toFixed(1)])}</div>`;
                 if (global.tech['tau_junksale']){
-                    desc = desc + `<div>${loc('tau_red_womling_village_effect2',[40,loc(`tau_gas2_alien_station_data4_r${global.race.tau_junk_item || 0}`)])}</div>`;
+                    desc = desc + `<div>${loc('tau_red_womling_village_effect2',[hugeEffect(40),loc(`tau_gas2_alien_station_data4_r${global.race.tau_junk_item || 0}`)])}</div>`;
                 }
                 return desc;
             },
@@ -4201,12 +4384,12 @@ export const tauCetiModules = {
                 let food = womlingFarmFood();
                 let farmers = global.tauceti.hasOwnProperty('womling_farm') ? global.tauceti.womling_farm.farmers : 0;
                 let desc = `<div class="has-text-caution">${loc('tau_new_support',[this.support(), planetName().red])}</div>`;
-                desc = desc + `<div>${loc('tau_red_womling_farm_effect',[food])}</div>`;
-                desc = desc + `<div>${loc('tau_red_womling_employ',[2])}</div>`;
+                desc = desc + `<div>${loc('tau_red_womling_farm_effect',[hugeEffect(food, 1)])}</div>`;
+                desc = desc + `<div>${loc('tau_red_womling_employ',[hugeEffect(2)])}</div>`;
                 if (global.tech['isolation']){
                     desc = desc + `<div>${loc('tau_red_womling_generate',[global.resource.Furs.name])}</div>`;
                 }
-                desc = desc + `<div>${loc('tau_red_womling_farm_effect2',[food / 2 * farmers,loc('resource_Food_name')])}</div>`;
+                desc = desc + `<div>${loc('tau_red_womling_farm_effect2',[+(food / 2 * farmers).toFixed(1),loc('resource_Food_name')])}</div>`;
                 return desc;
             },
             s_type: 'tau_red',
@@ -4255,7 +4438,7 @@ export const tauCetiModules = {
                 else {
                     desc = desc + `<div>${loc('tau_red_womling_mine_effect_a',[global.resource.Unobtainium.name])}</div>`;
                 }
-                desc = desc + `<div>${loc('tau_red_womling_employ',[6])}</div>`;
+                desc = desc + `<div>${loc('tau_red_womling_employ',[hugeEffect(6)])}</div>`;
                 return desc;
             },
             s_type: 'tau_red',
@@ -4308,7 +4491,7 @@ export const tauCetiModules = {
             },
             effect(){
                 let desc = `<div class="has-text-caution">${loc('tau_new_support',[this.support(), planetName().red])}</div>`;
-                desc = desc + `<div>${loc('tau_red_womling_fun_effect',[this.val()])}</div>`;
+                desc = desc + `<div>${loc('tau_red_womling_fun_effect',[+(this.val()).toFixed(1)])}</div>`;
                 return desc;
             },
             val(){
@@ -4325,6 +4508,7 @@ export const tauCetiModules = {
                 if (global.race['lone_survivor']){
                     val *= 2;
                 }
+                val = hugeAdjust(2);
                 return val;
             },
             s_type: 'tau_red',
@@ -4363,7 +4547,12 @@ export const tauCetiModules = {
                 let know = this.knowVal();
                 let desc = `<div class="has-text-caution">${loc('tau_new_support',[this.support(), planetName().red])}</div>`;
                 desc = desc + `<div>${loc('tau_red_womling_lab_effect',[this.knowVal()])}</div>`;
-                desc = desc + `<div>${loc('tau_red_womling_employ_single',[1])}</div>`;
+                if (global.race['humongous']){
+                    desc = desc + `<div>${loc('tau_red_womling_employ',[hugeEffect(1)])}</div>`;
+                }
+                else{
+                    desc = desc + `<div>${loc('tau_red_womling_employ_single',[1])}</div>`;
+                }
 
                 // How far along the Womlings are is only legible to someone who has ruled them before.
                 if (global.stats.achieve['overlord'] && global.stats.achieve.overlord.l >= 5){
@@ -4418,7 +4607,7 @@ export const tauCetiModules = {
                 desc = desc + `<div class="has-text-caution">${loc('spend',[fuel,global.resource[this.p_fuel().r].name])}</div>`;
                 return desc;
             },
-            p_fuel(){ return { r: 'Positronium', a: 0.12 }; },
+            p_fuel(){ return { r: 'Positronium', a: hugeAdjust(0.12) }; },
             powered(){ return powerModifier(-48); },
             action(){
                 if (payCosts(this)){
@@ -4473,6 +4662,7 @@ export const tauCetiModules = {
             },
             soldiers(){
                 let soldiers = 5 * geneBonus('quartermaster');
+                soldiers = hugeAdjust(soldiers);
                 return +(jobScale(soldiers)).toFixed(3);
             }
         },
@@ -4529,10 +4719,10 @@ export const tauCetiModules = {
                 Brick(r={}){ return spaceCostMultiplier('womling_market', r.offset, wom_recycle(1800000), 1.28, 'tauceti'); },
             },
             effect(){
-                let routes = 1;
+                let routes = hugeAdjust(1, 1, 2);
                 let desc = `<div class="has-text-caution">${loc('tau_new_support',[this.support(), planetName().red])}</div>`;
                 desc = desc + `<div>${loc('tau_red_womling_market_effect',[routes,tauCetiModules.tau_red.womling_village.title()])}</div>`;
-                desc = desc + `<div>${loc('tau_red_womling_market_effect2',[1])}</div>`;
+                desc = desc + `<div>${loc('tau_red_womling_market_effect2',[hugeAdjust(1)])}</div>`;
                 return desc;
             },
             s_type: 'tau_red',
@@ -4689,11 +4879,11 @@ export const tauCetiModules = {
             powered(){ return powerCostMod(global.tech['isolation'] ? 2 : 5); },
             effect(){
                 let helium_prod = +(production('refueling_station')).toFixed(2);
-                let helium_tank = spatialReasoning(10000);
+                let helium_tank = spatialReasoning(this.storage.res('Helium_3') * this.storage.multiplier());
                 let desc = `<div>${loc('space_gas_mining_effect1',[helium_prod])}</div>`;
                 desc = desc + `<div>${loc('plus_max_resource',[helium_tank.toLocaleString(),global.resource.Helium_3.name])}</div>`;
                 if (global.tech['tau_whale'] >= 2){
-                    let oil_tank = spatialReasoning(6500);
+                    let oil_tank = spatialReasoning(this.storage.res('Oil') * this.storage.multiplier());
                     desc = desc + `<div>${loc('plus_max_resource',[oil_tank.toLocaleString(),global.resource.Oil.name])}</div>`;
                 }
                 if (global.tech['isolation']){
@@ -4703,6 +4893,24 @@ export const tauCetiModules = {
                 return desc;
             },
             special(){ return global.tech['isolation'] ? true : false; },
+            storage: {
+                res(res){
+                    let list = {
+                        'Helium_3': 10000,
+                        'Oil': 6500
+                    };
+                    if (global.tech['tau_whale'] < 2){
+                        delete list.Oil;
+                    }
+                    return res ? (list[res] || 0) : list;
+                },
+                multiplier(wiki){
+                    return 1;
+                },
+                count(){
+                    return p_on['refueling_station'] || 0;
+                }
+            },
             action(){
                 if (payCosts(this)){
                     incrementStruct('refueling_station','tauceti');
@@ -4857,7 +5065,7 @@ export const tauCetiModules = {
                 if (global.tech['womling_gene']){
                     prod *= 1.25;
                 }
-                let desc = `<div>${loc('production',[prod,tauCetiModules.tau_gas.info.name()])}</div>`;
+                let desc = `<div>${loc('production',[hugeEffect(prod, 2),tauCetiModules.tau_gas.info.name()])}</div>`;
                 if (!global.race['flier']){
                     desc = desc + `<div>${loc('plus_max_resource',[jobScale(1),loc('job_resource_worker',[global.resource.Cement.name])])}</div>`;
                 }
@@ -4940,7 +5148,7 @@ export const tauCetiModules = {
                 desc = desc + `<div class="has-text-caution">${loc('spend',[fuel,global.resource[this.support_fuel().r].name])}</div>`;
                 return desc;
             },
-            support_fuel(){ return { r: 'Helium_3', a: global.tech['isolation'] ? 15 : 250 }; },
+            support_fuel(){ return { r: 'Helium_3', a: hugeAdjust(global.tech['isolation'] ? 15 : 250) }; },
             support(){ return global.tech['tau_roid'] && global.tech.tau_roid >= 7 ? 2 : 1; },
             powered(){ return 0; },
             refresh: true,
@@ -4980,7 +5188,7 @@ export const tauCetiModules = {
                 return desc;
             },
             s_type: 'tau_roid',
-            support_fuel(){ return { r: 'Helium_3', a: global.tech['isolation'] ? 12 : 75 }; },
+            support_fuel(){ return { r: 'Helium_3', a: hugeAdjust(global.tech['isolation'] ? 12 : 75) }; },
             support(){ return -1; },
             powered(){ return 0; },
             special: true,
@@ -5023,7 +5231,7 @@ export const tauCetiModules = {
                 return desc;
             },
             s_type: 'tau_roid',
-            support_fuel(){ return { r: 'Helium_3', a: global.tech['isolation'] ? 14 : 90 }; },
+            support_fuel(){ return { r: 'Helium_3', a: hugeAdjust(global.tech['isolation'] ? 14 : 90) }; },
             support(){ return -1; },
             powered(){ return 0; },
             action(){
@@ -5226,7 +5434,7 @@ export const tauCetiModules = {
                 return desc;
             },
             p_fuel(){ return { r: 'Elerium', a: ( (global.tech['m_ignite'] && global.tech.m_ignite >= 2) || global.race['lone_survivor'] ? 1 : 10) }; },
-            powered(){ return powerModifier(-75); },
+            powered(){ return powerModifier(-75, true); },
             action(){
                 if (global.tech['m_ignite'] && global.tech.m_ignite >= 2){
                     retirement();
@@ -5399,7 +5607,7 @@ export const tauCetiModules = {
             effect(){
                 return `<div>${loc('outer_shipyard_effect')}</div><div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
             },
-            powered(){ return powerCostMod(50); },
+            powered(){ return powerCostMod(50, true); },
             special: true,
             sAction(){
                 if (p_on['adv_shipyard']){
@@ -5502,7 +5710,7 @@ export const tauCetiModules = {
             queue_complete(){ return 0; },
             cost: {},
             powered(){
-                return powerCostMod(50);
+                return powerCostMod(50, true);
             },
             effect(){
                 let charge = Math.floor(global.tauceti.tcm_relay.charged / 10) / 10;
@@ -5622,11 +5830,12 @@ export function tauCetiTech(){
 // Womlings one village houses. Read by the game loop as well as the village's own effect text, so it
 // lives in one place rather than being restated in both.
 export function womlingVillagePop(){
+    let pop = 5;
     if (global.tech['womling_pop']){
-        if (global.tech.womling_pop >= 3){ return 8; }
-        if (global.tech.womling_pop >= 2){ return 6; }
+        if (global.tech.womling_pop >= 3){ pop = 8; }
+        if (global.tech.womling_pop >= 2){ pop = 6; }
     }
-    return 5;
+    return hugeAdjust(pop);
 }
 
 // Womlings one farm can feed. Two farmers work a farm, so the loop halves this to get the per-farmer
@@ -5638,7 +5847,7 @@ export function womlingFarmFood(){
 }
 
 // Womlings one craftworks puts to work as artisans.
-export const womlingArtisansPer = () => 5;
+export const womlingArtisansPer = () => hugeAdjust(5);
 
 // Womlings currently working the artisan job. Each one lends a skilled pair of hands to your own
 // crafters and adds a percent to everything crafted, so the loop and the UI both read this.
@@ -5650,13 +5859,13 @@ export function womlingArtisans(){
 export function womlingPop(){
     if (!global.tauceti || !global.tauceti['overseer']){ return 0; }
     let pop = global.tauceti.overseer.pop || 0;
-    if (p_on['womling_station']){ pop += p_on['womling_station'] * 2; }
+    if (p_on['womling_station']){ pop += Math.floor(hugeAdjust(p_on['womling_station']) * 2); }
     return pop;
 }
 
 // Return active Womling market routes.
 export function womlingMarketRoutes(){
-    return (support_on['womling_market'] || 0) * (support_on['womling_village'] || 0);
+    return Math.floor(hugeAdjust(support_on['womling_market'] || 0) * (support_on['womling_village'] || 0));
 }
 
 export function tauEnabled(){
@@ -8214,6 +8423,8 @@ export function drawShipYard(){
             global.space.shipyard['copy'] = false;
         }
 
+        fleetTemplate();
+
         if (!global.space.shipyard.hasOwnProperty('blueprint')){
             global.space.shipyard['blueprint'] = {
                 class: 'corvette',
@@ -8287,6 +8498,7 @@ export function drawShipYard(){
 
         let assemble = $(`<div class="assemble"></div>`);
         assemble.append(`<button class="button is-info" v-on:click="build()"><span>${loc('outer_shipyard_build')}</span></button>`);
+        assemble.append(`<button class="button is-info" v-show="fleetDesignerAvailable()" @click="fleetDesigner()">${loc('outer_shipyard_fleet_designer')}</button>`);
         assemble.append(`<span><b-checkbox class="patrol" v-model="s.expand" @change="redraw()">${loc('outer_shipyard_fleet_details')}</b-checkbox></span>`);
         assemble.append(`<span><b-checkbox class="patrol" v-model="s.sort" @change="redraw()">${loc('outer_shipyard_fleet_sort')}</b-checkbox></span>`);
         assemble.append(`<span><b-checkbox class="patrol" v-model="s.copy" @change="redraw()">${loc('outer_shipyard_copy_mode')}</b-checkbox></span>`);
@@ -8309,6 +8521,7 @@ export function drawShipYard(){
         }
 
         plans.append(assemble);
+
         assemble.append(`<div><span>${loc(`outer_shipyard_park`,[global.tech['resettle'] ? tauCetiModules.tau_gas2.info.name() : planetName().dwarf])}</span><a href="#" class="solarMap" @click="trigModal">${loc(`outer_shipyard_map`)}</span></a>`);
 
         updateCosts();
@@ -8321,6 +8534,12 @@ export function drawShipYard(){
                 v: shipyardView()
             },
             methods: {
+                fleetDesignerAvailable(){
+                    return global.tech['syard_fleet'] ? true : false;
+                },
+                fleetDesigner(){
+                    openFleetDesigner(this.$buefy.modal);
+                },
                 sysLabel(){
                     return systemLabel(shipyardView().sys);
                 },
@@ -8742,13 +8961,14 @@ function queueSpace(){
 }
 
 // Put one ship design on the build queue.
-function queueTPShip(design){
+function queueTPShip(design, fleetBuild){
     if (queueSpace() <= 0){ return false; }
     let blueprint = deepClone(design);
     global.queue.queue.push({
         id: `tp-ship-${Math.rand(0,100000)}`,
         action: 'tp-ship',
         type: blueprint,
+        fleetBuild: fleetBuild ? { id: fleetBuild.id, flagship: fleetBuild.flagship } : false,
         label: blueprint.name,
         cna: false,
         time: 0,
@@ -8758,6 +8978,198 @@ function queueTPShip(design){
         bres: false
     });
     return true;
+}
+
+// Open the Fleet Designer with a blueprint draft.
+function openFleetDesigner(modalApi, draft = deepClone(global.space.shipyard.blueprint)){
+    let modal = modalApi.open({
+        hasModalCard: false,
+        content: '<div id="modalBox" class="modalBox"></div>'
+    });
+    modalCloseButton();
+    let checkExist = setInterval(function(){
+        if ($('#modalBox').length > 0){
+            clearInterval(checkExist);
+            fleetDesignerModal(modal, draft);
+        }
+    }, 50);
+    return modal;
+}
+
+// Populate the opened Fleet Designer modal.
+function fleetDesignerModal(modal, draft){
+    let box = $('#modalBox');
+    box.closest('.animation-content').addClass('fleetDesignerModal');
+    box.append($('<p id="modalBoxTitle" class="has-text-warning modalTitle">' + loc('outer_shipyard_fleet_designer') + '</p>'));
+    let designer = $('<div id="fleetDesigner" class="fleetDesigner"></div>');
+    let controls = $('<section class="fleetTemplateControls" aria-label="' + loc('outer_shipyard_fleet_designer') + '"></section>');
+    controls.append('<div class="fleetDesignSummary"><div class="registry"><span class="has-text-caution">' + loc('outer_shipyard_registry') + '</span><b-input v-model="b.name" maxlength="25" class="nameplate"></b-input></div><div class="fleetDesignStats has-text-info" aria-live="polite"><div>{{ templateStats(b) }}</div><div v-html="powerStats(b)"></div></div></div>');
+    let partGrid = $('<div class="fleetPartGrid"></div>');
+    Object.keys(shipParts).forEach(function(part){
+        let values = '';
+        shipParts[part].forEach(function(value, index){
+            values += '<b-dropdown-item aria-role="listitem" @click="setVal(\'' + part + '\',\'' + value + '\')" class="' + part + ' a' + index + '" data-val="' + value + '" v-show="avail(\'' + part + '\',\'' + index + '\',\'' + value + '\')">{{ lbl(\'' + value + '\', \'' + part + '\') }}</b-dropdown-item>';
+        });
+        let slot = (part === 'special' || part === 'weapon') ? ' v-show="slotOpen(\'' + part + '\')"' : '';
+        partGrid.append('<div class="fleetPart"' + slot + '><span class="fleetPartLabel">' + loc('outer_shipyard_' + part) + '</span><b-dropdown :triggers="[\'click\']" aria-role="list"><template #trigger><button type="button" class="button is-info"><span>{{ lbl(b.' + part + ', \'' + part + '\') }}</span></button></template>' + values + '</b-dropdown></div>');
+    });
+    controls.append(partGrid);
+    designer.append(controls);
+    let template = $('<section class="fleetTemplate" aria-label="' + loc('outer_shipyard_fleet_template') + '"></section>');
+    template.append('<div class="fleetTemplateHead"><span class="has-text-caution">' + loc('outer_shipyard_fleet_template') + '</span><span class="fleetTemplateCommand" v-show="t.length > 0">{{ templateCommand() }}</span></div>');
+    template.append('<div v-show="t.length === 0" class="fleetTemplateEmpty has-text-info">' + loc('outer_shipyard_fleet_template_empty') + '</div>');
+    template.append('<div class="fleetTemplateShips"><div v-for="(ship, index) in t" class="fleetTemplateShip"><div class="fleetTemplateShipHead"><span>{{ templateLabel(ship, index) }}</span><button type="button" class="fleetTemplateRemove has-text-danger" @click="removeTemplate(index)" :aria-label="removeTemplateLabel(ship)">✖</button></div><div class="has-text-info">{{ templateStats(ship) }}</div><div class="fleetTemplatePower" v-html="powerStats(ship)"></div></div></div>');
+    template.append('<div class="fleetTemplateActions"><button type="button" class="button is-info" v-show="t.length === 0" :disabled="!canAddFlagship()" @click="addFlagship()">' + loc('outer_shipyard_fleet_template_flagship') + '</button><button type="button" class="button is-info" v-show="t.length > 0" @click="addEscort()">' + loc('outer_shipyard_fleet_template_escort') + '</button><button type="button" class="button is-primary" v-show="t.length > 0" :disabled="!templateQueueReady()" @click="queueTemplate()">' + loc('outer_shipyard_fleet_template_queue') + '</button><button type="button" class="button is-danger" v-show="t.length > 0" @click="clearTemplate()">' + loc('outer_shipyard_fleet_template_clear') + '</button></div>');
+    template.append('<div class="fleetTemplateStatus has-text-danger" v-show="templateStatus()" role="alert">{{ templateStatus() }}</div>');
+    designer.append(template);
+    box.append(designer);
+    vBind({
+        el: '#fleetDesigner',
+        data: { b: draft, t: fleetTemplate() },
+        methods: {
+            templateLabel(ship, index){
+                let role = loc(index === 0 ? 'outer_shipyard_fleet_template_flagship' : 'outer_shipyard_fleet_template_escort');
+                return role + ': ' + ship.name + ' (' + loc('outer_shipyard_class_' + ship.class) + ')';
+            },
+            templateStats(ship){
+                let speed = Math.round((149597870.7/225/24/3600) * shipSpeed(ship)) + 'km/s';
+                let roleStat = ship.class === 'freighter'
+                    ? loc('supply_freighter_load') + ': ' + freightCapacity(ship)
+                    : ship.class === 'supply_ship'
+                        ? loc('outer_shipyard_special') + ': ' + loc('outer_shipyard_special_' + shipSpecial(ship))
+                        : loc('firepower') + ': ' + shipAttackPower(ship);
+                return loc('speed') + ': ' + speed + ' | ' + roleStat + ' | ' + loc('outer_shipyard_sensors') + ': ' + loc('outer_shipyard_sensor_range',[sensorRange(ship)]);
+            },
+            powerStats(ship){
+                let power = shipPowerStats(ship);
+                let reserve = power.balance >= 0
+                    ? '<span class="has-text-success">+' + power.balance + 'kW ' + loc('outer_shipyard_power_reserve') + '</span>'
+                    : '<span class="has-text-danger">' + power.balance + 'kW ' + loc('outer_shipyard_power_deficit') + '</span>';
+                return loc('power') + ': ' + power.output + 'kW ' + loc('outer_shipyard_power_output')
+                    + ' | ' + power.draw + 'kW ' + loc('outer_shipyard_power_draw') + ' | ' + reserve;
+            },
+            lbl(label, category){
+                return loc(shipPartKey(category,label));
+            },
+            setVal(part, value){
+                if (part === 'class' && value === 'freighter'){
+                    this.b.weapon = 'none';
+                    this.b.special = 'extra_fuel';
+                }
+                else if (part === 'class' && value === 'explorer'){
+                    this.b.engine = 'emdrive';
+                    this.b.weapon = 'railgun';
+                    if (global.tech.syard_armor >= 3){ this.b.armor = 'neutronium'; }
+                    if (global.tech.syard_sensor >= 4){ this.b.sensor = 'quantum'; }
+                    if (global.tech.syard_power >= 4){ this.b.power = 'elerium'; }
+                }
+                else if (part === 'class' && value !== 'freighter' && this.b.class === 'freighter'){
+                    this.b.weapon = 'railgun';
+                }
+                else if (part === 'class' && value !== 'explorer' && this.b.class === 'explorer'){
+                    this.b.engine = 'ion';
+                }
+                if (part === 'class' && !shipSpecialAllowed(this.b.special,value)){
+                    this.b.special = shipDefaultSpecial(value);
+                }
+                if (part === 'class' && value === 'supply_ship'){
+                    this.b.weapon = 'none';
+                }
+                else if (part === 'class' && this.b.class === 'supply_ship' && this.b.weapon === 'none'){
+                    this.b.weapon = 'railgun';
+                }
+                this.b[part] = value;
+                this.$forceUpdate();
+            },
+            slotOpen(part){
+                return shipSlotOpen(part,this.b.class);
+            },
+            avail(part, index, value){
+                return shipPartAvailable(part,index,value,this.b.class);
+            },
+            removeTemplateLabel(ship){
+                return loc('outer_shipyard_fleet_template_remove',[ship.name]);
+            },
+            canAddFlagship(){
+                return global.tech['syard_fleet'] && fleetCommandRating(this.b) > 0 && shipPower(this.b) >= 0;
+            },
+            addFlagship(){
+                if (!this.canAddFlagship()){ return; }
+                let template = fleetTemplate();
+                template.splice(0, template.length, deepClone(this.b));
+                this.b.name = getRandomShipName();
+                this.$forceUpdate();
+            },
+            addEscort(){
+                let template = fleetTemplate();
+                if (template.length === 0 || shipPower(this.b) < 0){ return; }
+                template.push(deepClone(this.b));
+                this.b.name = getRandomShipName();
+                this.$forceUpdate();
+            },
+            removeTemplate(index){
+                fleetTemplate().splice(index, 1);
+                this.$forceUpdate();
+            },
+            clearTemplate(){
+                fleetTemplate().splice(0);
+                this.$forceUpdate();
+            },
+            templateCommand(){
+                let template = fleetTemplate();
+                let used = template.slice(1).reduce(function(total, ship){ return total + fleetCommandCost(ship); }, 0);
+                let rating = template[0] ? fleetCommandRating(template[0]) : 0;
+                return loc('outer_shipyard_fleet_template_command',[used,rating]);
+            },
+            templateQueueReady(){
+                return fleetTemplateValid() && queueSpace() >= fleetTemplate().length;
+            },
+            templateStatus(){
+                let template = fleetTemplate();
+                if (template.length === 0){ return ''; }
+                if (fleetCommandRating(template[0]) <= 0){ return loc('outer_shipyard_fleet_template_flagship_invalid'); }
+                let used = template.slice(1).reduce(function(total, ship){ return total + fleetCommandCost(ship); }, 0);
+                if (used > fleetCommandRating(template[0])){ return loc('outer_shipyard_fleet_template_command_invalid'); }
+                return queueSpace() < template.length ? loc('outer_shipyard_fleet_template_queue_full') : '';
+            },
+            queueTemplate(){
+                let queued = queueFleetTemplate();
+                if (queued <= 0){ return; }
+                fleetTemplate().splice(0);
+                buildQueue();
+                messageQueue(loc('outer_shipyard_fleet_template_queued',[queued]),'info',false,['progress']);
+                modal.close();
+            }
+        }
+    });
+}
+
+// Return the saved Fleet Designer template.
+function fleetTemplate(){
+    let yard = global.space.shipyard;
+    if (!Array.isArray(yard.fleetTemplate)){ yard.fleetTemplate = []; }
+    return yard.fleetTemplate;
+}
+
+// Return whether every ship in a fleet draft can join its flagship.
+function fleetTemplateValid(template = fleetTemplate()){
+    let flagship = template[0];
+    if (!global.tech['syard_fleet'] || !flagship || fleetCommandRating(flagship) <= 0 || shipPower(flagship) < 0){ return false; }
+    let command = template.slice(1).reduce(function(total, ship){ return total + fleetCommandCost(ship); }, 0);
+    return command <= fleetCommandRating(flagship) && template.every(ship => shipPower(ship) >= 0);
+}
+
+// Queue the flagship first, followed by every escort carrying the same fleet-build token.
+function queueFleetTemplate(){
+    let template = fleetTemplate();
+    if (!fleetTemplateValid(template) || queueSpace() < template.length){ return 0; }
+    let yard = global.space.shipyard;
+    yard.fleetBuildId = (yard.fleetBuildId || 0) + 1;
+    let id = yard.fleetBuildId;
+    template.forEach(function(ship, index){
+        queueTPShip(ship, { id: id, flagship: index === 0 });
+    });
+    return template.length;
 }
 
 // Copy a ship design without its runtime state or cargo.
@@ -8953,7 +9365,7 @@ function drawShipRow(list,i,ship,regionNames){
         if (global.space.shipyard.expand){
             let ship_class = `${loc(`outer_shipyard_engine_${ship.engine}`)} ${loc(`outer_shipyard_class_${ship.class}`)}`;
             let desc = $(`<div id="shipReg${i}" class="shipRow ship${i}${escort}"></div>`);
-            let row1 = $(`<div class="row1"><span class="name has-text-caution">${ship.name}</span> <span v-show="scrapAllowed(${i})">| </span><a class="scrap${i}" v-show="scrapAllowed(${i})" @click="scrap(${i})" role="button">${loc(`outer_shipyard_scrap`)}</a><span v-show="refitShow(${i})"> | <a class="shipRefitOpen" @click="refitAction(${i})" role="button">${loc(`outer_shipyard_refit`)}</a></span><span v-show="copyMode()"> | <a class="loadDesign" @click="loadDesign(${i})" role="button">${loc(`outer_shipyard_copy_design`)}</a> | <a class="copyBuild" @click="copyBuild(${i})" role="button">${loc(`outer_shipyard_copy_build`)}</a></span><span v-show="copyFleetShow(${i})"> | <a class="copyFleet" @click="copyFleet(${i})" role="button">${loc(`outer_shipyard_copy_fleet`)}</a></span><a class="fleetFold" v-show="fleetFoldShow(${i})" @click="fleetFold(${i})" role="button" :aria-expanded="fleetFolded(${i}) ? 'false' : 'true'" :aria-label="fleetFoldLabel(${i})"><span class="groupArrow" v-html="fleetArrow(${i})"></span></a><span v-show="fleetTag(${i})" class="flagship" v-html="fleetTag(${i})"></span><span v-show="fleetShow(${i})"> | <a class="fleetToggle" @click="fleetAction(${i})" role="button" v-html="fleetText(${i})"></a></span> | <span class="has-text-warning">${ship_class}</span> | <span class="has-text-danger">${loc(`outer_shipyard_weapon_${ship.weapon}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_power_${ship.power}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_armor_${ship.armor}`)}</span> | <span class="has-text-warning">${loc(shipPartKey('sensor',ship.sensor))}</span></div>`);
+            let row1 = $(`<div class="row1"><span class="name has-text-caution">${ship.name}</span> <span v-show="scrapAllowed(${i})">| </span><a class="scrap${i}" v-show="scrapAllowed(${i})" @click="scrap(${i})" role="button">${loc(`outer_shipyard_scrap`)}</a><span v-show="refitShow(${i})"> | <a class="shipRefitOpen" @click="refitAction(${i})" role="button">${loc(`outer_shipyard_refit`)}</a></span><span v-show="copyMode()"> | <a class="loadDesign" @click="loadDesign(${i})" role="button">${loc(`outer_shipyard_copy_design`)}</a> | <a class="copyBuild" @click="copyBuild(${i})" role="button">${loc(`outer_shipyard_copy_build`)}</a></span><span v-show="loadFleetShow(${i})"> | <a class="loadFleet" @click="loadFleet(${i})" role="button">${loc('outer_shipyard_fleet_template_load')}</a></span><a class="fleetFold" v-show="fleetFoldShow(${i})" @click="fleetFold(${i})" role="button" :aria-expanded="fleetFolded(${i}) ? 'false' : 'true'" :aria-label="fleetFoldLabel(${i})"><span class="groupArrow" v-html="fleetArrow(${i})"></span></a><span v-show="fleetTag(${i})" class="flagship" v-html="fleetTag(${i})"></span><span v-show="fleetShow(${i})"> | <a class="fleetToggle" @click="fleetAction(${i})" role="button" v-html="fleetText(${i})"></a></span> | <span class="has-text-warning">${ship_class}</span> | <span class="has-text-danger">${loc(`outer_shipyard_weapon_${ship.weapon}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_power_${ship.power}`)}</span> | <span class="has-text-warning">${loc(`outer_shipyard_armor_${ship.armor}`)}</span> | <span class="has-text-warning">${loc(shipPartKey('sensor',ship.sensor))}</span></div>`);
             let row2 = $(`<div class="row2"></div>`);
             let row3 = $(`<div class="row3"></div>`);
             let row4 = $(`<div class="location">${dispatch}</div>`);
@@ -8983,7 +9395,7 @@ function drawShipRow(list,i,ship,regionNames){
             let row3 = $(`<div class="row3"></div>`);
             let row4 = $(`<div class="location">${dispatch}</div>`);
 
-            row1.append(`<span class="name has-text-caution">${ship.name}</span><span v-show="copyMode()"> | <a class="loadDesign" @click="loadDesign(${i})" role="button">${loc(`outer_shipyard_copy_design`)}</a> | <a class="copyBuild" @click="copyBuild(${i})" role="button">${loc(`outer_shipyard_copy_build`)}</a></span><span v-show="copyFleetShow(${i})"> | <a class="copyFleet" @click="copyFleet(${i})" role="button">${loc(`outer_shipyard_copy_fleet`)}</a></span><a class="fleetFold" v-show="fleetFoldShow(${i})" @click="fleetFold(${i})" role="button" :aria-expanded="fleetFolded(${i}) ? 'false' : 'true'" :aria-label="fleetFoldLabel(${i})"><span class="groupArrow" v-html="fleetArrow(${i})"></span></a><span v-show="fleetTag(${i})" class="flagship" v-html="fleetTag(${i})"></span><span v-show="fleetShow(${i})"> | <a class="fleetToggle" @click="fleetAction(${i})" role="button" v-html="fleetText(${i})"></a></span> | `);
+            row1.append(`<span class="name has-text-caution">${ship.name}</span><span v-show="copyMode()"> | <a class="loadDesign" @click="loadDesign(${i})" role="button">${loc(`outer_shipyard_copy_design`)}</a> | <a class="copyBuild" @click="copyBuild(${i})" role="button">${loc(`outer_shipyard_copy_build`)}</a></span><span v-show="loadFleetShow(${i})"> | <a class="loadFleet" @click="loadFleet(${i})" role="button">${loc('outer_shipyard_fleet_template_load')}</a></span><a class="fleetFold" v-show="fleetFoldShow(${i})" @click="fleetFold(${i})" role="button" :aria-expanded="fleetFolded(${i}) ? 'false' : 'true'" :aria-label="fleetFoldLabel(${i})"><span class="groupArrow" v-html="fleetArrow(${i})"></span></a><span v-show="fleetTag(${i})" class="flagship" v-html="fleetTag(${i})"></span><span v-show="fleetShow(${i})"> | <a class="fleetToggle" @click="fleetAction(${i})" role="button" v-html="fleetText(${i})"></a></span> | `);
             row1.append(`<span class="shipStat" v-show="!isUnarmed(${i})"><span class="has-text-warning">${loc(`firepower`)}</span> <span class="pad" v-html="fireText(${i})"></span></span><wbr>`);
             row1.append(`<span class="shipStat"><span class="has-text-warning">${loc(`outer_shipyard_sensors`)}</span> <span class="pad" v-html="sensorText(${i})"></span></span><wbr>`);
             row1.append(`<span class="shipStat"><span class="has-text-warning">${loc(`speed`)}</span> <span class="pad" v-html="speedText(${i})"></span></span><wbr>`);
@@ -9064,26 +9476,18 @@ function drawShipRow(list,i,ship,regionNames){
                         buildQueue();
                     }
                 },
-                // Offered on a flagship only, and only with the copy controls on: a fleet is named
-                // by the ship leading it, so that row is where "another one of these" belongs.
-                copyFleetShow(id){
-                    let s = global.space.shipyard.ships[id];
-                    return global.space.shipyard['copy'] && global.tech['syard_fleet'] && s && s.flag && s.fid ? true : false;
+                // Show Load Fleet for a flagship while Copy Controls are enabled.
+                loadFleetShow(id){
+                    let ship = global.space.shipyard.ships[id];
+                    return global.space.shipyard.copy && ship && ship.flag && ship.fid ? true : false;
                 },
-                // Queue a sister ship for every hull in the fleet, flagship included.
-                copyFleet(id){
-                    let s = global.space.shipyard.ships[id];
-                    if (!s || !s.fid){ return; }
-                    let queued = 0;
-                    let members = fleetMembers(s.fid);
-                    for (let m=0; m<members.length; m++){
-                        if (!queueTPShip(copyShipDesign(members[m]))){ break; }
-                        queued++;
-                    }
-                    if (queued > 0){
-                        buildQueue();
-                        messageQueue(loc('outer_shipyard_copy_fleet_msg',[queued,members.length]),'info',false,['progress']);
-                    }
+                loadFleet(id){
+                    let flagship = global.space.shipyard.ships[id];
+                    if (!flagship || !flagship.flag || !flagship.fid){ return; }
+                    let members = fleetMembers(flagship.fid);
+                    let template = fleetTemplate();
+                    template.splice(0, template.length, copyShipDesign(flagship), ...members.filter(ship => ship !== flagship).map(copyShipDesign));
+                    openFleetDesigner(this.$buefy.modal, copyShipDesign(flagship));
                 },
                 // Only at a yard, and only while actually docked there rather than crossing to it.
                 scrapAllowed(id){
@@ -9395,10 +9799,10 @@ export function syndicate(region,extra){
 
             if (region === 'spc_enceladus' && Math.min(support_on['operating_base'],p_on['operating_base']) > 0){
                 let active = Math.min(support_on['operating_base'],p_on['operating_base']);
-                patrol += active * 50;
+                patrol += hugeAdjust(active) * 50;
             }
             else if (region === 'spc_titan' && p_on['sam'] > 0){
-                patrol += p_on['sam'] * 25;
+                patrol += hugeAdjust(p_on['sam']) * 25;
             }
             else if (region === 'spc_triton' && p_on['fob'] > 0){
                 patrol += 500;
@@ -9731,9 +10135,9 @@ export function erisWar(){
             global.space.digsite.enemy += Math.rand(25,upper);
         }
 
-        let offense = armyRating(support_on['shock_trooper'],'army',0);
+        let offense = armyRating(hugeAdjust(support_on['shock_trooper']),'army',0);
         if (support_on['tank']){
-            offense += support_on['tank'] * 100;
+            offense += hugeAdjust(support_on['tank']) * 100;
         }
         offense *= syndicate('spc_eris');
 
@@ -9843,7 +10247,7 @@ export function tpStorageMultiplier(type,heavy,wiki){
         {
             let titan_spaceport_on = wiki ? (global.space?.titan_spaceport?.on ?? 0) : p_on['titan_spaceport'];
             if (titan_spaceport_on){
-                multiplier *= 1 + (titan_spaceport_on * 0.25);
+                multiplier *= 1 + hugeAdjust(titan_spaceport_on * 0.25);
             }
             if (heavy && global.tech['shelving']){
                 multiplier *= 2;
@@ -9864,7 +10268,9 @@ export function tpStorageMultiplier(type,heavy,wiki){
         break;
         case 'warehouse':
         {
-            // Do Nothing so far
+            if (global.underground['storage_space_perk']){
+                multiplier *= 1 + (0.08 * global.underground['storage_space_perk'].count);
+            }
         }
     }
     return multiplier;
@@ -10537,6 +10943,7 @@ export function calcAIDrift(wiki){
     if (tank_on){
         drift += tank_on * 2;
     }
+    drift = hugeScale(drift);
     if (drift > 100){
         drift = 100;
     }

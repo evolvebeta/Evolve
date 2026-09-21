@@ -4,7 +4,7 @@ import { encodeExportString, decodeExportString, decodeSaveString } from './save
 import { loc, lastLocalization } from './locale.js';
 import { races, traits, genus_def, traitSkin, fathomCheck, geneBonus, geneFlat, geneVars, rankTier, traitRank} from './races.js';
 import { actions, actionDesc } from './actions.js';
-import { jobScale, jobStack } from './jobs.js';
+import { jobScale, jobStack, hugeScale } from './jobs.js';
 import { universe_affixes } from './space.js';
 import { arpaAdjustCosts, arpaProjectCosts } from './arpa.js';
 import { gridDefs } from './industry.js';
@@ -369,7 +369,31 @@ window.exportGame = function exportGame(){
     return encodeExportString(global);
 }
 
-// fromStorage marks data that came out of localStorage 
+// Remove quotes from message colors before they are used in CSS classes.
+function scrubColor(msg){
+    if (msg && typeof msg === 'object' && typeof msg.c === 'string'){
+        msg.c = msg.c.replaceAll('"', '');
+    }
+}
+
+// Sanitize both legacy message arrays and named message queues.
+function scrubMsgColors(lastMsg){
+    if (Array.isArray(lastMsg)){
+        lastMsg.forEach(scrubColor);
+    }
+    else if (lastMsg && typeof lastMsg === 'object'){
+        if (typeof lastMsg.m === 'string'){
+            scrubColor(lastMsg);
+        }
+        else {
+            for (const queue in lastMsg){
+                if (Array.isArray(lastMsg[queue])){ lastMsg[queue].forEach(scrubColor); }
+            }
+        }
+    }
+}
+
+// fromStorage marks data that came out of localStorage
 window.importGame = function importGame(data,fromStorage){
     let saveState;
     try {
@@ -401,21 +425,8 @@ window.importGame = function importGame(data,fromStorage){
                 saveState.stats.know -= 5000000;
             }
         }
-        // prevent invalid message colors from escaping class attribute
-        if (Array.isArray(saveState.lastMsg)){
-            // Legacy save file: prior to v1.1.4
-            for (let i = 0; i < saveState.lastMsg.length; i++){
-                saveState.lastMsg[i].c = saveState.lastMsg[i].c.replaceAll('"', '');
-            }
-        }
-        else {
-            // Save file from v1.1.4 or newer
-            for (const msgQueue in saveState.lastMsg){
-                for (const msg of saveState.lastMsg[msgQueue]){
-                    msg.c = msg.c.replaceAll('"', '');
-                }
-            }
-        }
+        // Sanitize message colors before saving imported data.
+        scrubMsgColors(saveState.lastMsg);
         // Smart detection of touch device
         saveState.settings['touch'] = touchDevice();
         writeSave(saveState);
@@ -570,8 +581,8 @@ export function initMessageQueue(filters){
     filters.forEach(function (filter){
         message_logs[filter] = [];
         if (!global.settings.msgFilters[message_logs.view].vis){
-            $(`#msgQueueFilter-${message_logs.view}`).removeClass('is-active').attr('aria-disabled', 'false');
-            $(`#msgQueueFilter-${filter}`).addClass('is-active').attr('aria-disabled', 'true');
+            $(`#msgQueueFilter-${message_logs.view}`).removeClass('is-active').attr('aria-checked', 'false').attr('tabindex', '-1');
+            $(`#msgQueueFilter-${filter}`).addClass('is-active').attr('aria-checked', 'true').attr('tabindex', '0');
             message_logs.view = filter;
         }
     });
@@ -1223,12 +1234,12 @@ export function spaceCostMultiplier(action,offset,base,multiplier,sector,c_min){
 }
 
 export function commonCostMultiplier(action,offset,base,multiplier,sector,count){
-    count = count ? (action === 'citizen' ? global['resource'][global.race.species].amount : global[sector][action]?.count || 0) : 0;
-    if (global.race['humongous']){
-        if (count > 0){ //first building of any kind is unaffected by humongous
-            base *= traits.humongous.vars()[1];
-            multiplier *= traits.humongous.vars()[1];
-            count--; //first building does not contribute to cost/creep for humongous
+    if (global.race['humongous'] && sector !== 'starDock' && action !== 'soul_capacitor' && action !== 'fob'){
+        if (count > 0){ //does not apply to first building of each type
+            let mult_total = ((multiplier ** hugeScale(1)) - 1) / (multiplier - 1); //total combined cost multiplier of hugeScale(1) buildings
+            base *= ((mult_total - 3) / 2) + 3; //multiply building cost by half the total cost multiplier of the next hugeScale(1) buildings
+            //cost creep progresses faster based on humongous rank
+            multiplier = multiplier ** hugeScale(1);
         }
     }
     return {action:action, offset:offset, base:base, multiplier:multiplier, sector:sector, count:count };
@@ -1886,28 +1897,28 @@ export function timeFormat(time){
     return formatted;
 }
 
-export function powerModifier(energy){
+export function powerModifier(energy, mega){
     if (global.race.universe === 'antimatter'){
         energy *= darkEffect('antimatter');
-        energy = +energy.toFixed(2);
     }
     if (astrologySign() === 'leo'){
         energy *= 1 + (astroVal('leo')[0] / 100);
-        energy = +energy.toFixed(2);
     }
     if (global.underground['core_tap_perk']){
         energy *= 1 + (global.underground['core_tap_perk'].count / 100);
-        energy = +energy.toFixed(2);
     }
-    return energy;
+    //megaprojects and other similar structures are exempt from extra power with Humongous
+    if (mega) { return +(energy).toFixed(2); }
+    return +(hugeAdjust(energy)).toFixed(2);
 }
 
-export function powerCostMod(energy){
+export function powerCostMod(energy, mega){
     if (global.race['emfield']){
         energy *= 1.5;
     }
     // Frostbound: the polar genus runs its buildings colder.
     energy *= 2 - geneBonus('frostbound');
+    energy *= (mega || !global.race['humongous']) ? 1 : hugeAdjust(1);
     return +(energy).toFixed(2);
 }
 
@@ -3922,26 +3933,26 @@ export function getShrineBonus(type) {
 			case 'metal':
                 let metal = global.city.shrine.metal;
                 if ((global.city.calendar.moon >= 7 && global.city.calendar.moon < 14) || global.city.calendar.moon === 14){ metal += global.city.shrine.cycle; }
-				shrine_bonus.mult += +(metal / 100 * traits.magnificent.vars()[3]);
+				shrine_bonus.mult += +hugeAdjust(metal / 100 * traits.magnificent.vars()[3]);
                 if (metal > 0){ shrine_bonus.active = true; }
 				break;
 			case 'tax':
                 let tax = global.city.shrine.tax;
                 if (global.city.calendar.moon >= 21 || global.city.calendar.moon === 14){ tax += global.city.shrine.cycle; }
-				shrine_bonus.mult += +(tax / 100 * traits.magnificent.vars()[2]);
+				shrine_bonus.mult += +hugeAdjust(tax / 100 * traits.magnificent.vars()[2]);
                 if (tax > 0){ shrine_bonus.active = true; }
 				break;
 			case 'know':
                 let know = global.city.shrine.know;
                 if ((global.city.calendar.moon > 14 && global.city.calendar.moon <= 21) || global.city.calendar.moon === 14){ know += global.city.shrine.cycle; }
                 shrine_bonus.add += +hugeAdjust(know * traits.magnificent.vars()[0]);
-                shrine_bonus.mult += +(know * traits.magnificent.vars()[1] / 100);
+                shrine_bonus.mult += +hugeAdjust(know * traits.magnificent.vars()[1] / 100);
                 if (know > 0){ shrine_bonus.active = true; }
 				break;
 			case 'morale':
                 let morale = global.city.shrine.morale;
                 if ((global.city.calendar.moon > 0 && global.city.calendar.moon <= 7) || global.city.calendar.moon === 14){ morale += global.city.shrine.cycle; }
-				shrine_bonus.add += morale * traits.magnificent.vars()[4];
+				shrine_bonus.add += hugeAdjust(morale * traits.magnificent.vars()[4]);
                 if (morale > 0){ shrine_bonus.active = true; }
 				break;
 			default:
