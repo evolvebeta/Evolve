@@ -1,8 +1,8 @@
 import { $ } from './dom.js';
-import { global, save, message_logs, message_filters, webWorker, keyMultiplier, intervals, resizeGame, atrack, p_on, quantum_level, tmp_vars, touchDevice, writeSave } from './vars.js';
+import { global, save, message_logs, message_filters, webWorker, keyMultiplier, intervals, resizeGame, atrack, p_on, quantum_level, tmp_vars, touchDevice, writeSave, convertVersion } from './vars.js';
 import { encodeExportString, decodeExportString, decodeSaveString } from './save.js';
 import { loc, lastLocalization } from './locale.js';
-import { races, traits, genus_def, traitSkin, fathomCheck, geneBonus, geneFlat, geneVars, rankTier, traitRank} from './races.js';
+import { races, traits, genus_def, traitSkin, fathomCheck, geneBonus, geneFlat, geneVars, rankTier, traitRank, geneBaseOf} from './races.js';
 import { actions, actionDesc } from './actions.js';
 import { jobScale, jobStack, hugeScale } from './jobs.js';
 import { universe_affixes } from './space.js';
@@ -447,6 +447,9 @@ export function techEra(c_action){
 // not just whichever one happens to be active in the loaded save.
 export function techInEra(c_action,era){
     if (!c_action || era === undefined){ return false; }
+    if (Array.isArray(c_action.era) && era === 'globalized' && c_action.era.includes('glacial')){
+        return false; //some ice age techs are moved from globalized into glacial and would show up on both sections on the wiki. This is a bandaid fix.
+    }
     return Array.isArray(c_action.era) ? c_action.era.includes(era) : c_action.era === era;
 }
 
@@ -1040,7 +1043,7 @@ export function genCivName(alt){
 export function costMultiplier(structure,offset,base,multiplier,cat){
     // Frugal: the small genus needs less of everything to put a roof up.
     if (['basic_housing','cottage','apartment'].includes(structure)){
-        base = base * (2 - geneBonus('frugal'));
+        base *= geneBonus('frugal', false, true);
     }
     if (!cat){
         cat = 'city';
@@ -1825,7 +1828,7 @@ export function powerCostMod(energy, mega){
         energy *= 1.5;
     }
     // Frostbound: the polar genus runs its buildings colder.
-    energy *= 2 - geneBonus('frostbound');
+    energy *= geneBonus('frostbound', false, true);
     energy *= (mega || !global.race['humongous']) ? 1 : hugeAdjust(1);
     return +(energy).toFixed(2);
 }
@@ -2801,7 +2804,7 @@ function lMatAdjust(costs, c_action, args){
         let path = c_action.hasOwnProperty('struct') ? c_action.struct().p : false;
         Object.keys(costs).forEach(function (res){
             if (path && global[path[1]].hasOwnProperty(path[0]) && global[path[1]][path[0]].hasOwnProperty('l_m') 
-                && (['Lumber','Furs','Plywood'].includes(res) || (res === 'Stone' && global.race['sappy']))){
+                && (['Lumber','Furs','Plywood'].includes(res) || (res === 'Stone' && global.race['sappy'] && !global.race['iceage']))){
                 newCosts[res] = function(){ return Math.round(costs[res](args) * traits.living_materials.vars()[0] ** (global[path[1]][path[0]].l_m / 25)); }
             }
             else {
@@ -3875,11 +3878,11 @@ export function getShrineBonus(type) {
 }
 
 const valAdjust = {
-    promiscuous: false,
     tireless: true,
     revive: false,
     fast_growth: false,
     spores: false,
+    parasite: false,
     terrifying: false,
     fibroblast: true,
     hivemind: true,
@@ -3900,7 +3903,8 @@ const valAdjust = {
     environmentalist: true,
     catnip: true,
     anise: true,
-    musical: true
+    musical: true,
+    wooly: true
 };
 
 function getTraitVals(trait, rank, species){
@@ -3910,8 +3914,8 @@ function getTraitVals(trait, rank, species){
         if (trait === 'fibroblast'){
             vals = [vals[0] * 5];
         }
-        else if (trait === 'hivemind' && global.race['high_pop']){
-            vals = [vals[0] * traits.high_pop.vars()[0]];
+        else if (trait === 'hivemind' && (global.race['high_pop'] || global.race['humongous'])){
+            vals = [Math.floor(hugeAdjust(jobScale(vals[0])))];
         }
         else if (trait === 'imitation'){
             vals.push(races[global.race['srace'] || 'protoplasm'].name);
@@ -3967,6 +3971,9 @@ function getTraitVals(trait, rank, species){
         }
         else if (trait === 'musical' && global.race['iceage']){
             vals = [+(vals[0] / 3).toFixed(1)];
+        }
+        else if(trait === 'wooly' && (global.race['high_pop'] || global.race['humongous'])){
+            vals = [+(vals[0] / jobScale(1)).toFixed(2), Math.floor(hugeAdjust(jobScale(vals[1])))];
         }
         else if (!valAdjust[trait]){
             vals = [];
@@ -4124,7 +4131,13 @@ const traitExtra = {
         loc(`wiki_trait_effect_unfathomable_ex2`)
     ],
     nostalgic: [
-        loc(`wiki_trait_effect_logical_ex1`)
+        loc(`wiki_trait_effect_logical_ex1`,[
+            global.tech.hasOwnProperty('science') ? global.tech.science : 0,
+            global.tech.hasOwnProperty('high_tech') ? global.tech.high_tech : 0
+        ])
+    ],
+    humongous: [
+        `<span class="has-text-danger">${loc(`wiki_trait_effect_humongous_ex1`)}</span>`
     ]
 };
 
@@ -4150,7 +4163,8 @@ const altTraitDesc = {
     blurry: 'warlord',
     ghostly: 'warlord',
     playful: 'warlord',
-    musical: 'iceage'
+    musical: 'iceage',
+    sappy: 'iceage'
 };
 
 export function getTraitDesc(info, trait, opts){
@@ -4174,18 +4188,21 @@ export function getTraitDesc(info, trait, opts){
     }
     if (tpage || rpage){
         info.append(`<div class="type"><h2 class="has-text-warning">${traitName}</h2>${rank}</div>`);
-        if (tpage && traits[trait].hasOwnProperty('val')){
-            info.append(`<div class="type has-text-caution">${loc(`wiki_trait_${traits[trait].type}`)}<span>${loc(`wiki_trait_value`,[traits[trait].val])}</span></div>`);
-        }
-        else {
-            if (traits[trait].type === 'minor'){
-                let base = traits[trait].base;
-                info.append(`<div class="type"><span class="has-text-caution">${loc(`wiki_trait_minor`)} <span class="pickBase base${base}">${base}</span></span></div>`);
-            }
-            else{
-                info.append(`<div class="type has-text-caution">${loc(`wiki_trait_${traits[trait].type}`)}</div>`);
-            }
-        }
+
+        let base = geneBaseOf(trait);
+        let baseHtml = base ? `<span class="pickBase base${base}">${base}</span>` : `<span class="pickBase baseNone">&middot;</span>`;
+        let val = traits[trait].val;
+        let valHtml = (tpage && val) ? `<span>${loc(`wiki_trait_value`,[val])}</span>` : '';
+
+        info.append(String.raw
+            `<div class="type">
+                <span class="has-text-caution">
+                    ${loc(`wiki_trait_${traits[trait].type}`)} 
+                    ${baseHtml}
+                </span>
+                ${valHtml}
+            </div>`);
+
         if (fanatic){
             info.append(`<div class="has-text-danger">${loc(`wiki_trait_fanaticism`,[fanatic])}</div>`);
         }
