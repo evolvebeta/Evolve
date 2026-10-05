@@ -21,6 +21,7 @@ import { autoRefuelShip, shipCrewSize, sensorRange, shipCosts, buildTPShipQueue,
          tankerRefuel, repairShipYards, supplyShipElerium, seedStarterSupplyRoutes, shipMoving, shipPort, shipDockedAt,
          shipBound, refreshDock } from './ships.js';
 import { genXYZcoord, randomCoord, advanceSolarMap, paintSolarMap, mapAhead, mapPaintsOn, syncMapFrames } from './stars.js';
+import { logiConst, logisticsActive, startLogistics, logisticsDay, logisticsClaim, logisticsShareMult } from './logistics.js';
 import { arpa, buildArpa, sequenceLabs } from './arpa.js';
 import { events, eventList, rollEvent } from './events.js';
 import { defineGovernor, govern, govActive, removeTask } from './governor.js';
@@ -186,6 +187,8 @@ document.addEventListener('mousemove', (e) => {
     });
 });
 
+// Decided before index() draws the tabs, so an upgraded save with genetics opens on the genetics tab.
+const upgradeNotice = upgrade15Notice();
 index();
 var revision = global['revision'] ? global['revision'] : '';
 if (global['beta']){
@@ -230,9 +233,8 @@ if (global.genes['geneReset'] && !global.genes.geneReset['found']){
 if (global.genes['evolveReprice'] && !global.genes.evolveReprice['told']){
     let back = global.genes.evolveReprice.p || 0;
     if (back > 0){
-        let bank = global.race.universe === 'antimatter'
-            ? loc('resource_AntiPlasmid_plural_name') : loc('resource_Plasmid_plural_name');
-        messageQueue(loc('arpa_evolve_reprice',[back,bank]),'success',false,['progress']);
+        // The refund is always paid in Plasmids (see the evolveReprice migration in vars.js).
+        messageQueue(loc('arpa_evolve_reprice',[back,loc('resource_Plasmid_plural_name')]),'success',false,['progress']);
     }
     global.genes.evolveReprice['told'] = true;
 }
@@ -244,6 +246,64 @@ if (global.genes['geneReset'] && !global.genes.geneReset['told']){
         messageQueue(loc('arpa_gene_refund',[r.p,loc('resource_Phage_name'),r.g,loc('resource_Genes_name')]),'success',false,['progress']);
     }
     global.genes.geneReset['told'] = true;
+}
+
+if (upgradeNotice){ drawUpgradeModal(upgradeNotice); }
+
+// Returns the one-time notice for a pre-1.5 save, or false for other saves.
+function upgrade15Notice(){
+    if (!global['upgrade15']){ return false; }
+    delete global['upgrade15'];
+    const reset = global.genes['geneReset'] || {};
+    const reprice = global.genes['evolveReprice'] || {};
+    const notice = {
+        phage: Number(reset.p) || 0,
+        genes: Number(reset.g) || 0,
+        plasmid: Number(reprice.p) || 0,
+        genetics: global.settings.arpa && global.settings.arpa.genetics ? true : false
+    };
+    if (notice.genetics){
+        // The genetics tab, under ARPA, paused (the migration has already paused every pre-1.5 save).
+        global.settings.civTabs = 5;
+        global.settings.arpa.arpaTabs = 1;
+        global.settings.pause = true;
+    }
+    return notice;
+}
+
+function drawUpgradeModal(notice){
+    let lines = ``;
+    if (notice.phage > 0 || notice.genes > 0){
+        lines += `<p class="offlineMsg">${loc('arpa_gene_refund',[notice.phage,loc('resource_Phage_name'),notice.genes,loc('resource_Genes_name')])}</p>`;
+    }
+    if (notice.plasmid > 0){
+        lines += `<p class="offlineMsg">${loc('arpa_evolve_reprice',[notice.plasmid,loc('resource_Plasmid_plural_name')])}</p>`;
+    }
+    // Pre-1.5 saves are paused; genetics saves also explain the reprice.
+    if (notice.genetics){
+        lines += `<p class="offlineMsg has-text-caution">${loc('upgrade15_genetics',[loc(global.race['artifical'] ? 'tab_arpa_machine' : 'tab_arpa_genetics')])}</p>`;
+    }
+    else {
+        lines += `<p class="offlineMsg has-text-caution">${loc('upgrade15_paused')}</p>`;
+    }
+    $('#upgradeModal').remove();
+    let overlay = $(`<div id="upgradeModal"><div class="offlineBox">`
+        + `<p class="offlineTitle has-text-warning">${loc('upgrade15_title')}</p>`
+        + `<p class="offlineMsg">${loc('upgrade15_intro')}</p>`
+        + lines
+        + `<button id="upgradeClose" class="button">${loc('offline_time_close')}</button>`
+        + `</div></div>`);
+    $('body').append(overlay);
+    let close = function(){
+        overlay.remove();
+        $(document).off('keydown.upgradeModal');
+    };
+    overlay.on('click touchend', '#upgradeClose', function(e){ e.preventDefault(); close(); });
+    overlay.on('click touchend', function(e){ if (e.target === overlay[0]){ close(); } });
+    $(document).on('keydown.upgradeModal', function(e){ if (e.key === 'Escape'){ close(); } });
+    // A paused game does not reach the save in the loop, so the cleared flag is written now; otherwise every
+    // reload before unpausing would show this again.
+    writeSave();
 }
 
 if (global.lastMsg){
@@ -875,6 +935,14 @@ if (global.race.species === 'protoplasm'){
 else {
     if (global.portal.hasOwnProperty('soul_forge') && global.portal.soul_forge.on){
         p_on['soul_forge'] = 1;
+    }
+    if (global.surface['nuclear_heater_complete']){
+        //nuclear heater can be turned off during the thruster reset but the "launch thruster" button won't vanish during the reset.
+        //update the launch thruster button to vanish after loading a backup if the nuclear heater was disabled.
+        if (global.tech['thrusters'] >= 5){
+            global.tech['thrusters'] = 5;
+        }
+        actions.surface.thruster_site.nuclear_heater_complete.postPower(global.surface['nuclear_heater_complete'].on);
     }
     setMoonPhase();
     setWeather();
@@ -1622,11 +1690,16 @@ function fastLoop(){
     // Apply a pooled resource change and optionally record source pools.
     function applyShare(res, amount, share, mult, drawn){
         const m = mult === undefined ? 1 : mult;
-        if (!partitioned(res)){ return modRes(res, amount * m); }
+        // Output still goes through the tally under logistics, so each world's share is scaled by its own.
+        if (!partitioned(res) && !(amount >= 0 && logisticsActive())){ return modRes(res, amount * m); }
         if (amount >= 0){
             const tally = zoneTally();
             for (const zone in share){ tally.add(zone, amount * share[zone]); }
-            return tally.apply(res, mult);
+            const applied = tally.apply(res, mult);
+            // One source pooled over several worlds: its breakdown line shows the blended penalty.
+            // Only real output claims: a zero draw (-0 passes the check above) would take another source's line.
+            if (amount > 0 && logisticsActive() && !partitioned(res)){ logisticsClaim(res, logisticsShareMult(share)); }
+            return applied;
         }
         // Apply a pooled cost to reachable zones and report any shortage.
         const owed = {};
@@ -2705,11 +2778,20 @@ function fastLoop(){
         }
 
         // Support grids
+        // support_on is keyed by bare structure name, which two regions can share: Titan's graphene plant
+        // and Alpha Centauri's are both g_factory. A grid whose consumer is not built in its own region
+        // must not zero a same-named structure that stands in another, which another grid has switched on.
+        const builtElsewhere = function(consumer){
+            return ['space','interstellar','galaxy','portal','tauceti','eden','underground','surface']
+                .some(region => region !== consumer.region && global[region]?.[consumer.struct]);
+        };
         Object.values(structureGrids.support).forEach(function(group){
             const anchor = group.anchor;
             const anchorState = anchor && global[anchor.region][anchor.struct];
             if (!anchorState){
-                group.consumers.forEach(function(consumer){ support_on[consumer.struct] = 0; });
+                group.consumers.forEach(function(consumer){
+                    if (!builtElsewhere(consumer)){ support_on[consumer.struct] = 0; }
+                });
                 return;
             }
 
@@ -2754,9 +2836,15 @@ function fastLoop(){
                 const consumer = structureGrids.entries.get(key);
                 if (!consumer){ return; }
                 const state = global[consumer.region][consumer.struct];
-                if (!state){ support_on[consumer.struct] = 0; return; }
+                if (!state){
+                    if (!builtElsewhere(consumer)){ support_on[consumer.struct] = 0; }
+                    return;
+                }
                 const supportSize = Math.max(0,-consumer.c_action.support());
                 let active = state.on || 0;
+                if (global.power.includes(key)){
+                    active = Math.min(state.on, p_on[consumer.struct]);
+                }
                 if (!group.unlimited && supportSize > 0){
                     active = Math.min(active,Math.max(0,Math.floor((capacity - used) / supportSize)));
                 }
@@ -3161,7 +3249,7 @@ function fastLoop(){
                     }
                     tenders = hugeAdjust(tenders);
                     let tended = 1 + (tenders * job_data.gardener.boost() / 100);
-                    stress_level += support_on['botanical'] * actions.space.spc_red.botanical.calm * tended;
+                    stress_level += hugeAdjust(support_on['botanical']) * actions.space.spc_red.botanical.calm * tended;
                 }
                 if (global.city.ptrait.includes('dense') && job === 'miner'){
                     stress_level -= planetTraits.dense.vars()[1];
@@ -3967,6 +4055,9 @@ function fastLoop(){
                 }
             }
 
+            // Everything above is grown at the capital; the Tau Ceti farm's own call must not claim it.
+            logisticsClaim('Food', supplyRegionKey('city'));
+
             if (global.tauceti['tau_farm'] && p_on['tau_farm']){
                 let colony_val = 1 + hugeAdjust((support_on['colony'] || 0) * 0.5);
                 let food_base = production('tau_farm','food') * p_on['tau_farm'] * production('psychic_boost','Food');
@@ -4070,7 +4161,6 @@ function fastLoop(){
             if (global.race['high_pop']){
                 food_consume_mod /= traits.high_pop.vars()[0];
             }
-            food_consume_mod = hugeAdjust(food_consume_mod);
             let banquet = 1;
             if(global.city.banquet){
                 if(global.city.banquet.on){
@@ -4094,8 +4184,8 @@ function fastLoop(){
             if(!global.race['fasting']){
                 // An idle citizen normally feeds itself halfway; a grazer feeds itself entirely.
                 let idle_fed = global.race['grazer'] ? 1 : 0.5;
-                consume = (global.resource[global.race.species].amount + soldiers
-                    - (global.civic.unemployed.workers * idle_fed)
+                consume = hugeAdjust((global.resource[global.race.species].amount) + soldiers
+                    - hugeAdjust(global.civic.unemployed.workers * idle_fed)
                     - (workerScale(global.civic.hunter.workers,'hunter') * 0.5)) * food_consume_mod;
                 if (global.race['forager']){
                     consume -= global.civic.forager.workers;
@@ -4189,6 +4279,14 @@ function fastLoop(){
 
             let delta = grownAt.total();
 
+            // The pooled food sources sit on different worlds, so each line is noted for its own.
+            const biodomeLabel = actions.space.spc_red.biodome.title();
+            const nitrogenLabel = actions.space.spc_venus.nitrogen_harvester.title();
+            logisticsClaim('Food', function(label){
+                if (label === biodomeLabel){ return supplyZone('space:biodome'); }
+                if (label === nitrogenLabel){ return supplyZone('space:nitrogen_harvester'); }
+                return supplyRegionKey('city');
+            });
             const foodApplied = grownAt.apply('Food', time_multiplier);
             const starvingPools = grownAt.shortagePools();
             const localStarvation = supplyMode() === 'regional' && starvingPools.length > 0;
@@ -4922,7 +5020,7 @@ function fastLoop(){
             global.city.factory.cap = max_factories;
 
             let assembly = global.tech['factory'] || 0;
-            let tauBonus = global.tech['isolation'] ? 1 + ((support_on['colony'] || 0) * 0.5) : 1;
+            let tauBonus = global.tech['isolation'] ? 1 + hugeAdjust((support_on['colony'] || 0) * 0.5) : 1;
 
             // Use active factory-line shares for pooled production and costs.
             const factoryAt = industryShares(factoryData.capacityByZone());
@@ -5830,8 +5928,9 @@ function fastLoop(){
                     }
                     delta *= shrineMetal.mult * mworks.Titanium;
                     let divisor = global.tech['titanium'] >= 3 ? 10 : 25;
-                    applyShare('Titanium', (delta / divisor) * geneBonus('assayer'), smelterAt, time_multiplier);
+                    // The line first, so the logistics note the output adds lands under it.
                     bdShare('Titanium', loc('resource_Steel_name'), titanium / divisor, smelterAt);
+                    applyShare('Titanium', (delta / divisor) * geneBonus('assayer'), smelterAt, time_multiplier);
                 }
             }
         }
@@ -6820,17 +6919,8 @@ function fastLoop(){
             if(global[building.r][building.b]){
                 let c_action = actions[building.r][building.r2][building.b];
                 let max_active = 0;
-                let type = false;
                 if(c_action.hasOwnProperty('powered')){
                     max_active = global[building.r]?.[building.b]?.on || 0;
-                }
-                else if(p_on.hasOwnProperty(building.b)){
-                    max_active = p_on[building.b];
-                    type = 'p_on';
-                }
-                else{
-                    max_active = support_on[building.b] || 0;
-                    type = 'support_on';
                 }
                 let active = max_active;
                 let fuels = c_action.support_fuel();
@@ -6843,12 +6933,9 @@ function fastLoop(){
                         global.resource[consume].amount / (cost * time_multiplier),
                         max_active,
                         active));
-                    if(type === 'p_on'){
-                        modRes(consume, -(p_on[building.b] * cost * time_multiplier));
-                        p_on[building.b] = active;
-                    }
-                    else{
-                        modRes(consume, -(support_on[building.b] * cost * time_multiplier));
+                    modRes(consume, -(active * cost * time_multiplier));
+                    p_on[building.b] = active;
+                    if(c_action.hasOwnProperty('support')){
                         support_on[building.b] = active;
                     }
                 });
@@ -7361,6 +7448,16 @@ function fastLoop(){
                     breakdown.p['Iron'][loc('space_metalworks_title')] = ((mworks.Iron - 1) * 100).toFixed(1) + '%';
                 }
 
+                // The pooled iron sources sit on different worlds, so each line is noted for its own,
+                // before the foragers' own call below could claim them.
+                const ironZones = {
+                    [job_data.space_miner.name()]: supplyZone('space:iron_ship'),
+                    [job_data.pit_miner.name()]: supplyZone('tauceti:mining_pit'),
+                    [loc('tau_red_womlings')]: supplyZone('tauceti:womling_mine'),
+                    [loc('tau_roid_mining_ship')]: supplyZone('tauceti:mining_ship')
+                };
+                logisticsClaim('Iron', label => ironZones[label] || supplyRegionKey('city'));
+
                 if (global.race['forager'] && global.tech['dowsing']){
                     let forage = global.tech.dowsing >= 2 ? 2 : 1;
                     let foragers = workerScale(global.civic.forager.workers,'forager');
@@ -7395,7 +7492,7 @@ function fastLoop(){
                 if (global.tech['titanium'] && global.tech['titanium'] >= 2){
                     let labor_base = highPopAdjust(workerScale(global.civic.miner.workers,'miner')) / 4;
                     if(support_on['iron_ship']){
-                        labor_base += support_on['iron_ship'] / 2;
+                        labor_base += hugeAdjust(support_on['iron_ship']) / 2;
                     }
                     let iron = labor_base * iron_smelter * 0.1;
                     delta = iron * global_multiplier;
@@ -7410,8 +7507,9 @@ function fastLoop(){
                     }
                     delta *= shrineMetal.mult * mworks.Titanium * production('psychic_boost','Titanium');
                     let divisor = global.tech['titanium'] >= 3 ? 10 : 25;
-                    modRes('Titanium', ((delta * time_multiplier) / divisor) * geneBonus('assayer'), false, supplyRegionKey('city'));
+                    // The line first, so the logistics note the output adds lands under it.
                     breakdown.p['Titanium'][loc('resource_Iron_name')] = (iron / divisor) + 'v';
+                    modRes('Titanium', ((delta * time_multiplier) / divisor) * geneBonus('assayer'), false, supplyRegionKey('city'));
                 }
             }
 
@@ -7885,6 +7983,14 @@ function fastLoop(){
             }
 
             breakdown.p['Oil'][loc('hunger')] = ((hunger - 1) * 100) + '%';
+            // The pooled oil sources sit on different worlds, so each line is noted for its own.
+            const oilZones = {
+                [loc('space_gas_moon_oil_extractor_title')]: supplyZone('space:oil_extractor'),
+                [loc('underground_oil_pump')]: supplyZone('industry:oil_pump'),
+                [loc('tau_roid_whaling_ship')]: supplyZone('tauceti:whaling_ship')
+            };
+            const oilHome = global.race['warlord'] ? supplyZone('portal:pumpjack') : supplyRegionKey('city');
+            logisticsClaim('Oil', label => oilZones[label] || oilHome);
             oilAt.apply('Oil', time_multiplier * geneBonus('resilient') * geneBonus('abyssal'));
         }
 
@@ -8760,7 +8866,7 @@ function fastLoop(){
         let rawCash = FactoryMoney ? FactoryMoney * global_multiplier * hunger : 0;
         if (FactoryMoney && global.race['discharge'] && global.race['discharge'] > 0){rawCash *= 0.5;}
         if (global.tech['currency'] >= 1){
-            let citizens = hugeAdjust(global.resource[global.race.species].amount) + global.civic.garrison.workers - global.civic.unemployed.workers;
+            let citizens = hugeAdjust(global.resource[global.race.species].amount) + global.civic.garrison.workers - hugeAdjust(global.civic.unemployed.workers);
             let income_base = citizens;
             if (global.race['high_pop']){
                 income_base = highPopAdjust(income_base);
@@ -9483,6 +9589,12 @@ function midLoop(){
         }
         else if (zoneChange === 'fragment'){
             messageQueue(loc('supply_fragment'),'warning',false,['progress']);
+        }
+        // The Shadow War cuts the supply lines with Syndicate Threat Analysis; every world drops to its
+        // starting logistics. Started here rather than in the research, so a save already past it catches up.
+        if (global.race['truepath'] && global.tech['shadow'] >= 5 && startLogistics()){
+            messageQueue(loc('logistics_start',[logiConst.start,logiConst.tauStart]),'warning',false,['progress']);
+            drawResourceTab('supply_zones');
         }
 
         // Track storage capacity by its supplying zone.
@@ -10442,7 +10554,7 @@ function midLoop(){
         }
 
         if (global.space['seismic'] && global.space.seismic.count > 0){
-            let gain = (p_on['seismic'] * actions.space.spc_hell.seismic.knowVal() * p_on['geothermal']);
+            let gain = (p_on['seismic'] * actions.space.spc_hell.seismic.knowVal() * hugeAdjust(p_on['geothermal']));
             caps['Knowledge'] += gain;
             breakdown.c.Knowledge[loc('space_seismic_title')] = gain+'v';
         }
@@ -10501,13 +10613,13 @@ function midLoop(){
                 if (global.race['warlord'] && global.eden['corruptor']){
                     corruptor = 1 + hugeAdjust(p_on['corruptor'] || 0) * 0.04;
                 }
-                let gain = (support_on['research_station'] || 0) * Math.round(777 * corruptor);
+                let gain = hugeAdjust(support_on['research_station'] || 0) * Math.round(777 * corruptor);
                 caps['Omniscience'] += gain;
                 breakdown.c.Omniscience[loc('eden_research_station_title')] = gain+'v';
             }
 
             if (global.race['warlord'] && global.portal['mortuary'] && global.portal['corpse_pile']){
-                let gain = global.portal.corpse_pile.count * hugeAdjust(p_on['mortuary'] || 0) * hugeAdjust(p_on['encampment'] || 0) * 2; 
+                let gain = hugeAdjust(global.portal.corpse_pile.count) * hugeAdjust(p_on['mortuary'] || 0) * hugeAdjust(p_on['encampment'] || 0) * 2; 
                 caps['Omniscience'] += gain;
                 breakdown.c.Omniscience[loc('eden_encampment_title')] = gain+'v';
             }
@@ -10572,6 +10684,7 @@ function midLoop(){
             if (global.race['high_pop']){
                 gain = highPopAdjust(gain);
             }
+            gain = hugeAdjust(gain);
             caps['Money'] += gain;
             breakdown.c.Money[global.tech.banking >= 14 ? loc('tech_crypto_currency') : loc('tech_bonds')] = gain+'v';
         }
@@ -10589,12 +10702,7 @@ function midLoop(){
         }
 
         if (support_on['research_station']){
-            let attact = global.blood['attract'] ? global.blood.attract * 5 : 0;
-            let sci = 200 + attact;
-            if (global.tech['science'] && global.tech.science >= 22 && p_on['embassy'] && p_on['symposium']){
-                sci *= 1 + hugeAdjust(p_on['symposium'] * piracy('gxy_gorddon'));
-            }
-            let gain = support_on['research_station'] * highPopAdjust(global.civic.ghost_trapper.workers) * sci;
+            let gain = support_on['research_station'] * actions.eden.eden_asphodel.research_station.knowVal() * hugeAdjust(global.civic.ghost_trapper.workers);
             caps['Knowledge'] += gain;
             breakdown.c.Knowledge[loc('eden_research_station_title')] = gain+'v';
         }
@@ -10688,7 +10796,7 @@ function midLoop(){
             breakdown.t_route[loc('underground_trade')] = global.underground.trade.count * actions.underground.depths.trade.routes();
         }
         if (global.race['wooly']){
-            let r_count = Math.floor(highPopAdjust(global.resource[global.race.species].amount) / traits.wooly.vars()[1]);
+            let r_count = Math.floor(hugeAdjust(highPopAdjust(global.resource[global.race.species].amount)) / traits.wooly.vars()[1]);
             global.city.market.mtrade += r_count;
             breakdown.t_route[loc('wiki_calc_citizens')] = r_count;
         }
@@ -11164,7 +11272,7 @@ function midLoop(){
             if (warefare_bonus > 30){ warefare_bonus = 30; }
             global.eden.fortress.detector = 100 - warefare_bonus;
             if (support_on['bunker'] && global.tech.celestial_warfare >= 4){
-                global.eden.fortress.detector -= support_on['bunker'] * 3;
+                global.eden.fortress.detector -= hugeAdjust(support_on['bunker']) * 3;
                 if (global.eden.fortress.detector < 0){ global.eden.fortress.detector = 0; }
             }
         }
@@ -11775,7 +11883,7 @@ function midLoop(){
 
         set_qlevel(calcQuantumLevel(false));
 
-        let belt_mining = support_on['iron_ship'] + support_on['iridium_ship'];
+        let belt_mining = hugeAdjust(support_on['iron_ship']) + hugeAdjust(support_on['iridium_ship']);
         if (belt_mining > 0 && global.tech['asteroid'] && global.tech['asteroid'] === 3){
             if (Math.rand(0,250) <= belt_mining){
                 global.tech['asteroid'] = 4;
@@ -11981,9 +12089,6 @@ function midLoop(){
                 global.tech['mineshaft_depth'] = 1;
             }
             if(depth >= 20000 && global.tech['mineshaft_depth'] === 1 && global.tech['mineshaft'] >= 2){
-                if(global.tech['support_beams'] >= 2){
-                    initStruct(actions.underground.industry.industrial_support_beams);
-                }
                 initStruct(actions.underground.industry.archaeological_dig);
                 messageQueue(loc('tech_mineshaft_depth2'),'info',false,['progress']);
                 global.tech['mineshaft_depth'] = 2;
@@ -12042,7 +12147,7 @@ function midLoop(){
                 renderUnderground();
                 renderSurface();
             }
-            if(caps[global.race.species] <= 0){
+            if(caps[global.race.species] <= 0 || global.tech['living_extinction'] >= 1000){
                 if (webWorker.w){
                     webWorker.w.terminate();
                 }
@@ -12693,7 +12798,7 @@ function longLoop(){
             surfaceEcosystem();
         }
         if (support_on['genetics_lab'] && global.tech['science'] >= 9){
-            global.resource.Genes.amount += support_on['genetics_lab'] * 0.2;
+            global.resource.Genes.amount += hugeAdjust(support_on['genetics_lab']) * 0.2;
         }
 
         if (global.civic.govern.rev > 0){
@@ -13750,6 +13855,7 @@ function longLoop(){
         if (global.race['truepath'] && global.space['shipyard']){
             syndicateDay();
         }
+        logisticsDay();
 
         // Advance alien-containment interrogations by the elapsed game time.
         if (global.race['truepath'] && global.space['alien_containment']){
@@ -14140,7 +14246,7 @@ function healSoldiers(astroSign){
 
     let fathom = fathomCheck('troll');
     if (fathom > 0){
-        healed += Math.round(jobScale(20 * traits.regenerative.vars(1)[0] * fathom));
+        healed += Math.round(jobScale(traits.regenerative.vars(1)[0] * fathom));
     }
     let hc = global.city['hospital'] ? global.city.hospital.count : 0;
     if (global.race['orbit_decayed'] && global.race['truepath']){

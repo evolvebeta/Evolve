@@ -11,6 +11,7 @@ import { genXYZcoord, starData, dist3, nearestStar, orbitAngle, orbitPoint, rel,
          starDetour } from './stars.js';
 import { loc } from './locale.js';
 import { supplyPool, supplyMode, supplyRegions, partitioned, regAmount, regDiff, poolMod, syncTotal } from './supply.js';
+import { logiConst, logisticsActive, logisticsWorld, fleetLegLoads, shiftLogistics } from './logistics.js';
 import { makePoint, retireShipFields, makeLeg } from './shipsave.js';
 import { zEngage, syndicateMove, resolveBody, drawShips, updateCosts, tempCoord, tempParent, tempOffset, tempSystem,
          tauCetiModules, regionName, shipyardView, shipyardViewUnlocked } from './truepath.js';
@@ -238,17 +239,25 @@ function burnShipFuel(ship, leg, days){
     return moved;
 }
 
-// Fly `step` days of a journey.
+// A ship whose tank runs dry mid-journey coasts on at this share of its speed rather than stopping.
+export const shipDriftRate = 0.1;
+
+// Advance a journey by `step` days; fuel-free travel uses shipDriftRate.
 export function advanceShip(ship, step){
     const move = ship.movement;
     while (move && move.legs.length > 0 && step > 0) {
         const leg = move.legs[0];
         const wanted = Math.min(step, move.left);
-        const moved = wanted > 0 ? burnShipFuel(ship, leg, wanted) : 0;
-        if (wanted > 0 && moved <= 0){ break; }
+        let moved = wanted > 0 ? burnShipFuel(ship, leg, wanted) : 0;
+        let spent = moved;
+        if (wanted > 0 && moved + 0.000001 < wanted){
+            // Out of fuel: drift on for whatever of the step is left, at a tenth of the pace.
+            const drift = Math.min(move.left - moved, (step - moved) * shipDriftRate);
+            moved += drift;
+            spent += drift / shipDriftRate;
+        }
         move.left -= moved;
-        step -= moved;
-        if (wanted > 0 && moved + 0.000001 < wanted){ break; }
+        step -= spent;
         if (move.left > 0.000001){ break; }
         // Reached either a jump gate or the final destination.
         if (move.legs.length === 1) {
@@ -945,19 +954,36 @@ export function freightWeight(ship){
 const FREIGHT_PENALTY_CAP = 75;
 
 export function freightSpeedPenalty(ship){
-    if (!ship || ship.class !== 'freighter'){ return 0; }
+    // Goods weigh a freighter down only while supply zones have it carrying them.
+    if (!ship || ship.class !== 'freighter' || supplyMode() !== 'regional'){ return 0; }
     const penalty = Math.floor(freightWeight(ship) / 1750000);
     return Math.min(FREIGHT_PENALTY_CAP, shipSpecial(ship) === 'extra_thruster' ? penalty / 2 : penalty);
+}
+
+// Whether a ship under way has run its tank dry and is coasting at shipDriftRate.
+export function shipAdrift(ship){
+    if (!ship || ship.enemy || !shipMoving(ship)){ return false; }
+    return shipFuelUse(ship).res && !(ship.fuel > 0) ? true : false;
 }
 
 // Remaining whole days to a ship's final destination, including any later jump-gate legs.
 export function shipArrivalTime(ship){
     const leg = shipLeg(ship);
     if (!shipMoving(ship) || !leg){ return 0; }
+    if (shipAdrift(ship)){
+        // Nothing refuels a ship in flight, so every leg still to fly outside a wormhole is flown at the drift rate.
+        let days = 0;
+        shipLegs(ship).forEach(function(l,i){
+            const d = i === 0 ? (shipLegLeft(ship) || 0) : (legDays(l) || 0);
+            days += legInGate(l) ? d : d / shipDriftRate;
+        });
+        return Math.max(0, Math.round(days));
+    }
     return Math.max(0, Math.round((shipTripDays(ship) || 0) - ((legDays(leg) || 0) - (shipLegLeft(ship) || 0))));
 }
 
-export function shipSpeed(ship){
+// Derive tank capacity from intrinsic hull speed, excluding situational speed bonuses.
+export function shipSpeed(ship, hull){
     let mass = 1;
     switch (ship.class){
         case 'corvette':
@@ -994,10 +1020,10 @@ export function shipSpeed(ship){
     mass /= geneBonus('featherlight');
 
     // A mass relay pushes only what launches from it.
-    let boost = massRelaySpeedBoost(ship);
+    let boost = hull ? 1 : massRelaySpeedBoost(ship);
 
     // Apply a light-flagship speed bonus to the fleet.
-    boost *= 1 + fleetSpeedBonus(ship);
+    if (!hull){ boost *= 1 + fleetSpeedBonus(ship); }
     let speed;
     switch (ship.engine){
         case 'ion':
@@ -1012,7 +1038,12 @@ export function shipSpeed(ship){
     }
     // Apply the launch-stamped speed multiplier to assault hulls.
     if (ship.zs){ speed *= ship.zs; }
-    return ship.class === 'freighter' ? speed * Math.max(0.25, 1 - freightSpeedPenalty(ship) / 100) : speed;
+    return ship.class === 'freighter' && !hull ? speed * Math.max(0.25, 1 - freightSpeedPenalty(ship) / 100) * supplyRunPace(ship) : speed;
+}
+
+// A freighter flying a supply route is slowed by the run; sent anywhere by hand, it flies at full speed.
+function supplyRunPace(ship){
+    return ship.tradeRoute && logisticsActive() ? logiConst.routePace : 1;
 }
 
 export function massRelaySpeedBoost(ship){
@@ -1097,7 +1128,10 @@ export const tankerFuelRange = 500;
 // The reserve it carries for everyone else, in AU of its own burn per fuel type.
 const tankerStoreRange = 1000;
 const solarRanges = { M: 50, K: 75, G: 100, F: 125, A: 150, B: 200, O: 250 };
-const globalRefuelExceptions = ['spc_eris', 'spc_triton', 'spc_trition', 'spc_sun'];
+// Docks that never auto-refuel from the global stock: war zones and the Sun. A manual refuel is still allowed.
+const globalRefuelExceptions = ['spc_eris', 'spc_triton', 'spc_sun'];
+// Docks where neither global nor tanker fuel may be used.
+const noFuelDocks = ['spc_sybase'];
 
 // Whether a hull is a Supply Ship carrying a given fit.
 export function supplyShipMode(ship, mode){
@@ -1107,7 +1141,7 @@ export function supplyShipMode(ship, mode){
 export function shipFuelTank(ship){
     const fuel = shipFuelUse(ship);
     if (!fuel.res || fuel.burn <= 0){ return 0; }
-    const auPerDay = shipSpeed(ship) / 225;
+    const auPerDay = shipSpeed(ship, true) / 225;
     const range = ship.class === 'explorer' ? explorerFuelRange
         : (supplyShipMode(ship,'fuel_tanker') ? tankerFuelRange : shipFuelRange);
     const stock = auPerDay > 0 ? fuel.burn * range / auPerDay : 0;
@@ -1186,7 +1220,7 @@ const tankerPlants = { Oil: 'diesel', Uranium: 'fission', Helium_3: 'fusion', El
 
 export function tankerStoreMax(ship, res){
     if (!supplyShipMode(ship,'fuel_tanker') || !tankerPlants[res]){ return 0; }
-    const auPerDay = shipSpeed(ship) / 225;
+    const auPerDay = shipSpeed(ship, true) / 225;
     if (!(auPerDay > 0)){ return 0; }
     // Calculate tanker reserves from the specified fuel type.
     const burn = shipFuelUse({ class: 'supply_ship', power: tankerPlants[res] }).burn;
@@ -1212,9 +1246,25 @@ function tankersAt(locationName){
     return ships.filter(s => supplyShipMode(s,'fuel_tanker') && shipDockedAt(s) === locationName);
 }
 
-// One day's work for every tanker: top up what is docked alongside it, out of its reserve.
+// Restock a docked tanker from fuel available at its location.
+function tankerRestock(tanker){
+    const at = shipDockedAt(tanker);
+    if (at === false){ return; }
+    const store = tankerStore(tanker);
+    tankerFuels.forEach(function(res){
+        if (!locationProducesFuelAt({ class: 'supply_ship', power: tankerPlants[res] }, at)){ return; }
+        const taken = Math.min(tankerStoreMax(tanker, res) - store[res], fuelAtLocation(res, at));
+        if (taken > 0){
+            modRes(res, -taken, true, at);
+            store[res] += taken;
+        }
+    });
+}
+
+// One day's work for every tanker: restock where it can, then top up what is docked alongside it, out of its reserve.
 export function tankerRefuel(){
     const ships = global.space.shipyard?.ships || [];
+    ships.filter(s => supplyShipMode(s,'fuel_tanker')).forEach(tankerRestock);
     for (const ship of ships){
         if (shipDockedAt(ship) === false){ continue; }
         if (supplyShipMode(ship,'fuel_tanker')){ continue; }
@@ -1256,19 +1306,20 @@ function ensureShipFuel(ship, tank){
 export function shipFuelAmount(ship){ return ensureShipFuel(ship); }
 
 function fuelAtLocation(res, location){
-    if (!global.resource[res]){ return 0; }
+    if (!global.resource[res] || noFuelDocks.includes(location)){ return 0; }
     // Use global stock for fuels without regional storage.
     return partitioned(res) ? regAmount(res, supplyPool(location)) : global.resource[res].amount;
 }
 
 function locationProducesFuelAt(ship, location){
     const fuel = shipFuelUse(ship);
-    if (!fuel.res || !location){ return false; }
+    if (!fuel.res || !location || noFuelDocks.includes(location)){ return false; }
     if (partitioned(fuel.res)){
         return (regDiff(fuel.res)[supplyPool(location)] || 0) > 0;
     }
-    // Any valid dock can refuel globally stored fuel.
-    const body = starData[location];
+    // Any valid dock can refuel globally stored fuel. Resolved first: spc_survey and spc_sybase stand in for a
+    // real body and have no entry of their own.
+    const body = starData[resolveBody(location)];
     return !!body && !body.startype && !globalRefuelExceptions.includes(location)
         && !(global.tech?.resettle && location === 'spc_home');
 }
@@ -1286,7 +1337,8 @@ function fillShipTank(ship){
     const need = Math.max(0, shipFuelTank(ship) - ship.fuel);
     const taken = Math.min(need, fuelAtLocation(fuel.res, shipPort(ship)));
     if (taken > 0){
-        modRes(fuel.res, -taken, false, shipPort(ship));
+        // Filling a tank is not part of the zone's production rate.
+        modRes(fuel.res, -taken, true, shipPort(ship));
         ship.fuel += taken;
     }
     ship.fueled = ship.fuel > 0;
@@ -1354,7 +1406,8 @@ function tradeRoute(ship){
     return ship.tradeRoute;
 }
 function setTradeRoute(group, route){ group.forEach(ship => { ship.tradeRoute = deepClone(route); }); }
-function clearTradeRoute(group){ group.forEach(ship => { delete ship.tradeRoute; }); }
+// Supply cargo only counts on the route it was loaded for, so it is dropped along with the route.
+function clearTradeRoute(group){ group.forEach(ship => { delete ship.tradeRoute; delete ship.logi; }); }
 // Use the earliest shipyard entry as a stable fleet route leader.
 export function tradeLeader(group){
     if (group.length <= 1){ return group[0]; }
@@ -1469,8 +1522,9 @@ function legSpeed(group, from){
     const head = group && group.length ? group[0] : false;
     if (!head){ return 0; }
     let known = legCache.pace.get(head);
-    if (!known){
-        known = { lead: fleetPace(group), from: new Map() };
+    // A fleet that has joined or left a supply route since has changed pace (supplyRunPace).
+    if (!known || known.route !== !!head.tradeRoute){
+        known = { lead: fleetPace(group), from: new Map(), route: !!head.tradeRoute };
         legCache.pace.set(head, known);
     }
     if (known.from.has(from)){ return known.from.get(from); }
@@ -1504,6 +1558,21 @@ function tradeLeg(group, from, to){
 // Return a cached route-leg plan.
 function tradeTrip(group, from, to){
     return tradeLeg(group, from, to);
+}
+
+// The AU a fleet flies in normal space on one route leg, following the trip it would actually plan. A
+// wormhole jump covers no distance that counts, so only the flying either side of it is measured.
+export function tradeLegAU(group, from, to){
+    if (from === to || !group || !group.length){ return 0; }
+    const trip = tradeLeg(group, from, to);
+    if (!trip){ return 0; }
+    let at = genXYZcoord(from), au = 0;
+    for (const leg of tripLegs(trip)){
+        const end = legEnd(leg);
+        if (!legInGate(leg)){ au += dist3(at, end); }
+        at = end;
+    }
+    return au;
 }
 
 // Return fleet travel time for one route leg, or Infinity if unreachable.
@@ -1708,31 +1777,84 @@ function tradeLoad(group, pool, pickups){
     // Refresh totals after all selected cargo transfers.
     [...new Set(Array.isArray(pickups) ? pickups : [pickups])].filter(res => res && global.resource[res]).forEach(syncTotal);
 }
+// Under logistics, a freighter hands over the supply it loaded for this stop, if it arrived with it, and
+// takes on supply for the next one. Cargo meant for anywhere else is worthless here.
+function deliverSupply(ship, here){
+    const cargo = ship.logi;
+    delete ship.logi;
+    if (!cargo || cargo.t !== here){ return 0; }
+    return shiftLogistics(here, cargo.v);
+}
+function loadSupply(ship, from, to, value){
+    if (ship.robbed){
+        value *= logiConst.robbedShare;
+        delete ship.robbed;
+    }
+    ship.logi = { f: from, t: to, v: Math.round(value * 100) / 100 };
+}
+function serviceSupplyStop(group, route){
+    const here = route.stops[route.index].zone;
+    const next = route.stops[(route.index + 1) % route.stops.length].zone;
+    const freighters = tradeFreighters(group).filter(ship => ship.damage < 100);
+    // Only a freighter actually sitting at the stop it was routed to makes a drop-off or takes a load.
+    freighters.forEach(ship => deliverSupply(ship, shipDockedAt(ship)));
+    const loading = freighters.filter(ship => shipDockedAt(ship) === here);
+    // The fleet loads as one: its best freighter in full, the next two at half their own load each.
+    const loads = fleetLegLoads(loading, here, next, freighters);
+    loading.forEach((ship, i) => loadSupply(ship, here, next, loads[i]));
+}
 function serviceTradeStop(group, route){
     const stop = route.stops[route.index];
-    tradeUnload(group, stop.zone);
-    tradeLoad(group, stop.zone, stop.pickups || (stop.res ? [stop.res] : []));
+    if (logisticsActive()){
+        serviceSupplyStop(group, route);
+    }
+    else {
+        tradeUnload(group, stop.zone);
+        tradeLoad(group, stop.zone, stop.pickups || (stop.res ? [stop.res] : []));
+    }
     group.forEach(autoRefuelShip);
 }
 function launchTradeLeg(group, route){
     const next = (route.index + 1) % route.stops.length;
     const destination = route.stops[next].zone;
     const id = global.space.shipyard.ships.indexOf(tradeLeader(group));
-    if (id < 0 || !sendShipTo(id, destination, true)){ clearTradeRoute(group); return false; }
+    if (id < 0){ clearTradeRoute(group); return false; }
+    if (!sendShipTo(id, destination, true)){
+        // Keep the route while the ship waits for fuel, crew, or repairs.
+        if (!planShipTrip(fleetPace(group), destination)){ clearTradeRoute(group); return false; }
+        route.wait = 1;
+        setTradeRoute(group, route);
+        return true;
+    }
     route.index = next;
     route.wait = 0;
     setTradeRoute(group, route);
     return true;
 }
 
+// The most stops a supply route may have under logistics.
+export const supplyRouteStops = 3;
+
+// Whether a list of stops makes a supply route: two or three different worlds of yours.
+export function supplyRouteValid(stops){
+    if (!Array.isArray(stops) || stops.length < 2 || stops.length > supplyRouteStops){ return false; }
+    const zones = stops.map(stop => stop && stop.zone);
+    return new Set(zones).size === zones.length && zones.every(logisticsWorld);
+}
+
 export function startFreightRoute(ship, stops){
     const group = tradeFleet(ship);
     const freighters = tradeFreighters(group);
     if (!freighters.length || !stops || stops.length < 2 || group.some(shipMoving)){ return false; }
+    if (logisticsActive() && !supplyRouteValid(stops)){ return false; }
     const routeStops = stops.map(stop => ({ zone: stop.zone, pickups: Array.isArray(stop.pickups) ? stop.pickups.filter(Boolean) : (stop.res ? [stop.res] : []) }));
-    if (routeStops[0].zone !== supplyPool(shipPort(ship)) || !validateTradeRoute(group, routeStops)){ return false; }
+    // Supply routes begin at the ship's world; cargo routes begin at its pool.
+    const origin = logisticsActive() ? shipPort(ship) : supplyPool(shipPort(ship));
+    if (routeStops[0].zone !== origin){ return false; }
     const route = { stops: routeStops, index: 0, wait: 0 };
+    // Set the route before checking fuel so its travel pace applies.
     setTradeRoute(group, route);
+    if (!validateTradeRoute(group, routeStops)){ clearTradeRoute(group); return false; }
     serviceTradeStop(group, route);
     return launchTradeLeg(group, route);
 }
@@ -2061,7 +2183,7 @@ export function refitBlocked(ship, plan){
     }
     if (shipPower(design) < 0){ return 'outer_shipyard_refit_power'; }
     // Extra Cargo cannot be removed while its capacity is in use.
-    if (ship.class === 'freighter' && freightLoad(ship) > freightCapacity(design)){ return 'outer_shipyard_refit_cargo'; }
+    if (ship.class === 'freighter' && supplyMode() === 'regional' && freightLoad(ship) > freightCapacity(design)){ return 'outer_shipyard_refit_cargo'; }
     return false;
 }
 
@@ -2875,6 +2997,8 @@ function repairYard(ship){
 
         let trip = planShipTrip(ship,locationName);
         if (!trip || typeof tripDays(trip) !== 'number'){ return; }
+        // The nearest yard it can actually reach, not the nearest yard.
+        if (!shipCanMakeTrip(ship,trip)){ return; }
         if (bestDays === false || tripDays(trip) < bestDays){
             bestDays = tripDays(trip);
             best = locationName;
@@ -2883,22 +3007,24 @@ function repairYard(ship){
     return best;
 }
 
-// Move a ship without any of the checks that apply to an order the player gives.
+// Move a ship without player-order checks, except required fuel.
 function orderShipTo(ship,locationName){
     if (!ship || shipBound(ship) === locationName){ return false; }
+    let trip = planShipTrip(ship,locationName);
+    if (!trip || !shipCanMakeTrip(ship,trip)){ return false; }
     if (!shipManned(ship)){ global.civic.garrison.crew += shipCrewSize(ship); }
-    initializeShipTrip(ship, locationName);
+    initializeShipTrip(ship, locationName, trip);
     return true;
 }
 
-// The same, for a whole fleet.
+// The same, for a whole fleet. It goes together or not at all, so every ship has to have the fuel.
 function orderFleetTo(group,locationName){
     if (!group || group.length === 0){ return false; }
     let lead = group[0];
     if (shipBound(lead) === locationName){ return false; }
 // Plan fleet trips using the slowest hull.
     let trip = planShipTrip(fleetPace(group),locationName);
-    if (!trip){ return false; }
+    if (!trip || !group.every(s => shipCanMakeTrip(s,trip))){ return false; }
     group.forEach(function(ship){
         if (!shipManned(ship)){ global.civic.garrison.crew += shipCrewSize(ship); }
         initializeShipTrip(ship, locationName, trip);

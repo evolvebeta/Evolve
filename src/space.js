@@ -1158,7 +1158,7 @@ const spaceProjects = {
             effect(){
                 let c_worker = global.race['cataclysm'] && !global.race['flier'] ? `<div>${loc('plus_max_resource',[jobScale(1),loc('job_resource_worker',[global.resource.Cement.name])])}</div>` : ``;
                 let fab = global.race['cataclysm'] || decayPerks() ? 5 : 2;
-                fab = highPopAdjust(fab);
+                fab = hugeAdjust(highPopAdjust(fab));
                 return `<div class="has-text-caution">${loc('space_used_support',[planetName().red])}</div><div>${loc('space_red_fabrication_effect1',[jobScale(1)])}</div>${c_worker}<div>${loc('space_red_fabrication_effect2',[hugeEffect(fab, 2)])}</div>`;
             },
             s_type: 'red',
@@ -1265,7 +1265,7 @@ const spaceProjects = {
             },
             effect(){
                 let food = production('biodome','food');
-                let cat_fd = global.race['cataclysm'] || decayPerks() ? `<div>${loc('produce',[hugeEffect(production('biodome','cat_food'), 2),global.resource.Food.name])}</div>` : ``;
+                let cat_fd = global.race['cataclysm'] || decayPerks() ? `<div>${loc('produce',[+(production('biodome','cat_food')).toFixed(2),global.resource.Food.name])}</div>` : ``;
                 let cat_wd = (global.race['cataclysm'] || decayPerks()) && !global.race['kindling_kindred'] && !global.race['smoldering'] ? `<div>${loc('space_red_mine_effect',[hugeEffect(production('biodome','lumber'), 2),global.resource.Lumber.name])}</div>` : ``;
                 let pop = global.tech.mars >= 6 ? 0.1 : 0.05;
                 let food_cap = spatialReasoning(this.storage.res('Food') * this.storage.multiplier());
@@ -1292,6 +1292,9 @@ const spaceProjects = {
                     };
                     if (global.race['artifical']){
                         list.Food = 500;
+                    }
+                    else if (!decayPerks()){
+                        delete list.Food;
                     }
                     return res ? (list[res] || 0) : list;
                 },
@@ -1389,7 +1392,7 @@ const spaceProjects = {
                         lab = `<div>${loc('city_wardenclyffe_effect4',[hugeEffect(2)])}</div>`;
                     }
                 }
-                return `<div class="has-text-caution">${loc('space_used_support',[planetName().red])}</div>${scientist}${lab}<div>${loc('space_red_exotic_lab_effect1',[+(sci).toFixed(0)])}</div><div>${loc('plus_max_resource',[elerium,global.resource.Elerium.name])}</div>`;
+                return `<div class="has-text-caution">${loc('space_used_support',[planetName().red])}</div>${scientist}${lab}<div>${loc('space_red_exotic_lab_effect1',[hugeEffect(sci, 0)])}</div><div>${loc('plus_max_resource',[elerium,global.resource.Elerium.name])}</div>`;
             },
             knowVal(){
                 let gain = 500;
@@ -1899,7 +1902,7 @@ const spaceProjects = {
             title(){ return loc('city_shed_title3'); },
             desc(){ return loc('city_shed_title3'); },
             type: 'storage',
-            reqs: { shadow: 5 },
+            reqs: { shadow: 5, locked: 1 },
             path: ['truepath'],
             cost: {
                 Money(r={}){ return spaceCostMultiplier('m_warehouse', r.offset, 175000, 1.28, 'space'); },
@@ -2039,12 +2042,12 @@ const spaceProjects = {
             },
             effect(){
                 let know = this.knowVal();
-                return `<div>${loc('space_university_effect',[know,global.resource.Knowledge.name,spaceProjects.spc_hell.geothermal.title()])}</div><div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
+                return `<div>${loc('space_university_effect',[hugeEffect(know, 0),global.resource.Knowledge.name,spaceProjects.spc_hell.geothermal.title()])}</div><div class="has-text-caution">${loc('minus_power',[this.powered()])}</div>`;
             },
             knowVal(){
                 let gain = 3500;
                 gain *= infiltratorFactor('spc_hell','seismic');
-                gain = hugeAdjust(gain, 2);
+                gain = hugeAdjust(gain);
                 return gain;
             },
             powered(){ return 8; },
@@ -3464,7 +3467,7 @@ const spaceProjects = {
             title(){ return loc('city_shed_title3'); },
             desc(){ return loc('city_shed_title3'); },
             type: 'storage',
-            reqs: { shadow: 5 },
+            reqs: { shadow: 5, locked: 1 },
             path: ['truepath'],
             cost: {
                 Money(r={}){ return spaceCostMultiplier('c_warehouse', r.offset, 175000, 1.28, 'space'); },
@@ -6932,7 +6935,7 @@ const galaxyProjects = {
                             const ship = galaxy_ship_types[j].ships[i];
                             if (!gatewayArmada.includes(ship) && actions[area][region][ship].hasOwnProperty('ship') && gal_on[ship]){
                                 // Every ship with the 'ship' property has both civ() and mil() functions
-                                crew += gal_on[ship] * (actions[area][region][ship].ship.civ() + actions[area][region][ship].ship.mil());
+                                crew += hugeAdjust(gal_on[ship] * (actions[area][region][ship].ship.civ() + actions[area][region][ship].ship.mil()));
                             }
                         }
 
@@ -6945,7 +6948,7 @@ const galaxyProjects = {
                     }
                 }
                 let pirate = piracy('gxy_gorddon');
-                let gain = hugeAdjust(dorm + gtrade + leave) * pirate;
+                let gain = (hugeAdjust(dorm + gtrade) + leave) * pirate;
                 gain = hugeAdjust(gain);
                 return gain;
             },
@@ -7908,7 +7911,9 @@ function xeno_race(){
         skip.push('hybrid');
     }
     if (!global.stats.achieve.living_extinction?.l){
-        skip.push('primordial');
+        skip.push('raptor'); 
+        skip.push('rexicus'); 
+        skip.push('mammuth');
     }
     
     let list = Object.keys(races).filter(function(r){ return !['demonic','eldritch'].includes(races[r].type) && !skip.includes(r) });
@@ -9158,11 +9163,11 @@ function labBlocked(genome,trait){
     return false;
 }
 
-// Find a compatible slot, preferring an already oriented pair.
+// Find an ordinary compatible slot, preferring an oriented pair.
 function labOpenSlot(genome,kind,trait){
     let open = false, fresh = false;
     labSlots(genome,kind).forEach(function(i){
-        if (open !== false || labLocked(genome,i) || labAt(genome,i)){ return; }
+        if (open !== false || labLocked(genome,i) || labIsRecessive(genome,i) || labAt(genome,i)){ return; }
         if (!labFits(genome,i,trait)){ return; }
         if (labPairBase(genome,i)){ open = i; }
         else if (fresh === false){ fresh = i; }
@@ -9189,18 +9194,11 @@ function labPlaceOrder(genome){
     return order.concat(loose);
 }
 
-// Place unassigned traits, adding recessive major pairs before using minor slots.
+// Auto-place traits in ordinary major slots, then minor slots.
 function labAutoPlace(genome){
     labPlaceOrder(genome).forEach(function(t){
         if (genome.slots[t] !== undefined){ return; }
         let pick = labOpenSlot(genome,'major',t);
-        if (pick === false){
-            genome.recessive = (genome.recessive || 0) + 1;
-            labFitSpan(genome);
-            pick = labOpenSlot(genome,'major',t);
-            // The new pair took nothing, so it is handed back.
-            if (pick === false){ genome.recessive--; }
-        }
         if (pick === false){ pick = labOpenSlot(genome,'minor',t); }
         if (pick !== false){ genome.slots[t] = pick; }
     });
@@ -10024,11 +10022,12 @@ export function ascendLab(hybrid,wiki){
         return boost > 0 ? +(rank + boost).toFixed(6) : rank;
     }
 
-// Move lab ranks by 0.05, subject to extinction-achievement gates away from rank 1.
-    function stepLabRank(t, down){
+// Move lab ranks in 0.1 steps, subject to extinction-achievement gates.
+    function stepLabRank(t, step){
         let unlock = global.stats.achieve[`extinct_${traits[t].origin}`] && global.stats.achieve[`extinct_${traits[t].origin}`].l || 0;
         let now = tRanks[t] || 1;
-        let rank = +Math.min(2, Math.max(0.1, now + (down ? -0.05 : 0.05))).toFixed(2);
+        let from = step < 0 ? Math.ceil(now * 10 - 1e-9) : Math.floor(now * 10 + 1e-9);
+        let rank = +Math.min(2, Math.max(0.1, (from + Math.round(step * 10)) / 10)).toFixed(1);
         let need = 0;
         if (rank < 1){
             need = rank >= 0.5 ? 3 : (rank >= 0.25 ? 4 : 5);
@@ -10181,14 +10180,16 @@ export function ascendLab(hybrid,wiki){
                 reduce(i){
                     let held = labAt(genome,i);
                     if (!held){ return; }
-                    stepLabRank(held,true);
+                    let keyMult = keyMultiplier();
+                    stepLabRank(held, keyMult * -0.1);
                     repriceGenome();
                     vBind({ el: `#traitSlots .labStrand` },'update');
                 },
                 increase(i){
                     let held = labAt(genome,i);
                     if (!held){ return; }
-                    stepLabRank(held,false);
+                    let keyMult = keyMultiplier();
+                    stepLabRank(held, keyMult * 0.1);
                     repriceGenome();
                     vBind({ el: `#traitSlots .labStrand` },'update');
                 },
